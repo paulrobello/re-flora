@@ -225,10 +225,8 @@ void main() {
             uint flora_type = FLORA_SPECIES_GRASS;
 
             // 4. Flower Sparsity Logic
-            // Since flowers are physically bigger, we multiply their spawn chance
-            // by a small factor (e.g., 0.15). This means even in a "Lavender Biome",
-            // 85% of the plants will default back to grass, preventing clumping.
-            float flower_sparsity          = 0.15;
+            float lavender_sparsity        = 0.3;
+            float ember_bloom_sparsity     = 0.04;
             float grass_decreased_sparsity = 0.45;
 
             // Lavender Region
@@ -236,7 +234,7 @@ void main() {
                 // Calculate how "strong" the biome is here
                 float biome_strength = (biome_val - 0.3) * 1.5;
 
-                if (species_rng < flower_sparsity) {
+                if (species_rng < lavender_sparsity) {
                     flora_type = FLORA_SPECIES_LAVENDER;
                 } else if (species_rng < grass_decreased_sparsity) {
                     flora_type = FLORA_SPECIES_GRASS;
@@ -244,7 +242,7 @@ void main() {
                     return;
                 }
             } else if (biome_val < -0.3) {
-                if (species_rng < flower_sparsity) {
+                if (species_rng < ember_bloom_sparsity) {
                     flora_type = FLORA_SPECIES_EMBER_BLOOM;
                 } else if (species_rng < grass_decreased_sparsity) {
                     flora_type = FLORA_SPECIES_GRASS;
