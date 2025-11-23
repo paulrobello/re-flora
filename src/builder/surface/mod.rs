@@ -1,12 +1,13 @@
 mod resources;
 use super::PlainBuilderResources;
 use crate::{
+    flora::species,
     geom::UAabb3,
     util::ShaderCompiler,
     vkn::{
         Allocator, Buffer, ClearValue, ColorClearValue, CommandBuffer, ComputePipeline,
         DescriptorPool, Extent3D, PlainMemberTypeWithData, ShaderModule, StructMemberDataBuilder,
-        StructMemberDataReader, VulkanContext, WriteDescriptorSet,
+        VulkanContext, WriteDescriptorSet,
     },
 };
 use anyhow::Result;
@@ -25,6 +26,7 @@ pub struct SurfaceBuilder {
 
     chunk_bound: UAabb3,
     voxel_dim_per_chunk: UVec3,
+    flora_species_count: usize,
 }
 
 impl SurfaceBuilder {
@@ -37,6 +39,8 @@ impl SurfaceBuilder {
         chunk_bound: UAabb3,
     ) -> Self {
         let device = vulkan_ctx.device();
+        species::assert_species_limit();
+        let flora_species_count = species::species_count();
 
         let make_surface_sm = ShaderModule::from_glsl(
             device,
@@ -70,10 +74,11 @@ impl SurfaceBuilder {
             make_surface_ppl,
             chunk_bound,
             voxel_dim_per_chunk,
+            flora_species_count,
         }
     }
 
-    fn update_grass_instance_set(&self, chunk_id: UVec3) {
+    fn update_flora_instance_set(&self, chunk_id: UVec3) {
         let chunk_resources = &self
             .resources
             .instances
@@ -83,20 +88,13 @@ impl SurfaceBuilder {
             .unwrap()
             .1;
 
-        self.make_surface_ppl.write_descriptor_set(
-            1,
-            WriteDescriptorSet::new_buffer_write(
-                0,
-                &chunk_resources.get(FloraType::Grass).instances_buf,
-            ),
-        );
-        self.make_surface_ppl.write_descriptor_set(
-            1,
-            WriteDescriptorSet::new_buffer_write(
+        for (species_index, instance_resource) in chunk_resources.iter().enumerate() {
+            self.make_surface_ppl.write_descriptor_set(
                 1,
-                &chunk_resources.get(FloraType::Lavender).instances_buf,
-            ),
-        );
+                WriteDescriptorSet::new_buffer_write(0, &instance_resource.instances_buf)
+                    .with_array_element(species_index as u32),
+            );
+        }
     }
 
     /// Returns active_voxel_len
@@ -119,7 +117,7 @@ impl SurfaceBuilder {
 
         cleanup_make_surface_result(&self.resources.make_surface_result)?;
 
-        self.update_grass_instance_set(chunk_id);
+        self.update_flora_instance_set(chunk_id);
 
         let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
         cmdbuf.begin(true);
@@ -145,8 +143,10 @@ impl SurfaceBuilder {
 
         device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
 
-        let (active_voxel_len, grass_instance_len, lavender_instance_len) =
-            get_result(&self.resources.make_surface_result);
+        let (active_voxel_len, flora_instance_lengths) = get_result(
+            &self.resources.make_surface_result,
+            self.flora_species_count,
+        );
 
         let chunk_resources = self
             .resources
@@ -155,8 +155,9 @@ impl SurfaceBuilder {
             .iter_mut()
             .find(|(_, resources)| resources.chunk_id == chunk_id)
             .unwrap();
-        chunk_resources.1.get_mut(FloraType::Grass).instances_len = grass_instance_len;
-        chunk_resources.1.get_mut(FloraType::Lavender).instances_len = lavender_instance_len;
+        for (species_idx, instances_len) in flora_instance_lengths.iter().enumerate() {
+            chunk_resources.1.get_mut(species_idx).instances_len = *instances_len;
+        }
 
         return Ok(active_voxel_len);
 
@@ -185,43 +186,29 @@ impl SurfaceBuilder {
         }
 
         fn cleanup_make_surface_result(make_surface_result: &Buffer) -> Result<()> {
-            let data = StructMemberDataBuilder::from_buffer(make_surface_result)
-                .set_field("active_voxel_len", PlainMemberTypeWithData::UInt(0))
-                .set_field("grass_instance_len", PlainMemberTypeWithData::UInt(0))
-                .set_field("lavender_instance_len", PlainMemberTypeWithData::UInt(0))
-                .build()?;
-            make_surface_result.fill_with_raw_u8(&data)?;
+            let layout = make_surface_result.get_layout().unwrap();
+            let buffer_size = layout.root_member.get_size_bytes() as usize;
+            let zeroed = vec![0u8; buffer_size];
+            make_surface_result.fill_with_raw_u8(&zeroed)?;
             Ok(())
         }
 
-        /// Returns: (active_voxel_len, grass_instance_len, lavender_instance_len)
-        fn get_result(frag_img_build_result: &Buffer) -> (u32, u32, u32) {
-            let layout = &frag_img_build_result.get_layout().unwrap().root_member;
+        /// Returns: (active_voxel_len, per-species instance lengths)
+        fn get_result(frag_img_build_result: &Buffer, species_count: usize) -> (u32, Vec<u32>) {
             let raw_data = frag_img_build_result.read_back().unwrap();
-            let reader = StructMemberDataReader::new(layout, &raw_data);
-
-            let active_voxel_len = if let PlainMemberTypeWithData::UInt(val) =
-                reader.get_field("active_voxel_len").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected UInt type for active_voxel_len")
-            };
-            let grass_instance_len = if let PlainMemberTypeWithData::UInt(val) =
-                reader.get_field("grass_instance_len").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected UInt type for grass_instance_len")
-            };
-            let lavender_instance_len = if let PlainMemberTypeWithData::UInt(val) =
-                reader.get_field("lavender_instance_len").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected UInt type for lavender_instance_len")
-            };
-            (active_voxel_len, grass_instance_len, lavender_instance_len)
+            let total_u32 = raw_data.len() / std::mem::size_of::<u32>();
+            let data =
+                unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
+            assert!(
+                total_u32 >= 1 + species_count,
+                "make_surface_result buffer too small: expected at least {} u32s, got {}",
+                1 + species_count,
+                total_u32
+            );
+            let active_voxel_len = data[0];
+            let mut flora_instance_lengths = Vec::with_capacity(species_count);
+            flora_instance_lengths.extend_from_slice(&data[1..1 + species_count]);
+            (active_voxel_len, flora_instance_lengths)
         }
     }
 

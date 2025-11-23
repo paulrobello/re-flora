@@ -4,6 +4,7 @@ use crate::util::Timer;
 use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder};
+use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
@@ -1785,42 +1786,53 @@ impl App {
                     )
                     .unwrap();
 
+                let color_to_vec3 = |color: Color32| -> Vec3 {
+                    Vec3::new(
+                        color.r() as f32 / 255.0,
+                        color.g() as f32 / 255.0,
+                        color.b() as f32 / 255.0,
+                    )
+                };
+
+                let flora_colors: Vec<(Vec3, Vec3)> = species::species()
+                    .iter()
+                    .map(|desc| match desc.key {
+                        "grass" => (
+                            color_to_vec3(self.gui_adjustables.grass_bottom_color.value),
+                            color_to_vec3(self.gui_adjustables.grass_tip_color.value),
+                        ),
+                        "lavender" => (
+                            color_to_vec3(self.gui_adjustables.lavender_bottom_color.value),
+                            color_to_vec3(self.gui_adjustables.lavender_tip_color.value),
+                        ),
+                        _ => {
+                            let bottom = Color32::from_rgb(
+                                desc.default_bottom_color[0],
+                                desc.default_bottom_color[1],
+                                desc.default_bottom_color[2],
+                            );
+                            let tip = Color32::from_rgb(
+                                desc.default_tip_color[0],
+                                desc.default_tip_color[1],
+                                desc.default_tip_color[2],
+                            );
+                            (color_to_vec3(bottom), color_to_vec3(tip))
+                        }
+                    })
+                    .collect();
+
+                let leaf_bottom = color_to_vec3(self.gui_adjustables.leaves_bottom_color.value);
+                let leaf_tip = color_to_vec3(self.gui_adjustables.leaves_tip_color.value);
+
                 self.tracer
                     .record_trace(
                         cmdbuf,
                         self.surface_builder.get_resources(),
                         self.gui_adjustables.lod_distance.value,
                         self.time_info.time_since_start(),
-                        Vec3::new(
-                            self.gui_adjustables.grass_bottom_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.grass_bottom_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.grass_bottom_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.grass_tip_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.grass_tip_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.grass_tip_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.lavender_bottom_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.lavender_bottom_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.lavender_bottom_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.lavender_tip_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.lavender_tip_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.lavender_tip_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.leaves_bottom_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.leaves_bottom_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.leaves_bottom_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.leaves_tip_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.leaves_tip_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.leaves_tip_color.value.b() as f32 / 255.0,
-                        ),
+                        &flora_colors,
+                        leaf_bottom,
+                        leaf_tip,
                     )
                     .unwrap();
 

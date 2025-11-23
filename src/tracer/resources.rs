@@ -1,9 +1,9 @@
 use crate::{
+    flora::species,
     resource::Resource,
     tracer::{
-        flora_construct::{gen_grass, gen_lavender},
-        leaves_construct::generate_indexed_voxel_leaves,
-        DenoiserResources, ExtentDependentResources, Vertex,
+        leaves_construct::generate_indexed_voxel_leaves, DenoiserResources,
+        ExtentDependentResources, Vertex,
     },
     util::get_project_root,
     vkn::{
@@ -154,12 +154,10 @@ pub struct TracerResources {
     pub terrain_query_info: Resource<Buffer>,
     pub terrain_query_result: Resource<Buffer>,
 
-    pub grass_blade_resources: FloraMeshResources,
-    pub lavender_resources: FloraMeshResources,
+    pub flora_meshes: Vec<FloraMeshResources>,
     pub leaves_resources: LeavesResources,
 
-    pub grass_blade_resources_lod: FloraMeshResources,
-    pub lavender_resources_lod: FloraMeshResources,
+    pub flora_meshes_lod: Vec<FloraMeshResources>,
     pub leaves_resources_lod: LeavesResources,
 
     pub shadow_map_tex: Resource<Texture>,
@@ -428,15 +426,30 @@ impl TracerResources {
             "fast/weighted_cosine/out_",
         );
 
-        let grass_blade_resources =
-            FloraMeshResources::new(device.clone(), allocator.clone(), false, gen_grass);
-        let lavender_resources =
-            FloraMeshResources::new(device.clone(), allocator.clone(), false, gen_lavender);
+        species::assert_species_limit();
+        let flora_meshes = species::species()
+            .iter()
+            .map(|desc| {
+                FloraMeshResources::new(
+                    device.clone(),
+                    allocator.clone(),
+                    false,
+                    desc.mesh_generator,
+                )
+            })
+            .collect::<Vec<_>>();
         let leaves_resources = LeavesResources::new(device.clone(), allocator.clone(), false);
-        let grass_blade_resources_lod =
-            FloraMeshResources::new(device.clone(), allocator.clone(), true, gen_grass);
-        let lavender_resources_lod =
-            FloraMeshResources::new(device.clone(), allocator.clone(), true, gen_lavender);
+        let flora_meshes_lod = species::species()
+            .iter()
+            .map(|desc| {
+                FloraMeshResources::new(
+                    device.clone(),
+                    allocator.clone(),
+                    true,
+                    desc.mesh_generator,
+                )
+            })
+            .collect::<Vec<_>>();
         let leaves_resources_lod = LeavesResources::new(device.clone(), allocator.clone(), true);
 
         return Self {
@@ -460,11 +473,9 @@ impl TracerResources {
             terrain_query_count: Resource::new(terrain_query_count),
             terrain_query_info: Resource::new(terrain_query_info),
             terrain_query_result: Resource::new(terrain_query_result),
-            grass_blade_resources,
-            lavender_resources,
+            flora_meshes,
             leaves_resources,
-            grass_blade_resources_lod,
-            lavender_resources_lod,
+            flora_meshes_lod,
             leaves_resources_lod,
             extent_dependent_resources,
             shadow_map_tex: Resource::new(shadow_map_tex),

@@ -35,6 +35,7 @@ impl DescriptorSet {
 pub struct WriteDescriptorSet<'a> {
     binding: u32,
     descriptor_type: vk::DescriptorType,
+    array_element: u32,
 
     image_infos: Option<Vec<vk::DescriptorImageInfo>>,
     buffer_infos: Option<Vec<vk::DescriptorBufferInfo>>,
@@ -58,6 +59,7 @@ impl<'a> WriteDescriptorSet<'a> {
         Self {
             binding,
             descriptor_type,
+            array_element: 0,
             image_infos: Some(vec![image_info]),
             buffer_infos: None,
             accel_struct_infos: None,
@@ -77,6 +79,7 @@ impl<'a> WriteDescriptorSet<'a> {
         Self {
             binding,
             descriptor_type,
+            array_element: 0,
             image_infos: None,
             buffer_infos: Some(vec![buffer_info]),
             accel_struct_infos: None,
@@ -96,6 +99,7 @@ impl<'a> WriteDescriptorSet<'a> {
         Self {
             binding,
             descriptor_type: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+            array_element: 0,
             image_infos: None,
             buffer_infos: None,
             accel_struct_infos: Some(vec![as_info]),
@@ -116,6 +120,11 @@ impl<'a> WriteDescriptorSet<'a> {
         }
     }
 
+    pub fn with_array_element(mut self, array_element: u32) -> Self {
+        self.array_element = array_element;
+        self
+    }
+
     pub fn make_raw(&mut self, descriptor_set: &DescriptorSet) -> vk::WriteDescriptorSet<'_> {
         assert!(
             self.image_infos.is_some()
@@ -127,13 +136,18 @@ impl<'a> WriteDescriptorSet<'a> {
         let mut write = vk::WriteDescriptorSet::default()
             .dst_set(descriptor_set.as_raw())
             .dst_binding(self.binding)
+            .dst_array_element(self.array_element)
             .descriptor_type(self.descriptor_type);
 
         if let Some(image_info) = &self.image_infos {
-            write = write.image_info(image_info);
+            write = write
+                .image_info(image_info)
+                .descriptor_count(image_info.len() as u32);
         }
         if let Some(buffer_info) = &self.buffer_infos {
-            write = write.buffer_info(buffer_info);
+            write = write
+                .buffer_info(buffer_info)
+                .descriptor_count(buffer_info.len() as u32);
         }
 
         if let Some(accel_infos) = self.accel_struct_infos.as_mut() {

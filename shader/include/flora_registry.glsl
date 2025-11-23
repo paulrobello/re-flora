@@ -1,0 +1,9 @@
+#ifndef FLORA_REGISTRY_GLSL
+#define FLORA_REGISTRY_GLSL
+
+const uint MAX_FLORA_SPECIES   = 2;
+const uint FLORA_SPECIES_COUNT = 2;
+const uint FLORA_SPECIES_GRASS = 0;
+const uint FLORA_SPECIES_LAVENDER = 1;
+
+#endif // FLORA_REGISTRY_GLSL

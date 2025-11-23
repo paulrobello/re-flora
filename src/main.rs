@@ -2,6 +2,7 @@ mod app;
 mod audio;
 mod builder;
 mod egui_renderer;
+mod flora;
 mod gameplay;
 mod geom;
 mod gui_adjustables;

@@ -11,11 +11,9 @@ pub use extent_dependent_resources::*;
 mod vertex;
 pub use vertex::*;
 
-mod voxel_encoding;
+pub mod voxel_encoding;
 
 mod voxel_geometry;
-
-mod flora_construct;
 
 mod leaves_construct;
 
@@ -30,8 +28,8 @@ use winit::event::KeyEvent;
 
 use crate::audio::SpatialSoundManager;
 use crate::builder::{
-    ContreeBuilderResources, FloraInstanceResources, FloraType, Instance,
-    SceneAccelBuilderResources, SurfaceResources, TreeLeavesInstance,
+    ContreeBuilderResources, FloraInstanceResources, Instance, SceneAccelBuilderResources,
+    SurfaceResources, TreeLeavesInstance,
 };
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
@@ -624,10 +622,7 @@ impl Tracer {
         surface_resources: &SurfaceResources,
         lod_distance: f32,
         time: f32,
-        grass_bottom_color: Vec3,
-        grass_tip_color: Vec3,
-        lavender_bottom_color: Vec3,
-        lavender_tip_color: Vec3,
+        flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
         leaf_tip_color: Vec3,
     ) -> Result<()> {
@@ -671,47 +666,37 @@ impl Tracer {
         );
         b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
+        assert_eq!(
+            flora_colors.len(),
+            self.resources.flora_meshes.len(),
+            "Flora color count ({}) must match flora mesh count ({})",
+            flora_colors.len(),
+            self.resources.flora_meshes.len()
+        );
+
         let chunks_by_lod = self.chunks_needs_to_draw_this_frame(surface_resources, lod_distance);
-        self.record_flora_pass(
-            cmdbuf,
-            &chunks_by_lod[&LodState::Lod0],
-            LodState::Lod0,
-            FloraType::Grass,
-            grass_bottom_color,
-            grass_tip_color,
-            time,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_flora_pass(
-            cmdbuf,
-            &chunks_by_lod[&LodState::Lod1],
-            LodState::Lod1,
-            FloraType::Grass,
-            grass_bottom_color,
-            grass_tip_color,
-            time,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_flora_pass(
-            cmdbuf,
-            &chunks_by_lod[&LodState::Lod0],
-            LodState::Lod0,
-            FloraType::Lavender,
-            lavender_bottom_color,
-            lavender_tip_color,
-            time,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_flora_pass(
-            cmdbuf,
-            &chunks_by_lod[&LodState::Lod1],
-            LodState::Lod1,
-            FloraType::Lavender,
-            lavender_bottom_color,
-            lavender_tip_color,
-            time,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        for (species_index, (bottom_color, tip_color)) in flora_colors.iter().enumerate() {
+            self.record_flora_pass(
+                cmdbuf,
+                &chunks_by_lod[&LodState::Lod0],
+                LodState::Lod0,
+                species_index,
+                *bottom_color,
+                *tip_color,
+                time,
+            );
+            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_flora_pass(
+                cmdbuf,
+                &chunks_by_lod[&LodState::Lod1],
+                LodState::Lod1,
+                species_index,
+                *bottom_color,
+                *tip_color,
+                time,
+            );
+            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
         let trees_by_lod = self.trees_needs_to_draw_this_frame(surface_resources, lod_distance);
         self.record_leaves_pass(
@@ -853,7 +838,7 @@ impl Tracer {
         cmdbuf: &CommandBuffer,
         flora_instances: &[&FloraInstanceResources],
         lod_state: LodState,
-        flora_type: FloraType,
+        species_index: usize,
         bottom_color: Vec3,
         tip_color: Vec3,
         time: f32,
@@ -867,18 +852,16 @@ impl Tracer {
 
         let push_constant = PushConstantStd140::new(time, bottom_color, tip_color);
 
-        let (indices_buf, vertices_buf, indices_len) = match flora_type {
-            FloraType::Grass => (
-                &self.resources.grass_blade_resources.indices,
-                &self.resources.grass_blade_resources.vertices,
-                self.resources.grass_blade_resources.indices_len,
-            ),
-            FloraType::Lavender => (
-                &self.resources.lavender_resources.indices,
-                &self.resources.lavender_resources.vertices,
-                self.resources.lavender_resources.indices_len,
-            ),
+        let mesh_collection = match lod_state {
+            LodState::Lod0 => &self.resources.flora_meshes,
+            LodState::Lod1 => &self.resources.flora_meshes_lod,
         };
+        let mesh = mesh_collection
+            .get(species_index)
+            .unwrap_or_else(|| panic!("Missing flora mesh for species index {}", species_index));
+        let indices_buf = &mesh.indices;
+        let vertices_buf = &mesh.vertices;
+        let indices_len = mesh.indices_len;
 
         pipeline.record_bind(cmdbuf);
 
@@ -926,8 +909,9 @@ impl Tracer {
         }
 
         for instances in flora_instances {
-            let instances_buf = &instances.get(flora_type).instances_buf;
-            let instances_len = instances.get(flora_type).instances_len;
+            let instance_resource = instances.get(species_index);
+            let instances_buf = &instance_resource.instances_buf;
+            let instances_len = instance_resource.instances_len;
 
             // only draw if this chunk actually has grass instances.
             if instances_len == 0 {

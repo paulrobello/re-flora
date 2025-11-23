@@ -1,4 +1,5 @@
 use crate::{
+    flora::species,
     geom::{Aabb3, UAabb3},
     resource::Resource,
     vkn::{Allocator, Buffer, BufferUsage, Device, Extent3D, ImageDesc, ShaderModule, Texture},
@@ -7,12 +8,6 @@ use ash::vk;
 use glam::{UVec3, Vec3};
 use resource_container_derive::ResourceContainer;
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum FloraType {
-    Grass,
-    Lavender,
-}
 
 // TODO: use some reflection from shader side so i don't need to manually define this again
 #[repr(C)]
@@ -62,32 +57,41 @@ impl TreeLeavesInstance {
 pub struct FloraInstanceResources {
     #[allow(dead_code)]
     pub chunk_id: UVec3,
-    pub resources: HashMap<FloraType, InstanceResource>,
+    pub resources: Vec<InstanceResource>,
 }
 
 impl FloraInstanceResources {
     pub fn new(device: Device, allocator: Allocator, chunk_id: UVec3) -> Self {
-        let mut resources = HashMap::new();
-        resources.insert(
-            FloraType::Grass,
-            InstanceResource::new(device.clone(), allocator.clone(), 10000),
-        );
-        resources.insert(
-            FloraType::Lavender,
-            InstanceResource::new(device.clone(), allocator.clone(), 10000),
-        );
+        let species_count = species::species_count();
+        let mut resources = Vec::with_capacity(species_count);
+        for _ in 0..species_count {
+            resources.push(InstanceResource::new(
+                device.clone(),
+                allocator.clone(),
+                10000,
+            ));
+        }
         Self {
             chunk_id,
             resources,
         }
     }
 
-    pub fn get(&self, flora_type: FloraType) -> &InstanceResource {
-        self.resources.get(&flora_type).unwrap()
+    pub fn get(&self, species_index: usize) -> &InstanceResource {
+        &self.resources[species_index]
     }
 
-    pub fn get_mut(&mut self, flora_type: FloraType) -> &mut InstanceResource {
-        self.resources.get_mut(&flora_type).unwrap()
+    pub fn get_mut(&mut self, species_index: usize) -> &mut InstanceResource {
+        &mut self.resources[species_index]
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &InstanceResource> {
+        self.resources.iter()
+    }
+
+    #[allow(dead_code)]
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut InstanceResource> {
+        self.resources.iter_mut()
     }
 }
 
