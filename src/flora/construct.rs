@@ -95,121 +95,79 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
     Ok((vertices, indices))
 }
 
-pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
-    // Dimensions to keep it comparable to Lavender
-    const STEM_HEIGHT: i32 = 6;
-    // The bloom sits on top of the stem
-    const BLOOM_RADIUS: i32 = 1;
-    const BLOOM_HEIGHT: i32 = 4;
+use std::f32::consts::PI;
 
-    let total_height = (STEM_HEIGHT + BLOOM_HEIGHT) as f32;
+pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
+    const HEIGHT: i32 = 15;
+    // Width Configuration: How wide the plant swells
+    const MAX_RADIUS: f32 = 2.5;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
-    // 1. Generate the Stem
-    // A simple vertical stalk, slightly darker at the bottom
-    for y in 0..STEM_HEIGHT {
-        let vertex_offset = vertices.len() as u32;
-        let base_pos = IVec3::new(0, y, 0);
+    for y in 0..HEIGHT {
+        // Normalized height (0.0 at bottom, 1.0 at top)
+        let t = y as f32 / HEIGHT as f32;
 
-        // Stem Gradient: 0.0 (base) to 0.2 (top of stem).
-        // Keeps it dark/ashy compared to the bright bloom.
-        let color_gradient = (y as f32 / STEM_HEIGHT as f32) * 0.2;
+        // Vertical Profile:
+        // Uses a sine wave to create a soft bulb shape.
+        // It starts small, swells wide in the middle, and tapers at the top.
+        // We add 0.5 base radius so it doesn't disappear completely at the very bottom.
+        let vertical_swell = (t * PI).sin();
+        let base_radius = 0.5 + (vertical_swell * MAX_RADIUS);
 
-        // Wind affects the top more
-        let wind_gradient = base_pos.y as f32 / total_height;
+        // Define search area for this layer
+        let search_radius = (base_radius + 1.5).ceil() as i32;
 
-        append_indexed_cube_data(
-            &mut vertices,
-            &mut indices,
-            base_pos,
-            vertex_offset,
-            color_gradient,
-            wind_gradient,
-            is_lod_used,
-        )?;
-    }
+        for x in -search_radius..=search_radius {
+            for z in -search_radius..=search_radius {
+                // Calculate distance from center (0,0)
+                let dist_sq = (x * x + z * z) as f32;
+                let dist = dist_sq.sqrt();
 
-    // 2. Generate the "Ember" Bloom
-    // We create a symmetric bulb shape using Manhattan distance or radius checks
-    let bloom_start_y = STEM_HEIGHT;
+                // Calculate Angle for the "Wavy" texture
+                let angle = (z as f32).atan2(x as f32);
 
-    for y in 0..BLOOM_HEIGHT {
-        for x in -BLOOM_RADIUS..=BLOOM_RADIUS {
-            for z in -BLOOM_RADIUS..=BLOOM_RADIUS {
-                let local_y = y;
+                // Wavy/Leafy Logic:
+                // We use cos(angle * 6.0) to create 6 gentle lobes (leaves) wrapping around.
+                // 'lobe_depth' controls how deep the ridges are.
+                let lobe_depth = 0.6;
+                let wave_modifier = (angle * 6.0).cos() * lobe_depth;
 
-                // Shaping logic: Create a "Lantern" or "Bud" shape
-                // The middle of the bloom (y=1 or 2) is widest.
-                // The top and bottom are narrow.
-                let is_center = x == 0 && z == 0;
-                let is_corner = x.abs() == BLOOM_RADIUS && z.abs() == BLOOM_RADIUS;
+                // The effective radius limit at this specific angle
+                let radius_limit = base_radius + wave_modifier;
 
-                // Skip corners on the bottom and top layers to round it off
-                if (local_y == 0 || local_y == BLOOM_HEIGHT - 1) && is_corner {
-                    continue;
+                // Solid Fill Logic:
+                // We fill everything inside the calculated radius.
+                // This guarantees the shape is symmetrical and has no holes.
+                if dist <= radius_limit {
+                    let vertex_offset = vertices.len() as u32;
+
+                    // No stem sway, just straight up for symmetry
+                    let pos = IVec3::new(x, y, z);
+
+                    // Color Logic:
+                    // 0.0 at bottom -> 1.0 at top.
+                    // We add a slight highlight to the "ridges" of the waves to give it depth.
+                    let ridge_highlight = wave_modifier * 0.1;
+                    let color_gradient = (t + ridge_highlight).clamp(0.0, 1.0);
+
+                    // Wind Logic:
+                    // The top moves more than the bottom.
+                    let wind_gradient = pos.y as f32 / HEIGHT as f32;
+
+                    append_indexed_cube_data(
+                        &mut vertices,
+                        &mut indices,
+                        pos,
+                        vertex_offset,
+                        color_gradient,
+                        wind_gradient,
+                        is_lod_used,
+                    )?;
                 }
-
-                // Skip outer ring entirely on the very tip to make a point
-                if local_y == BLOOM_HEIGHT - 1 && !is_center {
-                    continue;
-                }
-
-                let vertex_offset = vertices.len() as u32;
-                let base_pos = IVec3::new(x, bloom_start_y + y, z);
-                let wind_gradient = base_pos.y as f32 / total_height;
-
-                // 3. Artistic Coloring (Heat Gradient)
-                // Logic: The center is the "core" (hottest/brightest).
-                // The outside is the "crust" (cooler/darker).
-                let color_gradient = if is_center {
-                    // The core gets brighter as it goes up, like a flame
-                    0.8 + (local_y as f32 / BLOOM_HEIGHT as f32) * 0.2
-                } else {
-                    // Outer petals are cooler (magma red/orange)
-                    0.4 + (local_y as f32 / BLOOM_HEIGHT as f32) * 0.2
-                };
-
-                append_indexed_cube_data(
-                    &mut vertices,
-                    &mut indices,
-                    base_pos,
-                    vertex_offset,
-                    color_gradient,
-                    wind_gradient,
-                    is_lod_used,
-                )?;
             }
         }
-    }
-
-    // 3. Add small "Sepals" or thorns at the base of the bloom for detail
-    // Small spikes sticking out just below the bloom
-    let sepal_offsets = [
-        IVec3::new(1, -1, 0),
-        IVec3::new(-1, -1, 0),
-        IVec3::new(0, -1, 1),
-        IVec3::new(0, -1, -1),
-    ];
-
-    for offset in sepal_offsets {
-        let vertex_offset = vertices.len() as u32;
-        let base_pos = IVec3::new(0, bloom_start_y, 0) + offset;
-
-        // Darker color for the protective leaves
-        let color_gradient = 0.15;
-        let wind_gradient = base_pos.y as f32 / total_height;
-
-        append_indexed_cube_data(
-            &mut vertices,
-            &mut indices,
-            base_pos,
-            vertex_offset,
-            color_gradient,
-            wind_gradient,
-            is_lod_used,
-        )?;
     }
 
     Ok((vertices, indices))
