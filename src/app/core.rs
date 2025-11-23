@@ -1,6 +1,7 @@
 #[allow(unused)]
 use crate::util::Timer;
 
+use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder};
 use crate::geom::{build_bvh, UAabb3};
@@ -210,41 +211,7 @@ pub struct App {
     scene_accel_builder: SceneAccelBuilder,
 
     // gui adjustables
-    debug_float: f32,
-    debug_bool: bool,
-    debug_uint: u32,
-    lod_distance: f32,
-    leaves_inner_density: f32,
-    leaves_outer_density: f32,
-    leaves_inner_radius: f32,
-    leaves_outer_radius: f32,
-    sun_altitude: f32,
-    sun_azimuth: f32,
-    sun_size: f32,
-    auto_daynight_cycle: bool,
-    time_of_day: f32,
-    latitude: f32,
-    season: f32,
-    day_cycle_minutes: f32,
-    sun_color: egui::Color32,
-    sun_luminance: f32,
-    ambient_light: egui::Color32,
-    temporal_position_phi: f32,
-    temporal_alpha: f32,
-    god_ray_max_depth: f32,
-    god_ray_max_checks: u32,
-    god_ray_weight: f32,
-    god_ray_color: egui::Color32,
-    phi_c: f32,
-    phi_n: f32,
-    phi_p: f32,
-    min_phi_z: f32,
-    max_phi_z: f32,
-    phi_z_stable_sample_count: f32,
-    is_changing_lum_phi: bool,
-    is_spatial_denoising_enabled: bool,
-    a_trous_iteration_count: u32,
-    is_taa_enabled: bool,
+    gui_adjustables: GuiAdjustables,
     debug_tree_pos: Vec3,
     config_panel_visible: bool,
     is_fly_mode: bool,
@@ -258,38 +225,6 @@ pub struct App {
     // multi-tree management
     next_tree_id: u32,
     single_tree_id: u32, // ID for GUI single tree mode
-
-    // starlight parameters
-    starlight_iterations: i32,
-    starlight_formuparam: f32,
-    starlight_volsteps: i32,
-    starlight_stepsize: f32,
-    starlight_zoom: f32,
-    starlight_tile: f32,
-    starlight_speed: f32,
-    starlight_brightness: f32,
-    starlight_darkmatter: f32,
-    starlight_distfading: f32,
-    starlight_saturation: f32,
-
-    // grass colors
-    grass_bottom_color: egui::Color32,
-    grass_tip_color: egui::Color32,
-
-    // lavender colors
-    lavender_bottom_color: egui::Color32,
-    lavender_tip_color: egui::Color32,
-
-    // leaf colors
-    leaves_bottom_color: egui::Color32,
-    leaves_tip_color: egui::Color32,
-
-    // voxel colors
-    voxel_sand_color: egui::Color32,
-    voxel_dirt_color: egui::Color32,
-    voxel_rock_color: egui::Color32,
-    voxel_leaf_color: egui::Color32,
-    voxel_trunk_color: egui::Color32,
 
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
@@ -441,41 +376,7 @@ impl App {
             is_resize_pending: false,
             time_info: TimeInfo::default(),
 
-            debug_float: 0.0,
-            debug_bool: true,
-            debug_uint: 0,
-            lod_distance: 1.5,
-            leaves_inner_density: 0.38,
-            leaves_outer_density: 0.45,
-            leaves_inner_radius: 12.0,
-            leaves_outer_radius: 17.0,
-            temporal_position_phi: 0.8,
-            temporal_alpha: 0.08,
-            god_ray_max_depth: 2.0,
-            god_ray_max_checks: 32,
-            god_ray_weight: 0.4,
-            god_ray_color: egui::Color32::from_rgb(255, 240, 178),
-            phi_c: 0.75,
-            phi_n: 20.0,
-            phi_p: 0.05,
-            min_phi_z: 0.0,
-            max_phi_z: 0.5,
-            phi_z_stable_sample_count: 0.05,
-            is_changing_lum_phi: true,
-            is_spatial_denoising_enabled: true,
-            a_trous_iteration_count: 3,
-            is_taa_enabled: false,
-            sun_altitude: 0.25,
-            sun_azimuth: 0.8,
-            sun_size: 0.1,
-            auto_daynight_cycle: true,
-            time_of_day: 0.65,
-            latitude: 0.5,
-            season: 0.25,
-            day_cycle_minutes: 30.0,
-            sun_color: egui::Color32::from_rgb(255, 233, 144),
-            sun_luminance: 1.0,
-            ambient_light: egui::Color32::from_rgb(100, 48, 3),
+            gui_adjustables: GuiAdjustables::default(),
             debug_tree_pos,
             debug_tree_desc: TreeDesc::default(),
             tree_variation_config: TreeVariationConfig::default(),
@@ -484,33 +385,6 @@ impl App {
             tree_records: HashMap::new(),
             config_panel_visible: false,
             is_fly_mode: true,
-
-            starlight_iterations: 18,
-            starlight_formuparam: 0.5,
-            starlight_volsteps: 10,
-            starlight_stepsize: 0.12,
-            starlight_zoom: 0.88,
-            starlight_tile: 1.1,
-            starlight_speed: 0.01,
-            starlight_brightness: 0.0005,
-            starlight_darkmatter: 0.8,
-            starlight_distfading: 0.885,
-            starlight_saturation: 1.0,
-
-            grass_bottom_color: egui::Color32::from_rgb(61, 163, 59),
-            grass_tip_color: egui::Color32::from_rgb(168, 227, 0),
-
-            lavender_bottom_color: egui::Color32::from_rgb(74, 165, 0),
-            lavender_tip_color: egui::Color32::from_rgb(85, 0, 207),
-
-            leaves_bottom_color: egui::Color32::from_rgb(232, 142, 0),
-            leaves_tip_color: egui::Color32::from_rgb(255, 219, 71),
-
-            voxel_sand_color: egui::Color32::from_rgb(245, 222, 179),
-            voxel_dirt_color: egui::Color32::from_rgb(68, 192, 0),
-            voxel_rock_color: egui::Color32::from_rgb(235, 92, 0),
-            voxel_leaf_color: egui::Color32::from_rgb(242, 199, 36),
-            voxel_trunk_color: egui::Color32::from_rgb(215, 194, 168),
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
@@ -528,10 +402,10 @@ impl App {
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
-            app.leaves_inner_density,
-            app.leaves_outer_density,
-            app.leaves_inner_radius,
-            app.leaves_outer_radius,
+            app.gui_adjustables.leaves_inner_density.value,
+            app.gui_adjustables.leaves_outer_density.value,
+            app.gui_adjustables.leaves_inner_radius.value,
+            app.gui_adjustables.leaves_outer_radius.value,
         )?;
 
         Ok(app)
@@ -683,10 +557,10 @@ impl App {
         };
 
         // normalize elevation to -1.0 to 1.0 range (matching current altitude range)
-        self.sun_altitude = (elevation / (PI * 0.5)).clamp(-1.0, 1.0);
+        self.gui_adjustables.sun_altitude.value = (elevation / (PI * 0.5)).clamp(-1.0, 1.0);
 
         // normalize azimuth to 0.0 to 1.0 range (matching current azimuth range)
-        self.sun_azimuth = ((azimuth + PI) / (2.0 * PI)) % 1.0;
+        self.gui_adjustables.sun_azimuth.value = ((azimuth + PI) / (2.0 * PI)) % 1.0;
     }
 
     fn apply_tree_variations(&self, tree_desc: &mut TreeDesc, rng: &mut impl Rng) {
@@ -1199,21 +1073,21 @@ impl App {
                                         ui.collapsing("Debug Settings", |ui| {
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.debug_float,
+                                                    &mut self.gui_adjustables.debug_float.value,
                                                     0.0..=10.0,
                                                 )
                                                 .text("Debug Float"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.debug_uint, 0..=100)
+                                                egui::Slider::new(&mut self.gui_adjustables.debug_uint.value, 0..=100)
                                                     .text("Debug UInt"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.lod_distance, 0.0..=10.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.lod_distance.value, 0.0..=10.0)
                                                     .text("LOD Distance"),
                                             );
                                             ui.add(egui::Checkbox::new(
-                                                &mut self.debug_bool,
+                                                &mut self.gui_adjustables.debug_bool.value,
                                                 "Debug Bool",
                                             ));
                                         });
@@ -1221,14 +1095,14 @@ impl App {
 
                                         ui.collapsing("Sky Settings", |ui| {
                                             ui.add(egui::Checkbox::new(
-                                                &mut self.auto_daynight_cycle,
+                                                &mut self.gui_adjustables.auto_daynight_cycle.value,
                                                 "Auto Day/Night Cycle",
                                             ));
 
-                                            if self.auto_daynight_cycle {
+                                            if self.gui_adjustables.auto_daynight_cycle.value {
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.time_of_day,
+                                                        &mut self.gui_adjustables.time_of_day.value,
                                                         0.0..=1.0,
                                                     )
                                                     .text("Time of Day (0:00 - 23:59)")
@@ -1241,7 +1115,7 @@ impl App {
 
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.latitude,
+                                                        &mut self.gui_adjustables.latitude.value,
                                                         -1.0..=1.0,
                                                     )
                                                     .text("Latitude (South Pole to North Pole)")
@@ -1257,7 +1131,7 @@ impl App {
                                                 );
 
                                                 ui.add(
-                                                    egui::Slider::new(&mut self.season, 0.0..=1.0)
+                                                    egui::Slider::new(&mut self.gui_adjustables.season.value, 0.0..=1.0)
                                                         .text("Season (Winter to Summer)")
                                                         .custom_formatter(|n, _| {
                                                             if n < 0.125 {
@@ -1276,7 +1150,7 @@ impl App {
 
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.day_cycle_minutes,
+                                                        &mut self.gui_adjustables.day_cycle_minutes.value,
                                                         0.1..=60.0,
                                                     )
                                                     .text("Day Cycle Duration (Real Minutes)")
@@ -1293,16 +1167,16 @@ impl App {
                                                 ui.separator();
                                                 ui.label(format!(
                                                     "Sun Altitude: {:.3}",
-                                                    self.sun_altitude
+                                                    self.gui_adjustables.sun_altitude.value
                                                 ));
                                                 ui.label(format!(
                                                     "Sun Azimuth: {:.3}",
-                                                    self.sun_azimuth
+                                                    self.gui_adjustables.sun_azimuth.value
                                                 ));
                                             } else {
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.sun_altitude,
+                                                        &mut self.gui_adjustables.sun_altitude.value,
                                                         -1.0..=1.0,
                                                     )
                                                     .text("Altitude (normalized)")
@@ -1310,24 +1184,24 @@ impl App {
                                                 );
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.sun_azimuth,
+                                                        &mut self.gui_adjustables.sun_azimuth.value,
                                                         0.0..=1.0,
                                                     )
                                                     .text("Azimuth (normalized)"),
                                                 );
                                             }
                                             ui.add(
-                                                egui::Slider::new(&mut self.sun_size, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.sun_size.value, 0.0..=1.0)
                                                     .text("Size (relative)"),
                                             );
                                             ui.horizontal(|ui| {
                                                 ui.label("Sun Color:");
-                                                ui.color_edit_button_srgba(&mut self.sun_color);
+                                                ui.color_edit_button_srgba(&mut self.gui_adjustables.sun_color.value);
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.add(
                                                     egui::Slider::new(
-                                                        &mut self.sun_luminance,
+                                                        &mut self.gui_adjustables.sun_luminance.value,
                                                         0.0..=10.0,
                                                     )
                                                     .text("Sun Luminance"),
@@ -1335,84 +1209,84 @@ impl App {
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Ambient Light:");
-                                                ui.color_edit_button_srgba(&mut self.ambient_light);
+                                                ui.color_edit_button_srgba(&mut self.gui_adjustables.ambient_light.value);
                                             });
                                         });
 
                                         ui.collapsing("Starlight Settings", |ui| {
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_iterations,
+                                                    &mut self.gui_adjustables.starlight_iterations.value,
                                                     1..=30,
                                                 )
                                                 .text("Iterations"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_formuparam,
+                                                    &mut self.gui_adjustables.starlight_formuparam.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Form Parameter"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_volsteps,
+                                                    &mut self.gui_adjustables.starlight_volsteps.value,
                                                     1..=50,
                                                 )
                                                 .text("Volume Steps"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_stepsize,
+                                                    &mut self.gui_adjustables.starlight_stepsize.value,
                                                     0.01..=1.0,
                                                 )
                                                 .text("Step Size"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_zoom,
+                                                    &mut self.gui_adjustables.starlight_zoom.value,
                                                     0.1..=2.0,
                                                 )
                                                 .text("Zoom"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_tile,
+                                                    &mut self.gui_adjustables.starlight_tile.value,
                                                     0.1..=2.0,
                                                 )
                                                 .text("Tile"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_speed,
+                                                    &mut self.gui_adjustables.starlight_speed.value,
                                                     0.001..=0.1,
                                                 )
                                                 .text("Speed"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_brightness,
+                                                    &mut self.gui_adjustables.starlight_brightness.value,
                                                     0.0001..=0.01,
                                                 )
                                                 .text("Brightness"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_darkmatter,
+                                                    &mut self.gui_adjustables.starlight_darkmatter.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Dark Matter"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_distfading,
+                                                    &mut self.gui_adjustables.starlight_distfading.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Distance Fading"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.starlight_saturation,
+                                                    &mut self.gui_adjustables.starlight_saturation.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Saturation"),
@@ -1497,14 +1371,14 @@ impl App {
                                         ui.collapsing("Temporal Settings", |ui| {
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.temporal_position_phi,
+                                                    &mut self.gui_adjustables.temporal_position_phi.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Position Phi"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.temporal_alpha,
+                                                    &mut self.gui_adjustables.temporal_alpha.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Alpha"),
@@ -1514,83 +1388,83 @@ impl App {
                                         ui.collapsing("God Ray Settings", |ui| {
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.god_ray_max_depth,
+                                                    &mut self.gui_adjustables.god_ray_max_depth.value,
                                                     0.1..=10.0,
                                                 )
                                                 .text("Max Depth"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.god_ray_max_checks,
+                                                    &mut self.gui_adjustables.god_ray_max_checks.value,
                                                     1..=64,
                                                 )
                                                 .text("Max Checks"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.god_ray_weight,
+                                                    &mut self.gui_adjustables.god_ray_weight.value,
                                                     0.0..=2.0,
                                                 )
                                                 .text("Weight"),
                                             );
                                             ui.horizontal(|ui| {
                                                 ui.label("Color:");
-                                                ui.color_edit_button_srgba(&mut self.god_ray_color);
+                                                ui.color_edit_button_srgba(&mut self.gui_adjustables.god_ray_color.value);
                                             });
                                         });
 
                                         ui.collapsing("Spatial Settings", |ui| {
                                             ui.add(
-                                                egui::Slider::new(&mut self.phi_c, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.phi_c.value, 0.0..=1.0)
                                                     .text("Phi C"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.phi_n, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.phi_n.value, 0.0..=1.0)
                                                     .text("Phi N"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.phi_p, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.phi_p.value, 0.0..=1.0)
                                                     .text("Phi P"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.min_phi_z, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.min_phi_z.value, 0.0..=1.0)
                                                     .text("Min Phi Z"),
                                             );
                                             ui.add(
-                                                egui::Slider::new(&mut self.max_phi_z, 0.0..=1.0)
+                                                egui::Slider::new(&mut self.gui_adjustables.max_phi_z.value, 0.0..=1.0)
                                                     .text("Max Phi Z"),
                                             );
                                             ui.add(
                                                 egui::Slider::new(
-                                                    &mut self.phi_z_stable_sample_count,
+                                                    &mut self.gui_adjustables.phi_z_stable_sample_count.value,
                                                     0.0..=1.0,
                                                 )
                                                 .text("Phi Z Stable Sample Count"),
                                             );
                                             ui.add(egui::Checkbox::new(
-                                                &mut self.is_changing_lum_phi,
+                                                &mut self.gui_adjustables.is_changing_lum_phi.value,
                                                 "Changing Luminance Phi",
                                             ));
                                             ui.add(egui::Checkbox::new(
-                                                &mut self.is_spatial_denoising_enabled,
+                                                &mut self.gui_adjustables.is_spatial_denoising_enabled.value,
                                                 "Enable Spatial Denoising",
                                             ));
                                             ui.horizontal(|ui| {
                                                 ui.label("A-Trous Iterations:");
-                                                let mut iteration_value = self.a_trous_iteration_count as i32;
+                                                let mut iteration_value = self.gui_adjustables.a_trous_iteration_count.value as i32;
                                                 if ui.add(egui::Slider::new(&mut iteration_value, 1..=5).step_by(2.0)).changed() {
                                                     // Ensure only odd values (1, 3, 5)
                                                     if iteration_value % 2 == 0 {
                                                         iteration_value += 1;
                                                     }
-                                                    self.a_trous_iteration_count = iteration_value as u32;
+                                                    self.gui_adjustables.a_trous_iteration_count.value = iteration_value as u32;
                                                 }
                                             });
                                         });
 
                                         ui.collapsing("Anti-Aliasing", |ui| {
                                             ui.add(egui::Checkbox::new(
-                                                &mut self.is_taa_enabled,
+                                                &mut self.gui_adjustables.is_taa_enabled.value,
                                                 "Enable Temporal Anti-Aliasing",
                                             ));
                                         });
@@ -1599,13 +1473,13 @@ impl App {
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.grass_bottom_color,
+                                                    &mut self.gui_adjustables.grass_bottom_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Tip Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.grass_tip_color,
+                                                    &mut self.gui_adjustables.grass_tip_color.value,
                                                 );
                                             });
                                         });
@@ -1614,13 +1488,13 @@ impl App {
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.lavender_bottom_color,
+                                                    &mut self.gui_adjustables.lavender_bottom_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Tip Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.lavender_tip_color,
+                                                    &mut self.gui_adjustables.lavender_tip_color.value,
                                                 );
                                             });
                                         });
@@ -1630,7 +1504,7 @@ impl App {
                                             leaves_changed |= ui
                                                 .add(
                                                     egui::Slider::new(
-                                                        &mut self.leaves_inner_density,
+                                                        &mut self.gui_adjustables.leaves_inner_density.value,
                                                         0.0..=1.0,
                                                     )
                                                     .text("Inner Density"),
@@ -1639,7 +1513,7 @@ impl App {
                                             leaves_changed |= ui
                                                 .add(
                                                     egui::Slider::new(
-                                                        &mut self.leaves_outer_density,
+                                                        &mut self.gui_adjustables.leaves_outer_density.value,
                                                         0.0..=1.0,
                                                     )
                                                     .text("Outer Density"),
@@ -1648,7 +1522,7 @@ impl App {
                                             leaves_changed |= ui
                                                 .add(
                                                     egui::Slider::new(
-                                                        &mut self.leaves_inner_radius,
+                                                        &mut self.gui_adjustables.leaves_inner_radius.value,
                                                         1.0..=64.0,
                                                     )
                                                     .text("Inner Radius"),
@@ -1657,7 +1531,7 @@ impl App {
                                             leaves_changed |= ui
                                                 .add(
                                                     egui::Slider::new(
-                                                        &mut self.leaves_outer_radius,
+                                                        &mut self.gui_adjustables.leaves_outer_radius.value,
                                                         1.0..=64.0,
                                                     )
                                                     .text("Outer Radius"),
@@ -1666,15 +1540,15 @@ impl App {
 
                                             if leaves_changed {
                                                 // ensure inner_radius is always <= outer_radius
-                                                if self.leaves_inner_radius > self.leaves_outer_radius {
-                                                    self.leaves_outer_radius = self.leaves_inner_radius;
+                                                if self.gui_adjustables.leaves_inner_radius.value > self.gui_adjustables.leaves_outer_radius.value {
+                                                    self.gui_adjustables.leaves_outer_radius.value = self.gui_adjustables.leaves_inner_radius.value;
                                                 }
 
                                                 if let Err(e) = self.tracer.regenerate_leaves(
-                                                    self.leaves_inner_density,
-                                                    self.leaves_outer_density,
-                                                    self.leaves_inner_radius,
-                                                    self.leaves_outer_radius,
+                                                    self.gui_adjustables.leaves_inner_density.value,
+                                                    self.gui_adjustables.leaves_outer_density.value,
+                                                    self.gui_adjustables.leaves_inner_radius.value,
+                                                    self.gui_adjustables.leaves_outer_radius.value,
                                                 ) {
                                                     log::error!(
                                                         "Failed to regenerate leaves: {}",
@@ -1687,13 +1561,13 @@ impl App {
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.leaves_bottom_color,
+                                                    &mut self.gui_adjustables.leaves_bottom_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Tip Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.leaves_tip_color,
+                                                    &mut self.gui_adjustables.leaves_tip_color.value,
                                                 );
                                             });
                                         });
@@ -1702,31 +1576,31 @@ impl App {
                                             ui.horizontal(|ui| {
                                                 ui.label("Sand Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.voxel_sand_color,
+                                                    &mut self.gui_adjustables.voxel_sand_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Dirt Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.voxel_dirt_color,
+                                                    &mut self.gui_adjustables.voxel_dirt_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Rock Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.voxel_rock_color,
+                                                    &mut self.gui_adjustables.voxel_rock_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Leaf Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.voxel_leaf_color,
+                                                    &mut self.gui_adjustables.voxel_leaf_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Trunk Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.voxel_trunk_color,
+                                                    &mut self.gui_adjustables.voxel_trunk_color.value,
                                                 );
                                             });
                                         });
@@ -1790,17 +1664,21 @@ impl App {
                 }
 
                 // update sun position if auto day/night cycle is enabled
-                if self.auto_daynight_cycle {
+                if self.gui_adjustables.auto_daynight_cycle.value {
                     // update time of day based on delta time and day cycle speed
                     // day_cycle_minutes is the real-world minutes for a full day cycle
                     // convert to time progression per second: 1.0 / (day_cycle_minutes * 60.0)
-                    let time_speed = 1.0 / (self.day_cycle_minutes * 60.0);
-                    self.time_of_day += frame_delta_time * time_speed;
+                    let time_speed = 1.0 / (self.gui_adjustables.day_cycle_minutes.value * 60.0);
+                    self.gui_adjustables.time_of_day.value += frame_delta_time * time_speed;
 
                     // keep time_of_day in 0.0 to 1.0 range (wrap around)
-                    self.time_of_day %= 1.0;
+                    self.gui_adjustables.time_of_day.value %= 1.0;
 
-                    self.calculate_sun_position(self.time_of_day, self.latitude, self.season);
+                    self.calculate_sun_position(
+                        self.gui_adjustables.time_of_day.value,
+                        self.gui_adjustables.latitude.value,
+                        self.gui_adjustables.season.value,
+                    );
                 }
 
                 let device = self.vulkan_ctx.device();
@@ -1827,82 +1705,82 @@ impl App {
                 self.tracer
                     .update_buffers(
                         &self.time_info,
-                        self.debug_float,
-                        self.debug_bool,
-                        self.debug_uint,
+                        self.gui_adjustables.debug_float.value,
+                        self.gui_adjustables.debug_bool.value,
+                        self.gui_adjustables.debug_uint.value,
                         get_sun_dir(
-                            self.sun_altitude.asin().to_degrees(),
-                            self.sun_azimuth * 360.0,
+                            self.gui_adjustables.sun_altitude.value.asin().to_degrees(),
+                            self.gui_adjustables.sun_azimuth.value * 360.0,
                         ),
-                        self.sun_size,
+                        self.gui_adjustables.sun_size.value,
                         Vec3::new(
-                            self.sun_color.r() as f32 / 255.0,
-                            self.sun_color.g() as f32 / 255.0,
-                            self.sun_color.b() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.b() as f32 / 255.0,
                         ),
-                        self.sun_luminance,
-                        self.sun_altitude,
-                        self.sun_azimuth,
+                        self.gui_adjustables.sun_luminance.value,
+                        self.gui_adjustables.sun_altitude.value,
+                        self.gui_adjustables.sun_azimuth.value,
                         Vec3::new(
-                            self.ambient_light.r() as f32 / 255.0,
-                            self.ambient_light.g() as f32 / 255.0,
-                            self.ambient_light.b() as f32 / 255.0,
+                            self.gui_adjustables.ambient_light.value.r() as f32 / 255.0,
+                            self.gui_adjustables.ambient_light.value.g() as f32 / 255.0,
+                            self.gui_adjustables.ambient_light.value.b() as f32 / 255.0,
                         ),
-                        self.temporal_position_phi,
-                        self.temporal_alpha,
-                        self.phi_c,
-                        self.phi_n,
-                        self.phi_p,
-                        self.min_phi_z,
-                        self.max_phi_z,
-                        self.phi_z_stable_sample_count,
-                        self.is_changing_lum_phi,
-                        self.is_spatial_denoising_enabled,
-                        self.a_trous_iteration_count,
-                        self.is_taa_enabled,
-                        self.god_ray_max_depth,
-                        self.god_ray_max_checks,
-                        self.god_ray_weight,
+                        self.gui_adjustables.temporal_position_phi.value,
+                        self.gui_adjustables.temporal_alpha.value,
+                        self.gui_adjustables.phi_c.value,
+                        self.gui_adjustables.phi_n.value,
+                        self.gui_adjustables.phi_p.value,
+                        self.gui_adjustables.min_phi_z.value,
+                        self.gui_adjustables.max_phi_z.value,
+                        self.gui_adjustables.phi_z_stable_sample_count.value,
+                        self.gui_adjustables.is_changing_lum_phi.value,
+                        self.gui_adjustables.is_spatial_denoising_enabled.value,
+                        self.gui_adjustables.a_trous_iteration_count.value,
+                        self.gui_adjustables.is_taa_enabled.value,
+                        self.gui_adjustables.god_ray_max_depth.value,
+                        self.gui_adjustables.god_ray_max_checks.value,
+                        self.gui_adjustables.god_ray_weight.value,
                         Vec3::new(
-                            self.god_ray_color.r() as f32 / 255.0,
-                            self.god_ray_color.g() as f32 / 255.0,
-                            self.god_ray_color.b() as f32 / 255.0,
+                            self.gui_adjustables.god_ray_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.god_ray_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.god_ray_color.value.b() as f32 / 255.0,
                         ),
-                        self.starlight_iterations,
-                        self.starlight_formuparam,
-                        self.starlight_volsteps,
-                        self.starlight_stepsize,
-                        self.starlight_zoom,
-                        self.starlight_tile,
-                        self.starlight_speed,
-                        self.starlight_brightness,
-                        self.starlight_darkmatter,
-                        self.starlight_distfading,
-                        self.starlight_saturation,
+                        self.gui_adjustables.starlight_iterations.value,
+                        self.gui_adjustables.starlight_formuparam.value,
+                        self.gui_adjustables.starlight_volsteps.value,
+                        self.gui_adjustables.starlight_stepsize.value,
+                        self.gui_adjustables.starlight_zoom.value,
+                        self.gui_adjustables.starlight_tile.value,
+                        self.gui_adjustables.starlight_speed.value,
+                        self.gui_adjustables.starlight_brightness.value,
+                        self.gui_adjustables.starlight_darkmatter.value,
+                        self.gui_adjustables.starlight_distfading.value,
+                        self.gui_adjustables.starlight_saturation.value,
                         Vec3::new(
-                            self.voxel_sand_color.r() as f32 / 255.0,
-                            self.voxel_sand_color.g() as f32 / 255.0,
-                            self.voxel_sand_color.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.voxel_dirt_color.r() as f32 / 255.0,
-                            self.voxel_dirt_color.g() as f32 / 255.0,
-                            self.voxel_dirt_color.b() as f32 / 255.0,
+                            self.gui_adjustables.voxel_sand_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_sand_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_sand_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.voxel_rock_color.r() as f32 / 255.0,
-                            self.voxel_rock_color.g() as f32 / 255.0,
-                            self.voxel_rock_color.b() as f32 / 255.0,
+                            self.gui_adjustables.voxel_dirt_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_dirt_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_dirt_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.voxel_leaf_color.r() as f32 / 255.0,
-                            self.voxel_leaf_color.g() as f32 / 255.0,
-                            self.voxel_leaf_color.b() as f32 / 255.0,
+                            self.gui_adjustables.voxel_rock_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_rock_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_rock_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.voxel_trunk_color.r() as f32 / 255.0,
-                            self.voxel_trunk_color.g() as f32 / 255.0,
-                            self.voxel_trunk_color.b() as f32 / 255.0,
+                            self.gui_adjustables.voxel_leaf_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_leaf_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_leaf_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.voxel_trunk_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_trunk_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_trunk_color.value.b() as f32 / 255.0,
                         ),
                     )
                     .unwrap();
@@ -1911,37 +1789,37 @@ impl App {
                     .record_trace(
                         cmdbuf,
                         self.surface_builder.get_resources(),
-                        self.lod_distance,
+                        self.gui_adjustables.lod_distance.value,
                         self.time_info.time_since_start(),
                         Vec3::new(
-                            self.grass_bottom_color.r() as f32 / 255.0,
-                            self.grass_bottom_color.g() as f32 / 255.0,
-                            self.grass_bottom_color.b() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.grass_tip_color.r() as f32 / 255.0,
-                            self.grass_tip_color.g() as f32 / 255.0,
-                            self.grass_tip_color.b() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.lavender_bottom_color.r() as f32 / 255.0,
-                            self.lavender_bottom_color.g() as f32 / 255.0,
-                            self.lavender_bottom_color.b() as f32 / 255.0,
+                            self.gui_adjustables.lavender_bottom_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.lavender_bottom_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.lavender_bottom_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.lavender_tip_color.r() as f32 / 255.0,
-                            self.lavender_tip_color.g() as f32 / 255.0,
-                            self.lavender_tip_color.b() as f32 / 255.0,
+                            self.gui_adjustables.lavender_tip_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.lavender_tip_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.lavender_tip_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.leaves_bottom_color.r() as f32 / 255.0,
-                            self.leaves_bottom_color.g() as f32 / 255.0,
-                            self.leaves_bottom_color.b() as f32 / 255.0,
+                            self.gui_adjustables.leaves_bottom_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.leaves_bottom_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.leaves_bottom_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.leaves_tip_color.r() as f32 / 255.0,
-                            self.leaves_tip_color.g() as f32 / 255.0,
-                            self.leaves_tip_color.b() as f32 / 255.0,
+                            self.gui_adjustables.leaves_tip_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.leaves_tip_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.leaves_tip_color.value.b() as f32 / 255.0,
                         ),
                     )
                     .unwrap();

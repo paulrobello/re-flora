@@ -1,4 +1,6 @@
 mod app_controller;
 mod core;
+mod gui_config;
 
 pub use app_controller::AppController;
+pub use gui_config::GuiAdjustables;
