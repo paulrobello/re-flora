@@ -96,119 +96,120 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 }
 
 pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
+    // Dimensions to keep it comparable to Lavender
     const STEM_HEIGHT: i32 = 6;
-    const BLOOM_HEIGHT: i32 = 3;
-    const BASE_LEAF_LAYERS: i32 = 2;
+    // The bloom sits on top of the stem
+    const BLOOM_RADIUS: i32 = 1;
+    const BLOOM_HEIGHT: i32 = 4;
+
+    let total_height = (STEM_HEIGHT + BLOOM_HEIGHT) as f32;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
-    let total_height = (STEM_HEIGHT + BLOOM_HEIGHT + BASE_LEAF_LAYERS) as f32;
+    // 1. Generate the Stem
+    // A simple vertical stalk, slightly darker at the bottom
+    for y in 0..STEM_HEIGHT {
+        let vertex_offset = vertices.len() as u32;
+        let base_pos = IVec3::new(0, y, 0);
 
-    // three stems arranged in an L-shape so the plant feels asymmetric
-    let stem_offsets = [
-        IVec3::new(0, 0, 0),
-        IVec3::new(1, 0, 0),
-        IVec3::new(0, 0, 1),
-    ];
+        // Stem Gradient: 0.0 (base) to 0.2 (top of stem).
+        // Keeps it dark/ashy compared to the bright bloom.
+        let color_gradient = (y as f32 / STEM_HEIGHT as f32) * 0.2;
 
-    for (stem_idx, stem_offset) in stem_offsets.iter().enumerate() {
-        for y in 0..STEM_HEIGHT {
-            let vertex_offset = vertices.len() as u32;
-            let base_pos = *stem_offset + IVec3::new(0, y, 0);
-            let color_gradient = (y as f32 / total_height).min(1.0);
-            let wind_gradient = (y as f32 / total_height).min(1.0);
+        // Wind affects the top more
+        let wind_gradient = base_pos.y as f32 / total_height;
 
-            append_indexed_cube_data(
-                &mut vertices,
-                &mut indices,
-                base_pos,
-                vertex_offset,
-                color_gradient,
-                wind_gradient,
-                is_lod_used,
-            )?;
-        }
+        append_indexed_cube_data(
+            &mut vertices,
+            &mut indices,
+            base_pos,
+            vertex_offset,
+            color_gradient,
+            wind_gradient,
+            is_lod_used,
+        )?;
+    }
 
-        for y in 0..BLOOM_HEIGHT {
-            let vertex_offset = vertices.len() as u32;
-            let height = STEM_HEIGHT + y;
-            let base_pos = *stem_offset + IVec3::new(0, height, 0);
-            let mut color_gradient = 0.7 + (y as f32 / BLOOM_HEIGHT as f32) * 0.3;
-            color_gradient += stem_idx as f32 * 0.02;
-            color_gradient = color_gradient.min(1.0);
-            let wind_gradient = (height as f32 / total_height).min(1.0);
+    // 2. Generate the "Ember" Bloom
+    // We create a symmetric bulb shape using Manhattan distance or radius checks
+    let bloom_start_y = STEM_HEIGHT;
 
-            append_indexed_cube_data(
-                &mut vertices,
-                &mut indices,
-                base_pos,
-                vertex_offset,
-                color_gradient,
-                wind_gradient,
-                is_lod_used,
-            )?;
-        }
+    for y in 0..BLOOM_HEIGHT {
+        for x in -BLOOM_RADIUS..=BLOOM_RADIUS {
+            for z in -BLOOM_RADIUS..=BLOOM_RADIUS {
+                let local_y = y;
 
-        // add petals radiating from the hottest bloom cube
-        let bloom_top = *stem_offset + IVec3::new(0, STEM_HEIGHT + BLOOM_HEIGHT - 1, 0);
-        let petal_offsets = [
-            IVec3::new(1, 0, 0),
-            IVec3::new(-1, 0, 0),
-            IVec3::new(0, 0, 1),
-            IVec3::new(0, 0, -1),
-        ];
+                // Shaping logic: Create a "Lantern" or "Bud" shape
+                // The middle of the bloom (y=1 or 2) is widest.
+                // The top and bottom are narrow.
+                let is_center = x == 0 && z == 0;
+                let is_corner = x.abs() == BLOOM_RADIUS && z.abs() == BLOOM_RADIUS;
 
-        for petal in petal_offsets {
-            let vertex_offset = vertices.len() as u32;
-            let base_pos = bloom_top + petal;
-            let color_gradient = 0.85;
-            let wind_gradient = ((bloom_top.y as f32) / total_height).clamp(0.0, 1.0);
+                // Skip corners on the bottom and top layers to round it off
+                if (local_y == 0 || local_y == BLOOM_HEIGHT - 1) && is_corner {
+                    continue;
+                }
 
-            append_indexed_cube_data(
-                &mut vertices,
-                &mut indices,
-                base_pos,
-                vertex_offset,
-                color_gradient,
-                wind_gradient,
-                is_lod_used,
-            )?;
+                // Skip outer ring entirely on the very tip to make a point
+                if local_y == BLOOM_HEIGHT - 1 && !is_center {
+                    continue;
+                }
+
+                let vertex_offset = vertices.len() as u32;
+                let base_pos = IVec3::new(x, bloom_start_y + y, z);
+                let wind_gradient = base_pos.y as f32 / total_height;
+
+                // 3. Artistic Coloring (Heat Gradient)
+                // Logic: The center is the "core" (hottest/brightest).
+                // The outside is the "crust" (cooler/darker).
+                let color_gradient = if is_center {
+                    // The core gets brighter as it goes up, like a flame
+                    0.8 + (local_y as f32 / BLOOM_HEIGHT as f32) * 0.2
+                } else {
+                    // Outer petals are cooler (magma red/orange)
+                    0.4 + (local_y as f32 / BLOOM_HEIGHT as f32) * 0.2
+                };
+
+                append_indexed_cube_data(
+                    &mut vertices,
+                    &mut indices,
+                    base_pos,
+                    vertex_offset,
+                    color_gradient,
+                    wind_gradient,
+                    is_lod_used,
+                )?;
+            }
         }
     }
 
-    // layered leaves close to the ground
-    for layer in 0..BASE_LEAF_LAYERS {
-        let spread = 2 + layer;
-        let base_height = layer;
-        let color_gradient = 0.15 + (layer as f32 / (BASE_LEAF_LAYERS as f32 * 3.0));
-        let wind_gradient = (base_height as f32 / total_height).min(1.0);
+    // 3. Add small "Sepals" or thorns at the base of the bloom for detail
+    // Small spikes sticking out just below the bloom
+    let sepal_offsets = [
+        IVec3::new(1, -1, 0),
+        IVec3::new(-1, -1, 0),
+        IVec3::new(0, -1, 1),
+        IVec3::new(0, -1, -1),
+    ];
 
-        let ring_offsets = [
-            IVec3::new(spread, 0, 0),
-            IVec3::new(-spread, 0, 0),
-            IVec3::new(0, 0, spread),
-            IVec3::new(0, 0, -spread),
-            IVec3::new(spread, 0, spread),
-            IVec3::new(-spread, 0, spread),
-            IVec3::new(spread, 0, -spread),
-            IVec3::new(-spread, 0, -spread),
-        ];
+    for offset in sepal_offsets {
+        let vertex_offset = vertices.len() as u32;
+        let base_pos = IVec3::new(0, bloom_start_y, 0) + offset;
 
-        for offset in ring_offsets {
-            let vertex_offset = vertices.len() as u32;
-            let base_pos = offset + IVec3::new(0, base_height, 0);
+        // Darker color for the protective leaves
+        let color_gradient = 0.15;
+        let wind_gradient = base_pos.y as f32 / total_height;
 
-            append_indexed_cube_data(
-                &mut vertices,
-                &mut indices,
-                base_pos,
-                vertex_offset,
-                color_gradient,
-                wind_gradient,
-                is_lod_used,
-            )?;
-        }
+        append_indexed_cube_data(
+            &mut vertices,
+            &mut indices,
+            base_pos,
+            vertex_offset,
+            color_gradient,
+            wind_gradient,
+            is_lod_used,
+        )?;
     }
 
     Ok((vertices, indices))
