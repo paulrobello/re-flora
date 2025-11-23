@@ -80,8 +80,8 @@ declare_gui_adjustables! {
     },
 
     [EmberBloom] {
-        ember_bloom_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(42, 138, 102), color, "Bottom Color",
-        ember_bloom_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 141, 78), color, "Tip Color",
+        ember_bloom_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(88, 0, 50), color, "Bottom Color",
+        ember_bloom_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 181, 255), color, "Tip Color",
     },
 
     [Leaves] {
