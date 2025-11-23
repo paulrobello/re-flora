@@ -79,6 +79,11 @@ declare_gui_adjustables! {
         lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(85, 0, 207), color, "Tip Color",
     },
 
+    [EmberBloom] {
+        ember_bloom_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(42, 138, 102), color, "Bottom Color",
+        ember_bloom_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 141, 78), color, "Tip Color",
+    },
+
     [Leaves] {
         leaves_inner_density: crate::gui_adjustables::FloatParam = 0.38, float(0.0..=1.0), "Inner Density",
         leaves_outer_density: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Outer Density",

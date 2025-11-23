@@ -1500,6 +1500,21 @@ impl App {
                                             });
                                         });
 
+                                        ui.collapsing("Ember Bloom Settings", |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label("Bottom Color:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.ember_bloom_bottom_color.value,
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
+                                                ui.label("Tip Color:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.ember_bloom_tip_color.value,
+                                                );
+                                            });
+                                        });
+
                                         ui.collapsing("Leaves Settings", |ui| {
                                             let mut leaves_changed = false;
                                             leaves_changed |= ui
@@ -1804,6 +1819,10 @@ impl App {
                         "lavender" => (
                             color_to_vec3(self.gui_adjustables.lavender_bottom_color.value),
                             color_to_vec3(self.gui_adjustables.lavender_tip_color.value),
+                        ),
+                        "ember_bloom" => (
+                            color_to_vec3(self.gui_adjustables.ember_bloom_bottom_color.value),
+                            color_to_vec3(self.gui_adjustables.ember_bloom_tip_color.value),
                         ),
                         _ => {
                             let bottom = Color32::from_rgb(

@@ -94,3 +94,122 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 
     Ok((vertices, indices))
 }
+
+pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
+    const STEM_HEIGHT: i32 = 6;
+    const BLOOM_HEIGHT: i32 = 3;
+    const BASE_LEAF_LAYERS: i32 = 2;
+
+    let mut vertices = Vec::new();
+    let mut indices = Vec::new();
+
+    let total_height = (STEM_HEIGHT + BLOOM_HEIGHT + BASE_LEAF_LAYERS) as f32;
+
+    // three stems arranged in an L-shape so the plant feels asymmetric
+    let stem_offsets = [
+        IVec3::new(0, 0, 0),
+        IVec3::new(1, 0, 0),
+        IVec3::new(0, 0, 1),
+    ];
+
+    for (stem_idx, stem_offset) in stem_offsets.iter().enumerate() {
+        for y in 0..STEM_HEIGHT {
+            let vertex_offset = vertices.len() as u32;
+            let base_pos = *stem_offset + IVec3::new(0, y, 0);
+            let color_gradient = (y as f32 / total_height).min(1.0);
+            let wind_gradient = (y as f32 / total_height).min(1.0);
+
+            append_indexed_cube_data(
+                &mut vertices,
+                &mut indices,
+                base_pos,
+                vertex_offset,
+                color_gradient,
+                wind_gradient,
+                is_lod_used,
+            )?;
+        }
+
+        for y in 0..BLOOM_HEIGHT {
+            let vertex_offset = vertices.len() as u32;
+            let height = STEM_HEIGHT + y;
+            let base_pos = *stem_offset + IVec3::new(0, height, 0);
+            let mut color_gradient = 0.7 + (y as f32 / BLOOM_HEIGHT as f32) * 0.3;
+            color_gradient += stem_idx as f32 * 0.02;
+            color_gradient = color_gradient.min(1.0);
+            let wind_gradient = (height as f32 / total_height).min(1.0);
+
+            append_indexed_cube_data(
+                &mut vertices,
+                &mut indices,
+                base_pos,
+                vertex_offset,
+                color_gradient,
+                wind_gradient,
+                is_lod_used,
+            )?;
+        }
+
+        // add petals radiating from the hottest bloom cube
+        let bloom_top = *stem_offset + IVec3::new(0, STEM_HEIGHT + BLOOM_HEIGHT - 1, 0);
+        let petal_offsets = [
+            IVec3::new(1, 0, 0),
+            IVec3::new(-1, 0, 0),
+            IVec3::new(0, 0, 1),
+            IVec3::new(0, 0, -1),
+        ];
+
+        for petal in petal_offsets {
+            let vertex_offset = vertices.len() as u32;
+            let base_pos = bloom_top + petal;
+            let color_gradient = 0.85;
+            let wind_gradient = ((bloom_top.y as f32) / total_height).clamp(0.0, 1.0);
+
+            append_indexed_cube_data(
+                &mut vertices,
+                &mut indices,
+                base_pos,
+                vertex_offset,
+                color_gradient,
+                wind_gradient,
+                is_lod_used,
+            )?;
+        }
+    }
+
+    // layered leaves close to the ground
+    for layer in 0..BASE_LEAF_LAYERS {
+        let spread = 2 + layer;
+        let base_height = layer;
+        let color_gradient = 0.15 + (layer as f32 / (BASE_LEAF_LAYERS as f32 * 3.0));
+        let wind_gradient = (base_height as f32 / total_height).min(1.0);
+
+        let ring_offsets = [
+            IVec3::new(spread, 0, 0),
+            IVec3::new(-spread, 0, 0),
+            IVec3::new(0, 0, spread),
+            IVec3::new(0, 0, -spread),
+            IVec3::new(spread, 0, spread),
+            IVec3::new(-spread, 0, spread),
+            IVec3::new(spread, 0, -spread),
+            IVec3::new(-spread, 0, -spread),
+        ];
+
+        for offset in ring_offsets {
+            let vertex_offset = vertices.len() as u32;
+            let base_pos = offset + IVec3::new(0, base_height, 0);
+
+            append_indexed_cube_data(
+                &mut vertices,
+                &mut indices,
+                base_pos,
+                vertex_offset,
+                color_gradient,
+                wind_gradient,
+                is_lod_used,
+            )?;
+        }
+    }
+
+    Ok((vertices, indices))
+}

@@ -233,12 +233,20 @@ void main() {
                 // map noise from [-1, 1] to [0, 1]
                 float height_noise = fnlGetNoise2D(height_noise_state, uvi.x, uvi.z) * 0.5 + 0.5;
 
-                const float lavender_chance = 0.603;
-                if (density_noise < lavender_chance) {
-                    add_flora_instance(uvi, FLORA_SPECIES_LAVENDER, GRASS_TYPE_NORMAL);
-                } else {
-                    add_flora_instance(uvi, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
+                // Ember blooms appear on the most exposed clumps and break up lavender's monopoly.
+                const float ember_bloom_threshold = 0.82;
+                const float lavender_chance       = 0.80;
+
+                if (height_noise > ember_bloom_threshold) {
+                    add_flora_instance(uvi, FLORA_SPECIES_EMBER_BLOOM, GRASS_TYPE_NORMAL);
+                    return;
                 }
+                if (density_noise > lavender_chance) {
+                    add_flora_instance(uvi, FLORA_SPECIES_LAVENDER, GRASS_TYPE_NORMAL);
+                    return;
+                }
+                add_flora_instance(uvi, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
+                return;
             }
         }
     }
