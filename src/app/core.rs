@@ -24,7 +24,6 @@ use rand::Rng;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use uuid::Uuid;
 use winit::event::DeviceEvent;
 use winit::{
     event::{ElementState, WindowEvent},
@@ -154,6 +153,32 @@ impl TreeVariationConfig {
             .changed();
 
         changed
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+enum TreePlacement {
+    /// Place the tree at the given horizontal position and query terrain height.
+    Terrain(Vec2),
+    /// Place the tree at an exact world position (height already resolved).
+    World(Vec3),
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+struct TreeAddOptions {
+    clean_before_add: bool,
+    assign_new_id: bool,
+}
+
+impl TreeAddOptions {
+    fn with_cleanup(mut self) -> Self {
+        self.clean_before_add = true;
+        self
+    }
+
+    fn with_new_id(mut self) -> Self {
+        self.assign_new_id = true;
+        self
     }
 }
 
@@ -489,9 +514,8 @@ impl App {
 
         app.add_tree(
             app.debug_tree_desc.clone(),
-            Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z),
-            false,
-            false,
+            TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
+            TreeAddOptions::default(),
         )?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
@@ -509,7 +533,7 @@ impl App {
         // clear all procedural trees (keep single tree with ID 0)
         self.clear_procedural_trees()?;
         // remove the standalone debug tree so only procedural forest remains
-        self.remove_tree_resources(self.single_tree_id)?;
+        self.remove_tree(self.single_tree_id)?;
 
         self.plain_builder.chunk_init(
             self.prev_bound.min(),
@@ -546,7 +570,11 @@ impl App {
             tree_desc.seed = rng.random_range(1..10000);
 
             self.apply_tree_variations(&mut tree_desc, &mut rng);
-            self.add_tree_at_pos(tree_desc, *tree_pos, true)?;
+            self.add_tree(
+                tree_desc,
+                TreePlacement::World(*tree_pos),
+                TreeAddOptions::default().with_new_id(),
+            )?;
         }
 
         Ok(())
@@ -565,118 +593,18 @@ impl App {
             .collect();
 
         for tree_id in tree_ids_to_remove {
-            self.remove_tree_resources(tree_id)?;
+            self.remove_tree(tree_id)?;
         }
 
         log::info!("Cleared all procedural trees and their sound sources");
         Ok(())
     }
 
-    fn remove_tree_resources(&mut self, tree_id: u32) -> Result<()> {
+    fn remove_tree(&mut self, tree_id: u32) -> Result<()> {
         self.tracer
             .remove_tree_leaves(&mut self.surface_builder.resources, tree_id)?;
         self.tree_audio_manager.remove_tree(tree_id);
         Ok(())
-    }
-
-    fn add_tree_at_pos(
-        &mut self,
-        tree_desc: TreeDesc,
-        tree_pos: Vec3,
-        increment: bool,
-    ) -> Result<()> {
-        let tree_id = if increment {
-            let tree_id = self.next_tree_id;
-            self.next_tree_id += 1; // Increment for next tree
-            tree_id
-        } else {
-            self.single_tree_id
-        };
-
-        let tree = Tree::new(tree_desc);
-        let mut round_cones = Vec::new();
-        for tree_trunk in tree.trunks() {
-            let mut round_cone = tree_trunk.clone();
-            round_cone.transform(tree_pos * 256.0);
-            round_cones.push(round_cone);
-        }
-
-        let mut leaves_data_sequential = vec![0; round_cones.len()];
-        for (i, item) in leaves_data_sequential
-            .iter_mut()
-            .enumerate()
-            .take(round_cones.len())
-        {
-            *item = i as u32;
-        }
-        let mut aabbs = Vec::new();
-        for round_cone in &round_cones {
-            aabbs.push(round_cone.aabb());
-        }
-        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
-
-        let this_bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
-
-        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
-
-        let relative_leaf_positions = tree.relative_leaf_positions();
-        let offseted_leaf_positions = relative_leaf_positions
-            .iter()
-            .map(|leaf_pos| *leaf_pos + tree_pos * 256.0)
-            .collect::<Vec<_>>();
-
-        let quantized_leaf_positions = quantize(&offseted_leaf_positions);
-        self.tracer.add_tree_leaves(
-            &mut self.surface_builder.resources,
-            tree_id,
-            &quantized_leaf_positions,
-        )?;
-
-        Self::mesh_generate(
-            &mut self.surface_builder,
-            &mut self.contree_builder,
-            &mut self.scene_accel_builder,
-            this_bound.union_with(&self.prev_bound),
-        )?;
-
-        self.prev_bound = this_bound.union_with(&self.prev_bound);
-
-        self.add_tree_audio(tree_id, false, tree, tree_pos)?;
-
-        return Ok(());
-
-        fn quantize(positions: &[Vec3]) -> Vec<UVec3> {
-            let set = positions
-                .iter()
-                .map(|pos| pos.as_uvec3())
-                .collect::<HashSet<_>>();
-            set.into_iter().collect::<Vec<_>>()
-        }
-    }
-
-    fn add_tree_audio(
-        &mut self,
-        tree_id: u32,
-        per_tree_audio: bool,
-        tree: Tree,
-        tree_pos: Vec3,
-    ) -> Result<Vec<Uuid>> {
-        let relative_leaf_positions = tree.relative_leaf_positions();
-        let audio_positions = relative_leaf_positions
-            .iter()
-            .map(|leaf_pos| *leaf_pos / 256.0 + tree_pos)
-            .collect::<Vec<_>>();
-
-        let cluster_distance: f32 = 0.08;
-
-        self.tree_audio_manager.add_tree_sources(
-            tree_id,
-            tree_pos,
-            &audio_positions,
-            per_tree_audio,
-            cluster_distance,
-            true,
-        )
     }
 
     fn edit_tree_with_variance(
@@ -943,20 +871,97 @@ impl App {
     fn add_tree(
         &mut self,
         tree_desc: TreeDesc,
-        tree_hori_position: Vec2,
-        clean_up_before_add: bool,
-        increment: bool,
+        placement: TreePlacement,
+        options: TreeAddOptions,
     ) -> Result<()> {
-        if clean_up_before_add {
+        if options.clean_before_add {
             self.clean_up_prev_tree()?;
         }
 
-        let terrain_height = self
-            .tracer
-            .query_terrain_height(glam::Vec2::new(tree_hori_position.x, tree_hori_position.y))?;
+        let tree_pos = match placement {
+            TreePlacement::Terrain(horizontal) => {
+                let terrain_height = self
+                    .tracer
+                    .query_terrain_height(Vec2::new(horizontal.x, horizontal.y))?;
+                Vec3::new(horizontal.x, terrain_height, horizontal.y)
+            }
+            TreePlacement::World(world) => world,
+        };
 
-        let tree_pos = Vec3::new(tree_hori_position.x, terrain_height, tree_hori_position.y);
-        self.add_tree_at_pos(tree_desc, tree_pos, increment)?;
+        let tree_id = if options.assign_new_id {
+            let current_id = self.next_tree_id;
+            self.next_tree_id += 1;
+            current_id
+        } else {
+            self.single_tree_id
+        };
+
+        let tree = Tree::new(tree_desc);
+        let mut round_cones = Vec::with_capacity(tree.trunks().len());
+        for tree_trunk in tree.trunks() {
+            let mut round_cone = tree_trunk.clone();
+            round_cone.transform(tree_pos * 256.0);
+            round_cones.push(round_cone);
+        }
+
+        let mut leaves_data_sequential = vec![0; round_cones.len()];
+        for (i, item) in leaves_data_sequential.iter_mut().enumerate() {
+            *item = i as u32;
+        }
+
+        let mut aabbs = Vec::with_capacity(round_cones.len());
+        for round_cone in &round_cones {
+            aabbs.push(round_cone.aabb());
+        }
+
+        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
+        let this_bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
+
+        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
+
+        let relative_leaf_positions = tree.relative_leaf_positions();
+        let offseted_leaf_positions = relative_leaf_positions
+            .iter()
+            .map(|leaf_pos| *leaf_pos + tree_pos * 256.0)
+            .collect::<Vec<_>>();
+
+        let quantized_leaf_positions = {
+            let set = offseted_leaf_positions
+                .iter()
+                .map(|pos| pos.as_uvec3())
+                .collect::<HashSet<_>>();
+            set.into_iter().collect::<Vec<_>>()
+        };
+
+        self.tracer.add_tree_leaves(
+            &mut self.surface_builder.resources,
+            tree_id,
+            &quantized_leaf_positions,
+        )?;
+
+        Self::mesh_generate(
+            &mut self.surface_builder,
+            &mut self.contree_builder,
+            &mut self.scene_accel_builder,
+            this_bound.union_with(&self.prev_bound),
+        )?;
+
+        self.prev_bound = this_bound.union_with(&self.prev_bound);
+
+        let audio_positions = relative_leaf_positions
+            .iter()
+            .map(|leaf_pos| *leaf_pos / 256.0 + tree_pos)
+            .collect::<Vec<_>>();
+
+        let cluster_distance: f32 = 0.08;
+        self.tree_audio_manager.add_tree_sources(
+            tree_id,
+            tree_pos,
+            &audio_positions,
+            false,
+            cluster_distance,
+            true,
+        )?;
 
         Ok(())
     }
@@ -1737,9 +1742,11 @@ impl App {
                 if tree_desc_changed {
                     self.add_tree(
                         self.debug_tree_desc.clone(),
-                        Vec2::new(self.debug_tree_pos.x, self.debug_tree_pos.z),
-                        true, // clean up before adding a new tree
-                        false,
+                        TreePlacement::Terrain(Vec2::new(
+                            self.debug_tree_pos.x,
+                            self.debug_tree_pos.z,
+                        )),
+                        TreeAddOptions::default().with_cleanup(),
                     )
                     .unwrap();
                 }
