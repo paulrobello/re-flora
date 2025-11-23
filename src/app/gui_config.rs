@@ -29,15 +29,15 @@ declare_gui_adjustables! {
 
     [Starlight] {
         starlight_iterations: crate::gui_adjustables::IntParam = 18, int(1..=30), "Iterations",
-        starlight_formuparam: crate::gui_adjustables::FloatParam = 0.5, float(0.0..=1.0), "Form Parameter",
-        starlight_volsteps: crate::gui_adjustables::IntParam = 10, int(1..=50), "Volume Steps",
-        starlight_stepsize: crate::gui_adjustables::FloatParam = 0.12, float(0.01..=1.0), "Step Size",
-        starlight_zoom: crate::gui_adjustables::FloatParam = 0.88, float(0.1..=2.0), "Zoom",
+        starlight_formuparam: crate::gui_adjustables::FloatParam = 0.57, float(0.0..=1.0), "Form Parameter",
+        starlight_volsteps: crate::gui_adjustables::IntParam = 16, int(1..=50), "Volume Steps",
+        starlight_stepsize: crate::gui_adjustables::FloatParam = 0.15, float(0.01..=1.0), "Step Size",
+        starlight_zoom: crate::gui_adjustables::FloatParam = 0.67, float(0.1..=2.0), "Zoom",
         starlight_tile: crate::gui_adjustables::FloatParam = 1.1, float(0.1..=2.0), "Tile",
-        starlight_speed: crate::gui_adjustables::FloatParam = 0.01, float(0.001..=0.1), "Speed",
-        starlight_brightness: crate::gui_adjustables::FloatParam = 0.0005, float(0.0001..=0.01), "Brightness",
-        starlight_darkmatter: crate::gui_adjustables::FloatParam = 0.8, float(0.0..=1.0), "Dark Matter",
-        starlight_distfading: crate::gui_adjustables::FloatParam = 0.885, float(0.0..=1.0), "Distance Fading",
+        starlight_speed: crate::gui_adjustables::FloatParam = 0.025, float(0.001..=0.1), "Speed",
+        starlight_brightness: crate::gui_adjustables::FloatParam = 0.0017, float(0.0001..=0.01), "Brightness",
+        starlight_darkmatter: crate::gui_adjustables::FloatParam = 0.78, float(0.0..=1.0), "Dark Matter",
+        starlight_distfading: crate::gui_adjustables::FloatParam = 0.68, float(0.0..=1.0), "Distance Fading",
         starlight_saturation: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=1.0), "Saturation",
     },
 
