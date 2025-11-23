@@ -48,20 +48,14 @@ impl InstanceResource {
 }
 
 pub struct TreeLeavesInstance {
-    #[allow(dead_code)]
-    pub tree_id: u32,
     pub aabb: Aabb3,
     pub resources: InstanceResource,
 }
 
 impl TreeLeavesInstance {
-    pub fn new(tree_id: u32, aabb: Aabb3, device: Device, allocator: Allocator) -> Self {
+    pub fn new(_tree_id: u32, aabb: Aabb3, device: Device, allocator: Allocator) -> Self {
         let resources = InstanceResource::new(device, allocator, 10000);
-        Self {
-            tree_id,
-            aabb,
-            resources,
-        }
+        Self { aabb, resources }
     }
 }
 
