@@ -15,53 +15,20 @@ use ash::vk;
 use resource_container_derive::ResourceContainer;
 
 #[derive(ResourceContainer)]
-pub struct GrassBladeResources {
+pub struct FloraMeshResources {
     pub vertices: Resource<Buffer>,
     pub indices: Resource<Buffer>,
     pub indices_len: u32,
 }
 
-impl GrassBladeResources {
-    pub fn new(device: Device, allocator: Allocator, is_lod_used: bool) -> Self {
-        let (vertices_data, indices_data) = gen_grass(is_lod_used).unwrap();
-        let indices_len = indices_data.len() as u32;
-
-        let vertices = Buffer::new_sized(
-            device.clone(),
-            allocator.clone(),
-            BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
-            gpu_allocator::MemoryLocation::CpuToGpu,
-            (std::mem::size_of::<Vertex>() * vertices_data.len()) as u64,
-        );
-        vertices.fill(&vertices_data).unwrap();
-
-        let indices = Buffer::new_sized(
-            device.clone(),
-            allocator.clone(),
-            BufferUsage::from_flags(vk::BufferUsageFlags::INDEX_BUFFER),
-            gpu_allocator::MemoryLocation::CpuToGpu,
-            (std::mem::size_of::<u32>() * indices_data.len()) as u64,
-        );
-        indices.fill(&indices_data).unwrap();
-
-        Self {
-            vertices: Resource::new(vertices),
-            indices: Resource::new(indices),
-            indices_len,
-        }
-    }
-}
-
-#[derive(ResourceContainer)]
-pub struct LavenderResources {
-    pub vertices: Resource<Buffer>,
-    pub indices: Resource<Buffer>,
-    pub indices_len: u32,
-}
-
-impl LavenderResources {
-    pub fn new(device: Device, allocator: Allocator, is_lod_used: bool) -> Self {
-        let (vertices_data, indices_data) = gen_lavender(is_lod_used).unwrap();
+impl FloraMeshResources {
+    pub fn new(
+        device: Device,
+        allocator: Allocator,
+        is_lod_used: bool,
+        generator: fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>,
+    ) -> Self {
+        let (vertices_data, indices_data) = generator(is_lod_used).unwrap();
         let indices_len = indices_data.len() as u32;
 
         let vertices = Buffer::new_sized(
@@ -187,12 +154,12 @@ pub struct TracerResources {
     pub terrain_query_info: Resource<Buffer>,
     pub terrain_query_result: Resource<Buffer>,
 
-    pub grass_blade_resources: GrassBladeResources,
-    pub lavender_resources: LavenderResources,
+    pub grass_blade_resources: FloraMeshResources,
+    pub lavender_resources: FloraMeshResources,
     pub leaves_resources: LeavesResources,
 
-    pub grass_blade_resources_lod: GrassBladeResources,
-    pub lavender_resources_lod: LavenderResources,
+    pub grass_blade_resources_lod: FloraMeshResources,
+    pub lavender_resources_lod: FloraMeshResources,
     pub leaves_resources_lod: LeavesResources,
 
     pub shadow_map_tex: Resource<Texture>,
@@ -462,13 +429,14 @@ impl TracerResources {
         );
 
         let grass_blade_resources =
-            GrassBladeResources::new(device.clone(), allocator.clone(), false);
-        let lavender_resources = LavenderResources::new(device.clone(), allocator.clone(), false);
+            FloraMeshResources::new(device.clone(), allocator.clone(), false, gen_grass);
+        let lavender_resources =
+            FloraMeshResources::new(device.clone(), allocator.clone(), false, gen_lavender);
         let leaves_resources = LeavesResources::new(device.clone(), allocator.clone(), false);
         let grass_blade_resources_lod =
-            GrassBladeResources::new(device.clone(), allocator.clone(), true);
+            FloraMeshResources::new(device.clone(), allocator.clone(), true, gen_grass);
         let lavender_resources_lod =
-            LavenderResources::new(device.clone(), allocator.clone(), true);
+            FloraMeshResources::new(device.clone(), allocator.clone(), true, gen_lavender);
         let leaves_resources_lod = LeavesResources::new(device.clone(), allocator.clone(), true);
 
         return Self {
