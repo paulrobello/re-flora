@@ -19,7 +19,9 @@
       "Read(//c/Users/danny/Desktop/projects/petalsonic/**)",
       "Bash(cargo clippy:*)",
       "Bash(awk:*)",
-      "Bash(cargo metadata:*)"
+      "Bash(cargo metadata:*)",
+      "Bash(rustc:*)",
+      "Bash(cargo build:*)"
     ],
     "deny": []
   }
