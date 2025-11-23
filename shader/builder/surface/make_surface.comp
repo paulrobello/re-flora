@@ -64,8 +64,6 @@ uint load_atlas(ivec3 atlas_idx, ivec3 atlas_read_offset, ivec3 atlas_read_dim,
 }
 
 void preload() {
-    // load operations from any texel that is outside of the boundaries of the bound image will
-    // return all zeros
     for (uint linear_idx = gl_LocalInvocationIndex; linear_idx < SHARED_SIZE_3;
          linear_idx += GROUP_SIZE_3) {
 
@@ -91,8 +89,6 @@ uint voxel_at_local_idx(ivec3 local_idx) {
     return shared_data[shared_idx.x][shared_idx.y][shared_idx.z];
 }
 
-/// Check if a block is occluded by its neighbours.
-/// A block is occluded if all of its neighbours are solid.
 bool is_occluded(ivec3 uvi) {
     ivec3 neighbours_to_check[6] = {
         ivec3(1, 0, 0),  ivec3(-1, 0, 0), ivec3(0, 1, 0),
@@ -100,10 +96,8 @@ bool is_occluded(ivec3 uvi) {
     };
 
     for (int i = 0; i < 6; i++) {
-        ivec3 cur = uvi + neighbours_to_check[i];
-
+        ivec3 cur       = uvi + neighbours_to_check[i];
         uint voxel_type = voxel_at_local_idx(cur);
-
         if (!is_solid(voxel_type)) {
             return false;
         }
@@ -119,14 +113,9 @@ void calculate_normal(out vec3 o_normal, out bool o_is_normal_valid, ivec3 uvi) 
     for (int z = min_bound.z; z <= max_bound.z; z++) {
         for (int y = min_bound.y; y <= max_bound.y; y++) {
             for (int x = min_bound.x; x <= max_bound.x; x++) {
-                ivec3 offset = ivec3(x, y, z);
-
-                // center voxel is not skipped for performance reasons
-
+                ivec3 offset    = ivec3(x, y, z);
                 ivec3 cur       = uvi + offset;
                 uint voxel_type = voxel_at_local_idx(cur);
-
-                // no weighting is applied for the normal calculation
 
                 if (is_solid(voxel_type)) {
                     normal += vec3(offset);
@@ -140,15 +129,11 @@ void calculate_normal(out vec3 o_normal, out bool o_is_normal_valid, ivec3 uvi) 
     }
 }
 
-/// Threhold ranges from 0.0 to 1.0.
 bool normal_not_too_steep(vec3 normal, float threhold) {
     vec3 up = vec3(0.0, 1.0, 0.0);
     return dot(normal, up) > threhold;
 }
 
-/// Compress a coordinate into a single uint.
-/// The coordinate is compressed into 3 10-bit components.
-/// Total occupied bits: 10 * 3 = 30 bits.
 uint compress_coord(ivec3 coord) {
     uint coord_compressed = coord.x;
     coord_compressed |= coord.y << 10;
@@ -156,15 +141,11 @@ uint compress_coord(ivec3 coord) {
     return coord_compressed;
 }
 
-/// Compress a voxel type and normal vector into a single uint.
-/// The voxel type is compressed into 8 bits, the normal vector is compressed into 3 7-bit
-/// components, and the is_normal_valid flag is compressed into 1 bit.
-/// Total occupied bits: 8 + 21 + 1 = 30 bits.
 uint compress_voxel_type_and_normal(uint voxel_type, vec3 normal, bool is_normal_valid) {
     uint properties_data = 0;
     properties_data |= voxel_type & 0xFF;
-    properties_data |= pack_normal_v2(normal) << 8; // 7 bits for each component -> total 21 bits
-    properties_data |= (is_normal_valid ? 1 : 0) << 29; // 1 bit for is_normal_valid
+    properties_data |= pack_normal_v2(normal) << 8;
+    properties_data |= (is_normal_valid ? 1 : 0) << 29;
     return properties_data;
 }
 
@@ -178,6 +159,13 @@ void add_flora_instance(ivec3 uvi, uint species_idx, uint flora_type) {
     instance.pos = uvec3(make_surface_info.atlas_read_offset + uvi) + uvec3(0, 1, 0);
     instance.ty  = flora_type;
     manual_flora_instances[species_idx].data[write_idx] = instance;
+}
+
+// Hash function for random placement
+float hash(vec2 p) {
+    vec3 p3 = fract(vec3(p.xyx) * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
 }
 
 void main() {
@@ -206,48 +194,65 @@ void main() {
     atomicAdd(make_surface_result.active_voxel_len, 1);
     imageStore(surface, uvi, uvec4(properties, 0, 0, 0));
 
-    // define the spacing for grass placement. A value of 2 means grass can only
-    // spawn on a 2x2 grid, ensuring space between potential stalks.
-    const uint grid_size = 2;
+    // --- FLORA GENERATION ---
 
-    // only consider placing grass on the grid points.
-    if (uvi.x % grid_size == 0 && uvi.z % grid_size == 0) {
-        // grass should only grow on top surfaces that are not too steep
+    // 1. Randomize Placement (Anti-Grid)
+    float rng_placement = hash(vec2(uvi.x, uvi.z));
+
+    // 2. Density Noise (Clumping vs Clearings)
+    fnl_state density_noise_state  = fnlCreateState(42);
+    density_noise_state.noise_type = FNL_NOISE_PERLIN;
+    density_noise_state.frequency  = 0.05;
+    float density_noise            = fnlGetNoise2D(density_noise_state, uvi.x, uvi.z);
+
+    // Threshold for ANY plant to appear
+    float placement_threshold = smoothstep(-0.2, 0.8, density_noise) * 0.25;
+
+    if (rng_placement < placement_threshold) {
+
         if (is_surface_top(uvi) && is_normal_valid && normal_not_too_steep(normal, 0.8) &&
             is_surface_plantable(voxel_type)) {
-            // --- Noise-based placement (density) ---
-            fnl_state density_noise_state  = fnlCreateState(42); // Seed for density
-            density_noise_state.noise_type = FNL_NOISE_PERLIN;
-            density_noise_state.frequency  = 0.06; // Lower frequency for larger patches
 
-            // fnlGetNoise returns [-1, 1], so we map it to [0, 1]
-            float density_noise = fnlGetNoise2D(density_noise_state, uvi.x, uvi.z) * 0.5 + 0.5;
+            // 3. Biome Selection
+            fnl_state biome_state  = fnlCreateState(1337);
+            biome_state.noise_type = FNL_NOISE_PERLIN;
+            biome_state.frequency  = 0.02;
+            float biome_val        = fnlGetNoise2D(biome_state, uvi.x, uvi.z);
 
-            // threshold to control how dense the grass is. Higher = less dense.
-            float density_threshold = 0.6;
-            if (density_noise > density_threshold) {
-                fnl_state height_noise_state  = fnlCreateState(1337);
-                height_noise_state.noise_type = FNL_NOISE_PERLIN;
-                height_noise_state.frequency  = 0.8;
+            float species_rng = hash(vec2(uvi.x + 42.0, uvi.z - 15.0));
 
-                // map noise from [-1, 1] to [0, 1]
-                float height_noise = fnlGetNoise2D(height_noise_state, uvi.x, uvi.z) * 0.5 + 0.5;
+            // Default to Grass
+            uint flora_type = FLORA_SPECIES_GRASS;
 
-                // Ember blooms appear on the most exposed clumps and break up lavender's monopoly.
-                const float ember_bloom_threshold = 0.82;
-                const float lavender_chance       = 0.80;
+            // 4. Flower Sparsity Logic
+            // Since flowers are physically bigger, we multiply their spawn chance
+            // by a small factor (e.g., 0.15). This means even in a "Lavender Biome",
+            // 85% of the plants will default back to grass, preventing clumping.
+            float flower_sparsity          = 0.15;
+            float grass_decreased_sparsity = 0.45;
 
-                if (height_noise > ember_bloom_threshold) {
-                    add_flora_instance(uvi, FLORA_SPECIES_EMBER_BLOOM, GRASS_TYPE_NORMAL);
+            // Lavender Region
+            if (biome_val > 0.3) {
+                // Calculate how "strong" the biome is here
+                float biome_strength = (biome_val - 0.3) * 1.5;
+
+                if (species_rng < flower_sparsity) {
+                    flora_type = FLORA_SPECIES_LAVENDER;
+                } else if (species_rng < grass_decreased_sparsity) {
+                    flora_type = FLORA_SPECIES_GRASS;
+                } else {
                     return;
                 }
-                if (density_noise > lavender_chance) {
-                    add_flora_instance(uvi, FLORA_SPECIES_LAVENDER, GRASS_TYPE_NORMAL);
+            } else if (biome_val < -0.3) {
+                if (species_rng < flower_sparsity) {
+                    flora_type = FLORA_SPECIES_EMBER_BLOOM;
+                } else if (species_rng < grass_decreased_sparsity) {
+                    flora_type = FLORA_SPECIES_GRASS;
+                } else {
                     return;
                 }
-                add_flora_instance(uvi, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
-                return;
             }
+            add_flora_instance(uvi, flora_type, GRASS_TYPE_NORMAL);
         }
     }
 }
