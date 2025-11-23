@@ -1,6 +1,6 @@
-# Tree Audio & Wind Roadmap
+# Coding Plans
 
-## Current State
+## Tree Audio & Wind Roadmap
 
 - Tree audio sources now flow through `TreeAudioManager`, which stores `{uuid, tree_id, position, cluster_size}` for every looping emitter.
 - Spatial playback still handled by `SpatialSoundManager` (PetalSonic), but higher-level logic (wind modulation, clustering heuristics) can act on the cached metadata without engine round-trips.
@@ -35,3 +35,12 @@
 - Is clustering distance alone the right abstraction, or should we move toward perceptual metrics that include listener orientation and binaural cues?  
 - How aggressive can cross-tree clustering be before the spatial image feels too smeared? Need usability tests with various tree densities.  
 - Should wind also influence other ambient layers (grass, shrub rustle) via the same noise field for coherence?
+
+## Gui adjustables refactor
+
+- Right now, see core.rs for the gui adjustables session
+- Adding a gui adjustable is very cubersome, we have to update the buffer update function, the structure of the struct, and the session that connects with the gui control
+
+Can you draft a plan first, so this can be done easier, when adding a new gui adjustable?
+
+Give me some advices.
