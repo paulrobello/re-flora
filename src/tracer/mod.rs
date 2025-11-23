@@ -1561,28 +1561,6 @@ impl Tracer {
         Ok(())
     }
 
-    #[allow(dead_code)]
-    pub fn update_tree_leaves(
-        &mut self,
-        surface_resources: &mut SurfaceResources,
-        tree_id: u32,
-        leaf_positions: &[UVec3],
-    ) -> Result<()> {
-        // simply use add_tree_leaves which will overwrite existing entry
-        self.add_tree_leaves(surface_resources, tree_id, leaf_positions)
-    }
-
-    #[allow(dead_code)]
-    pub fn clear_all_tree_leaves(
-        &mut self,
-        surface_resources: &mut SurfaceResources,
-    ) -> Result<()> {
-        let count = surface_resources.instances.leaves_instances.len();
-        surface_resources.instances.leaves_instances.clear();
-        log::info!("Cleared all {} tree instances", count);
-        Ok(())
-    }
-
     pub fn regenerate_leaves(
         &mut self,
         inner_density: f32,

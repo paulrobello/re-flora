@@ -21,7 +21,7 @@ use egui::{Color32, RichText};
 use glam::{UVec3, Vec2, Vec3};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::event::DeviceEvent;
@@ -182,6 +182,12 @@ impl TreeAddOptions {
     }
 }
 
+#[derive(Clone, Debug)]
+struct TreeRecord {
+    position: Vec3,
+    bound: UAabb3,
+}
+
 pub struct App {
     egui_renderer: EguiRenderer,
     cmdbuf: CommandBuffer,
@@ -247,6 +253,7 @@ pub struct App {
     tree_variation_config: TreeVariationConfig,
     regenerate_trees_requested: bool,
     prev_bound: UAabb3,
+    tree_records: HashMap<u32, TreeRecord>,
 
     // multi-tree management
     next_tree_id: u32,
@@ -474,6 +481,7 @@ impl App {
             tree_variation_config: TreeVariationConfig::default(),
             regenerate_trees_requested: false,
             prev_bound: Default::default(),
+            tree_records: HashMap::new(),
             config_panel_visible: false,
             is_fly_mode: true,
 
@@ -583,13 +591,10 @@ impl App {
     fn clear_procedural_trees(&mut self) -> Result<()> {
         // remove all procedural tree leaves (IDs >= 1), keep single tree (ID 0)
         let tree_ids_to_remove: Vec<u32> = self
-            .surface_builder
-            .resources
-            .instances
-            .leaves_instances
+            .tree_records
             .keys()
-            .filter(|&&id| id >= 1)
-            .cloned()
+            .copied()
+            .filter(|&id| id >= 1)
             .collect();
 
         for tree_id in tree_ids_to_remove {
@@ -604,6 +609,19 @@ impl App {
         self.tracer
             .remove_tree_leaves(&mut self.surface_builder.resources, tree_id)?;
         self.tree_audio_manager.remove_tree(tree_id);
+        match self.tree_records.remove(&tree_id) {
+            Some(record) => {
+                log::debug!(
+                    "Removed tree {} at position {:?}, bound {:?}",
+                    tree_id,
+                    record.position,
+                    record.bound
+                );
+            }
+            None => {
+                log::debug!("Tree {} was not registered during removal", tree_id);
+            }
+        }
         Ok(())
     }
 
@@ -962,6 +980,14 @@ impl App {
             cluster_distance,
             true,
         )?;
+
+        self.tree_records.insert(
+            tree_id,
+            TreeRecord {
+                position: tree_pos,
+                bound: this_bound,
+            },
+        );
 
         Ok(())
     }
