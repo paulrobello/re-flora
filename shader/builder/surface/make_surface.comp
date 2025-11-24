@@ -153,11 +153,11 @@ bool is_surface_top(ivec3 p) { return !is_solid(voxel_at_local_idx(p + ivec3(0, 
 
 bool is_surface_plantable(uint voxel_type) { return voxel_type != VOXEL_TYPE_TRUNK; }
 
-void add_flora_instance(ivec3 uvi, uint species_idx, uint flora_type) {
+void add_flora_instance(ivec3 world_pos, uint species_idx, uint flora_type) {
     uint write_idx = atomicAdd(make_surface_result.flora_instance_len[species_idx], 1);
     Instance instance;
-    instance.pos = uvec3(make_surface_info.atlas_read_offset + uvi) + uvec3(0, 1, 0);
-    instance.ty  = flora_type;
+    instance.pos                                        = uvec3(world_pos) + uvec3(0, 1, 0);
+    instance.ty                                         = flora_type;
     manual_flora_instances[species_idx].data[write_idx] = instance;
 }
 
@@ -186,6 +186,8 @@ void main() {
         return;
     }
 
+    ivec3 world_pos = ivec3(make_surface_info.atlas_read_offset) + uvi;
+
     vec3 normal;
     bool is_normal_valid;
     calculate_normal(normal, is_normal_valid, uvi);
@@ -197,13 +199,13 @@ void main() {
     // --- FLORA GENERATION ---
 
     // 1. Randomize Placement (Anti-Grid)
-    float rng_placement = hash(vec2(uvi.x, uvi.z));
+    float rng_placement = hash(vec2(world_pos.x, world_pos.z));
 
     // 2. Density Noise (Clumping vs Clearings)
     fnl_state density_noise_state  = fnlCreateState(42);
     density_noise_state.noise_type = FNL_NOISE_PERLIN;
     density_noise_state.frequency  = 0.05;
-    float density_noise            = fnlGetNoise2D(density_noise_state, uvi.x, uvi.z);
+    float density_noise            = fnlGetNoise2D(density_noise_state, world_pos.x, world_pos.z);
 
     // Threshold for ANY plant to appear
     float placement_threshold = smoothstep(-0.2, 0.8, density_noise) * 0.25;
@@ -217,9 +219,9 @@ void main() {
             fnl_state biome_state  = fnlCreateState(1337);
             biome_state.noise_type = FNL_NOISE_PERLIN;
             biome_state.frequency  = 0.02;
-            float biome_val        = fnlGetNoise2D(biome_state, uvi.x, uvi.z);
+            float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
 
-            float species_rng = hash(vec2(uvi.x + 42.0, uvi.z - 15.0));
+            float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
 
             // Default to Grass
             uint flora_type = FLORA_SPECIES_GRASS;
@@ -250,7 +252,7 @@ void main() {
                     return;
                 }
             }
-            add_flora_instance(uvi, flora_type, GRASS_TYPE_NORMAL);
+            add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
         }
     }
 }
