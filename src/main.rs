@@ -13,6 +13,7 @@ mod tree_gen;
 mod util;
 mod vkn;
 mod window;
+mod wind;
 
 use app::AppController;
 use env_logger::Env;
