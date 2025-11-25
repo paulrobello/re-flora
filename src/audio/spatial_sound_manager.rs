@@ -19,6 +19,7 @@ use uuid::Uuid;
 struct SourceInfo {
     source_id: SourceId,
     volume: f32,
+    position: Option<Vec3>,
 }
 
 /// Spatial sound manager using PetalSonic
@@ -132,10 +133,14 @@ impl SpatialSoundManager {
 
         // Generate UUID and map to SourceId with metadata
         let uuid = Uuid::new_v4();
-        self.uuid_to_source
-            .lock()
-            .unwrap()
-            .insert(uuid, SourceInfo { source_id, volume });
+        self.uuid_to_source.lock().unwrap().insert(
+            uuid,
+            SourceInfo {
+                source_id,
+                volume,
+                position: Some(position),
+            },
+        );
 
         Ok(uuid)
     }
@@ -203,10 +208,14 @@ impl SpatialSoundManager {
 
         // Generate UUID and map to SourceId with metadata
         let uuid = Uuid::new_v4();
-        self.uuid_to_source
-            .lock()
-            .unwrap()
-            .insert(uuid, SourceInfo { source_id, volume });
+        self.uuid_to_source.lock().unwrap().insert(
+            uuid,
+            SourceInfo {
+                source_id,
+                volume,
+                position: None,
+            },
+        );
 
         Ok(uuid)
     }
@@ -263,19 +272,55 @@ impl SpatialSoundManager {
 
     #[allow(dead_code)]
     pub fn update_source_pos(&self, source_uuid: Uuid, target_pos: Vec3) -> Result<()> {
-        let uuid_map = self.uuid_to_source.lock().unwrap();
+        let (source_id, volume) = {
+            let mut uuid_map = self.uuid_to_source.lock().unwrap();
+            if let Some(source_info) = uuid_map.get_mut(&source_uuid) {
+                source_info.position = Some(target_pos);
+                (source_info.source_id, source_info.volume)
+            } else {
+                return Ok(());
+            }
+        };
 
-        if let Some(source_info) = uuid_map.get(&source_uuid) {
-            // Convert position to PetalVec3
+        // Convert position to PetalVec3
+        let petal_pose = Pose::new(
+            PetalVec3::new(target_pos.x, target_pos.y, target_pos.z),
+            PetalQuat::IDENTITY,
+        );
+
+        // Update the source configuration with new position, preserving volume
+        self.world.update_source_config(
+            source_id,
+            SourceConfig::spatial_with_volume_db(petal_pose, volume),
+        )?;
+
+        Ok(())
+    }
+
+    pub fn update_source_volume(&self, source_uuid: Uuid, volume_db: f32) -> Result<()> {
+        let (source_id, position_opt) = {
+            let mut uuid_map = self.uuid_to_source.lock().unwrap();
+            if let Some(source_info) = uuid_map.get_mut(&source_uuid) {
+                source_info.volume = volume_db;
+                (source_info.source_id, source_info.position)
+            } else {
+                return Ok(());
+            }
+        };
+
+        if let Some(position) = position_opt {
             let petal_pose = Pose::new(
-                PetalVec3::new(target_pos.x, target_pos.y, target_pos.z),
+                PetalVec3::new(position.x, position.y, position.z),
                 PetalQuat::IDENTITY,
             );
-
-            // Update the source configuration with new position, preserving volume
             self.world.update_source_config(
-                source_info.source_id,
-                SourceConfig::spatial_with_volume_db(petal_pose, source_info.volume),
+                source_id,
+                SourceConfig::spatial_with_volume_db(petal_pose, volume_db),
+            )?;
+        } else {
+            self.world.update_source_config(
+                source_id,
+                SourceConfig::non_spatial_with_volume_db(volume_db),
             )?;
         }
 

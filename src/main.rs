@@ -12,8 +12,8 @@ mod tracer;
 mod tree_gen;
 mod util;
 mod vkn;
-mod window;
 mod wind;
+mod window;
 
 use app::AppController;
 use env_logger::Env;

@@ -1011,6 +1011,10 @@ impl App {
 
                 self.time_info.update();
                 let frame_delta_time = self.time_info.delta_time();
+                let time_since_start = self.time_info.time_since_start();
+                if let Err(err) = self.tree_audio_manager.update(time_since_start) {
+                    log::warn!("Failed to update tree audio sources: {}", err);
+                }
 
                 if !self.window_state.is_cursor_visible() {
                     // grab the value and immediately reset the accumulator

@@ -1,5 +1,6 @@
 use crate::audio::cluster_positions;
-use crate::audio::SpatialSoundManager;
+use crate::audio::{SpatialSoundManager, TreeAudioSource};
+use crate::wind::Wind;
 use anyhow::Result;
 use glam::Vec3;
 use log::{debug, warn};
@@ -9,23 +10,14 @@ use uuid::Uuid;
 const TREE_LOOP_PATH: &str = "assets/sfx/tree_sound_48k.wav";
 const DEFAULT_BASE_VOLUME_DB: f32 = -16.0;
 
-/// Metadata tracked for each managed tree audio source.
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub struct ManagedTreeAudioSource {
-    pub uuid: Uuid,
-    pub tree_id: u32,
-    pub position: Vec3,
-    pub cluster_size: u32,
-}
-
 /// Keeps track of all looping tree ambience sources so we can later
 /// drive them with wind simulations, recluster them, etc.
 pub struct TreeAudioManager {
     spatial_sound_manager: SpatialSoundManager,
     base_volume_db: f32,
     sources_by_tree: HashMap<u32, Vec<Uuid>>,
-    sources: HashMap<Uuid, ManagedTreeAudioSource>,
+    sources: HashMap<Uuid, TreeAudioSource>,
+    wind: Wind,
 }
 
 impl TreeAudioManager {
@@ -35,6 +27,7 @@ impl TreeAudioManager {
             base_volume_db: DEFAULT_BASE_VOLUME_DB,
             sources_by_tree: HashMap::new(),
             sources: HashMap::new(),
+            wind: Wind::new(),
         }
     }
 
@@ -136,14 +129,21 @@ impl TreeAudioManager {
 
     /// Iterate all tracked sources.
     #[allow(dead_code)]
-    pub fn sources(&self) -> impl Iterator<Item = &ManagedTreeAudioSource> {
+    pub fn sources(&self) -> impl Iterator<Item = &TreeAudioSource> {
         self.sources.values()
     }
 
     /// Fetch metadata for a specific source.
     #[allow(dead_code)]
-    pub fn source(&self, uuid: &Uuid) -> Option<&ManagedTreeAudioSource> {
+    pub fn source(&self, uuid: &Uuid) -> Option<&TreeAudioSource> {
         self.sources.get(uuid)
+    }
+
+    pub fn update(&mut self, time_seconds: f32) -> Result<()> {
+        for source in self.sources.values_mut() {
+            source.update(&self.wind, time_seconds, &self.spatial_sound_manager)?;
+        }
+        Ok(())
     }
 
     fn spawn_looping_source(
@@ -161,17 +161,19 @@ impl TreeAudioManager {
             shuffle_phase,
         )?;
 
-        self.register_source(tree_id, uuid, position, cluster_size);
+        self.register_source(tree_id, uuid, position, cluster_size, volume_db);
         Ok(uuid)
     }
 
-    fn register_source(&mut self, tree_id: u32, uuid: Uuid, position: Vec3, cluster_size: u32) {
-        let entry = ManagedTreeAudioSource {
-            uuid,
-            tree_id,
-            position,
-            cluster_size,
-        };
+    fn register_source(
+        &mut self,
+        tree_id: u32,
+        uuid: Uuid,
+        position: Vec3,
+        cluster_size: u32,
+        base_volume_db: f32,
+    ) {
+        let entry = TreeAudioSource::new(uuid, tree_id, position, cluster_size, base_volume_db);
         self.sources_by_tree.entry(tree_id).or_default().push(uuid);
         self.sources.insert(uuid, entry);
     }
