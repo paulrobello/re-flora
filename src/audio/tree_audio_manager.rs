@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 const TREE_LOOP_PATH: &str = "assets/sfx/tree_sound_48k.wav";
-const DEFAULT_BASE_VOLUME_DB: f32 = -16.0;
+const DEFAULT_BASE_VOLUME_DB: f32 = -20.0;
 
 /// Keeps track of all looping tree ambience sources so we can later
 /// drive them with wind simulations, recluster them, etc.
