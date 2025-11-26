@@ -31,6 +31,7 @@ use crate::builder::{
     ContreeBuilderResources, FloraInstanceResources, Instance, SceneAccelBuilderResources,
     SurfaceResources, TreeLeavesInstance,
 };
+use crate::particles::system::{ParticleSnapshot, DEFAULT_PARTICLE_CAPACITY};
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
 use crate::resource::ResourceContainer;
@@ -104,6 +105,7 @@ pub struct Tracer {
 
     allocator: Allocator,
     resources: TracerResources,
+    particle_resources: ParticleRendererResources,
 
     camera: Camera,
     camera_view_mat_prev_frame: Mat4,
@@ -122,6 +124,7 @@ pub struct Tracer {
 
     a_trous_iteration_count: u32,
     spatial_sound_manager: SpatialSoundManager,
+    particle_instance_scratch: Vec<ParticleInstanceGpu>,
 }
 
 impl Drop for Tracer {
@@ -176,6 +179,11 @@ impl Tracer {
             Extent2D::new(1024, 1024),
             1000, // max_terrain_queries
         );
+        let particle_resources = ParticleRendererResources::new(
+            vulkan_ctx.device().clone(),
+            allocator.clone(),
+            DEFAULT_PARTICLE_CAPACITY as u32,
+        );
 
         let compute_pipelines = PipelineBuilder::create_compute_pipelines(
             &vulkan_ctx,
@@ -222,12 +230,15 @@ impl Tracer {
             vec![framebuffer_depth_only],
         );
 
+        let particle_capacity = particle_resources.instance_capacity as usize;
+
         Ok(Self {
             vulkan_ctx,
             desc,
             chunk_bound,
             allocator,
             resources,
+            particle_resources,
             camera,
             camera_view_mat_prev_frame: Mat4::IDENTITY,
             camera_proj_mat_prev_frame: Mat4::IDENTITY,
@@ -240,6 +251,7 @@ impl Tracer {
             pool,
             a_trous_iteration_count: 3,
             spatial_sound_manager,
+            particle_instance_scratch: Vec::with_capacity(particle_capacity),
         })
     }
 
@@ -716,6 +728,8 @@ impl Tracer {
             leaf_tip_color,
             time,
         );
+        self.record_particle_pass(cmdbuf);
+        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
         record_denoiser_resources_transition_barrier(&self.resources.denoiser_resources, cmdbuf);
@@ -945,6 +959,93 @@ impl Tracer {
                 }),
             );
         }
+        render_target.record_end(cmdbuf);
+
+        let desc = render_target.get_desc();
+        self.resources
+            .extent_dependent_resources
+            .gfx_output_tex
+            .get_image()
+            .set_layout(0, desc.attachments[0].final_layout);
+        self.resources
+            .extent_dependent_resources
+            .gfx_depth_tex
+            .get_image()
+            .set_layout(0, desc.attachments[1].final_layout);
+    }
+
+    fn record_particle_pass(&self, cmdbuf: &CommandBuffer) {
+        let particle_resources = &self.particle_resources;
+        if particle_resources.instance_count == 0 {
+            return;
+        }
+
+        let pipeline = &self.graphics_pipelines.particle_ppl;
+        let render_target = &self.render_target_color_and_depth;
+
+        pipeline.record_bind(cmdbuf);
+
+        let clear_values = [
+            vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.0, 0.0, 0.0, 1.0],
+                },
+            },
+            vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                },
+            },
+        ];
+        render_target.record_begin(cmdbuf, &clear_values);
+
+        let render_extent = self
+            .resources
+            .extent_dependent_resources
+            .gfx_output_tex
+            .get_image()
+            .get_desc()
+            .extent;
+        let viewport = Viewport::from_extent(render_extent.as_extent_2d().unwrap());
+        let scissor = vk::Rect2D {
+            offset: vk::Offset2D { x: 0, y: 0 },
+            extent: vk::Extent2D {
+                width: render_extent.width,
+                height: render_extent.height,
+            },
+        };
+        pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
+
+        unsafe {
+            self.vulkan_ctx.device().cmd_bind_index_buffer(
+                cmdbuf.as_raw(),
+                particle_resources.indices.as_raw(),
+                0,
+                vk::IndexType::UINT32,
+            );
+
+            self.vulkan_ctx.device().cmd_bind_vertex_buffers(
+                cmdbuf.as_raw(),
+                0,
+                &[
+                    particle_resources.vertices.as_raw(),
+                    particle_resources.instance_buffer.as_raw(),
+                ],
+                &[0, 0],
+            );
+        }
+
+        pipeline.record_indexed(
+            cmdbuf,
+            particle_resources.indices_len,
+            particle_resources.instance_count,
+            0,
+            0,
+            0,
+            None,
+        );
+
         render_target.record_end(cmdbuf);
 
         let desc = render_target.get_desc();
@@ -1456,6 +1557,28 @@ impl Tracer {
                 ring_distances,
             })
         }
+    }
+
+    pub fn upload_particles(&mut self, snapshots: &[ParticleSnapshot]) -> Result<()> {
+        let capacity = self.particle_resources.instance_capacity as usize;
+        let count = snapshots.len().min(capacity);
+        self.particle_instance_scratch.clear();
+        self.particle_instance_scratch.reserve(count);
+        for snap in snapshots.iter().take(capacity) {
+            self.particle_instance_scratch.push(ParticleInstanceGpu {
+                position: snap.position.to_array(),
+                size: snap.size,
+                color: snap.color.to_array(),
+            });
+        }
+
+        if count > 0 {
+            self.particle_resources
+                .instance_buffer
+                .fill(&self.particle_instance_scratch)?;
+        }
+        self.particle_resources.instance_count = count as u32;
+        Ok(())
     }
 
     pub fn add_tree_leaves(

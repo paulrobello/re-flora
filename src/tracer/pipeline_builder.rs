@@ -168,6 +168,22 @@ impl PipelineBuilder {
         )
         .unwrap();
 
+        let particle_vert_sm = ShaderModule::from_glsl(
+            vulkan_ctx.device(),
+            shader_compiler,
+            "shader/particles/particle.vert",
+            "main",
+        )
+        .unwrap();
+
+        let particle_frag_sm = ShaderModule::from_glsl(
+            vulkan_ctx.device(),
+            shader_compiler,
+            "shader/particles/particle.frag",
+            "main",
+        )
+        .unwrap();
+
         Ok(ShaderModules {
             tracer_sm,
             tracer_shadow_sm,
@@ -188,6 +204,8 @@ impl PipelineBuilder {
             flora_lod_frag_sm,
             leaves_shadow_vert_sm,
             leaves_shadow_frag_sm,
+            particle_vert_sm,
+            particle_frag_sm,
         })
     }
 
@@ -323,10 +341,21 @@ impl PipelineBuilder {
             pool,
             &[resources],
         );
+
+        let particle_ppl = Self::create_gfx_pipeline(
+            vulkan_ctx,
+            &shader_modules.particle_vert_sm,
+            &shader_modules.particle_frag_sm,
+            &render_passes.render_pass_color_and_depth,
+            Some(1),
+            pool,
+            &[resources],
+        );
         GraphicsPipelines {
             flora_ppl,
             flora_lod_ppl,
             leaves_shadow_lod_ppl,
+            particle_ppl,
         }
     }
 
@@ -419,6 +448,8 @@ pub struct ShaderModules {
     pub flora_lod_frag_sm: ShaderModule,
     pub leaves_shadow_vert_sm: ShaderModule,
     pub leaves_shadow_frag_sm: ShaderModule,
+    pub particle_vert_sm: ShaderModule,
+    pub particle_frag_sm: ShaderModule,
 }
 
 pub struct ComputePipelines {
@@ -446,4 +477,5 @@ pub struct GraphicsPipelines {
     pub flora_ppl: GraphicsPipeline,
     pub flora_lod_ppl: GraphicsPipeline,
     pub leaves_shadow_lod_ppl: GraphicsPipeline,
+    pub particle_ppl: GraphicsPipeline,
 }

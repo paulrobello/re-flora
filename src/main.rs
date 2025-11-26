@@ -6,6 +6,7 @@ mod flora;
 mod gameplay;
 mod geom;
 mod gui_adjustables;
+mod particles;
 mod procedual_placer;
 mod resource;
 mod tracer;

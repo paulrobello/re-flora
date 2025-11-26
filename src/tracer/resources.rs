@@ -12,6 +12,8 @@ use crate::{
     },
 };
 use ash::vk;
+use bytemuck::{Pod, Zeroable};
+use glam::IVec3;
 use resource_container_derive::ResourceContainer;
 
 #[derive(ResourceContainer)]
@@ -128,6 +130,83 @@ impl LeavesResources {
             indices: Resource::new(indices),
             indices_len,
         }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+pub struct ParticleInstanceGpu {
+    pub position: [f32; 3],
+    pub size: f32,
+    pub color: [f32; 4],
+}
+
+pub struct ParticleRendererResources {
+    pub vertices: Resource<Buffer>,
+    pub indices: Resource<Buffer>,
+    pub indices_len: u32,
+    pub instance_buffer: Resource<Buffer>,
+    pub instance_capacity: u32,
+    pub instance_count: u32,
+}
+
+impl ParticleRendererResources {
+    pub fn new(device: Device, allocator: Allocator, max_instances: u32) -> Self {
+        let (vertices, indices, indices_len) = Self::create_cube_mesh(device.clone(), allocator.clone());
+
+        let instance_buffer = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            (std::mem::size_of::<ParticleInstanceGpu>() as u64) * max_instances as u64,
+        );
+
+        Self {
+            vertices: Resource::new(vertices),
+            indices: Resource::new(indices),
+            indices_len,
+            instance_buffer: Resource::new(instance_buffer),
+            instance_capacity: max_instances,
+            instance_count: 0,
+        }
+    }
+
+    fn create_cube_mesh(device: Device, allocator: Allocator) -> (Buffer, Buffer, u32) {
+        use crate::tracer::voxel_encoding::append_indexed_cube_data;
+
+        let mut vertices_data = Vec::new();
+        let mut indices_data = Vec::new();
+        append_indexed_cube_data(
+            &mut vertices_data,
+            &mut indices_data,
+            IVec3::ZERO,
+            0,
+            0.0,
+            0.0,
+            false,
+        )
+        .unwrap();
+
+        let vertices = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            (std::mem::size_of::<Vertex>() * vertices_data.len()) as u64,
+        );
+        vertices.fill(&vertices_data).unwrap();
+
+        let indices = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(vk::BufferUsageFlags::INDEX_BUFFER),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            (std::mem::size_of::<u32>() * indices_data.len()) as u64,
+        );
+        indices.fill(&indices_data).unwrap();
+
+        (vertices, indices, indices_data.len() as u32)
     }
 }
 

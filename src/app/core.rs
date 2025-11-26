@@ -6,6 +6,10 @@ use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder};
 use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
+use crate::particles::{
+    ButterflyEmitter, FallenLeafEmitter, ParticleEmitter, ParticleForces, ParticleSnapshot,
+    ParticleSystem, DEFAULT_PARTICLE_CAPACITY,
+};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
@@ -227,6 +231,12 @@ pub struct App {
     next_tree_id: u32,
     single_tree_id: u32, // ID for GUI single tree mode
 
+    particle_system: ParticleSystem,
+    leaf_emitters: Vec<FallenLeafEmitter>,
+    butterfly_emitters: Vec<ButterflyEmitter>,
+    particle_snapshots: Vec<ParticleSnapshot>,
+    particle_forces: ParticleForces,
+
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
 
@@ -353,6 +363,23 @@ impl App {
 
         let debug_tree_pos = Vec3::new(2.0, 0.2, 2.0);
 
+        let particle_system = ParticleSystem::new(DEFAULT_PARTICLE_CAPACITY);
+        let mut leaf_emitters = Vec::new();
+        leaf_emitters.push({
+            let mut emitter = FallenLeafEmitter::new(Vec3::new(2.5, 1.5, 2.5), Vec3::new(2.0, 0.5, 2.0), 42);
+            emitter.spawn_rate = 240.0;
+            emitter
+        });
+        let mut butterfly_emitters = Vec::new();
+        let mut butterfly_emitter = ButterflyEmitter::new(Vec3::new(2.5, 1.1, 2.5), 6, 1337);
+        butterfly_emitter.target_count = 6;
+        butterfly_emitters.push(butterfly_emitter);
+        let particle_snapshots = Vec::with_capacity(DEFAULT_PARTICLE_CAPACITY);
+        let particle_forces = ParticleForces {
+            global_acceleration: Vec3::new(0.0, -0.3, 0.0),
+            linear_damping: 0.08,
+        };
+
         let mut app = Self {
             vulkan_ctx,
             egui_renderer: renderer,
@@ -390,6 +417,12 @@ impl App {
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
             single_tree_id: 0,
+
+            particle_system,
+            leaf_emitters,
+            butterfly_emitters,
+            particle_snapshots,
+            particle_forces,
 
             spatial_sound_manager,
             tree_audio_manager,
@@ -865,6 +898,37 @@ impl App {
         );
 
         Ok(())
+    }
+
+    fn update_particle_simulation(&mut self, dt: f32) {
+        if dt <= 0.0 {
+            return;
+        }
+
+        Self::drive_emitters(&mut self.leaf_emitters, &mut self.particle_system, dt);
+        Self::drive_emitters(
+            &mut self.butterfly_emitters,
+            &mut self.particle_system,
+            dt,
+        );
+
+        self.particle_system.update(dt, self.particle_forces);
+        self.particle_system
+            .write_snapshots(&mut self.particle_snapshots);
+
+        if let Err(err) = self.tracer.upload_particles(&self.particle_snapshots) {
+            log::error!("Failed to upload particles: {}", err);
+        }
+    }
+
+    fn drive_emitters<E: ParticleEmitter>(
+        emitters: &mut [E],
+        particle_system: &mut ParticleSystem,
+        dt: f32,
+    ) {
+        for emitter in emitters {
+            emitter.update(particle_system, dt);
+        }
     }
 
     fn mesh_generate(
@@ -1700,6 +1764,8 @@ impl App {
                         self.gui_adjustables.season.value,
                     );
                 }
+
+                self.update_particle_simulation(frame_delta_time);
 
                 let device = self.vulkan_ctx.device();
 
