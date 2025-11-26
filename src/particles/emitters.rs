@@ -161,6 +161,15 @@ impl ButterflyEmitter {
         }
     }
 
+    pub fn set_target_count(&mut self, target_count: usize) {
+        self.target_count = target_count;
+        if self.butterflies.len() > self.target_count {
+            self.butterflies.truncate(self.target_count);
+        } else {
+            self.ensure_capacity();
+        }
+    }
+
     fn spawn_state(
         state: &mut ButterflyState,
         system: &mut ParticleSystem,

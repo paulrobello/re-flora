@@ -36,8 +36,6 @@ layout(set = 0, binding = 3) uniform U_CameraInfo {
 }
 camera_info;
 
-const float BASE_VOXEL_SCALE = 1.0 / 256.0;
-
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -47,10 +45,9 @@ void main() {
                        in_packed_data);
 
     float scale = max(in_instance_size, 0.001);
-    vec3 local_anchor = vec3(vox_local_pos) * BASE_VOXEL_SCALE * scale;
-    vec3 vertex_offset = vec3(vert_offset_in_vox) * BASE_VOXEL_SCALE * scale;
+    vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
 
-    vec3 vertex_pos = in_instance_pos + local_anchor + vertex_offset;
+    vec3 vertex_pos = in_instance_pos + vertex_offset;
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 
