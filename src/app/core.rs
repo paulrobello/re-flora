@@ -1648,17 +1648,73 @@ impl App {
                                                     &mut self.gui_adjustables.leaves_bottom_color.value,
                                                 );
                                             });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Tip Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.leaves_tip_color.value,
-                                                );
-                                            });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Tip Color:");
+                                            ui.color_edit_button_srgba(
+                                                &mut self.gui_adjustables.leaves_tip_color.value,
+                                            );
                                         });
+                                    });
 
-                                        ui.collapsing("Voxel Colors", |ui| {
-                                            ui.horizontal(|ui| {
-                                                ui.label("Sand Color:");
+                                    ui.collapsing("Particle Emitters", |ui| {
+                                        ui.label(format!(
+                                            "Active Particles: {}",
+                                            self.particle_system.alive_count()
+                                        ));
+
+                                        if let Some(leaf_emitter) = self.leaf_emitters.first_mut() {
+                                            ui.separator();
+                                            ui.label("Fallen Leaves");
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut leaf_emitter.spawn_rate,
+                                                    0.0..=400.0,
+                                                )
+                                                .text("Spawn Rate (per s)"),
+                                            );
+                                            let mut fall_speed = leaf_emitter.base_velocity.y;
+                                            if ui.add(
+                                                egui::Slider::new(
+                                                    &mut fall_speed,
+                                                    -4.0..=-0.1,
+                                                )
+                                                .text("Base Fall Speed"),
+                                            )
+                                            .changed()
+                                            {
+                                                leaf_emitter.base_velocity.y = fall_speed;
+                                            }
+                                        }
+
+                                        if let Some(butterfly_emitter) =
+                                            self.butterfly_emitters.first_mut()
+                                        {
+                                            ui.separator();
+                                            ui.label("Butterflies");
+                                            let mut target_count =
+                                                butterfly_emitter.target_count as u32;
+                                            if ui.add(
+                                                egui::Slider::new(&mut target_count, 0..=24)
+                                                    .text("Count"),
+                                            )
+                                            .changed()
+                                            {
+                                                butterfly_emitter
+                                                    .set_target_count(target_count as usize);
+                                            }
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut butterfly_emitter.lifetime,
+                                                    5.0..=60.0,
+                                                )
+                                                .text("Lifetime (s)"),
+                                            );
+                                        }
+                                    });
+
+                                    ui.collapsing("Voxel Colors", |ui| {
+                                        ui.horizontal(|ui| {
+                                            ui.label("Sand Color:");
                                                 ui.color_edit_button_srgba(
                                                     &mut self.gui_adjustables.voxel_sand_color.value,
                                                 );
