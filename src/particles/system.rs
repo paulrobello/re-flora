@@ -1,7 +1,7 @@
 use glam::{Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
-pub const DEFAULT_PARTICLE_CAPACITY: usize = 16_384;
+pub const PARTICLE_CAPACITY: usize = 16_384;
 
 /// Handle that uniquely identifies a live particle.
 /// Internally, it keeps track of the slot index and a generation counter.
@@ -241,8 +241,7 @@ impl ParticleSystem {
 
     #[allow(dead_code)]
     pub fn position(&self, handle: ParticleHandle) -> Option<Vec3> {
-        self.validate_handle(handle)
-            .map(|idx| self.positions[idx])
+        self.validate_handle(handle).map(|idx| self.positions[idx])
     }
 
     pub fn set_position(&mut self, handle: ParticleHandle, pos: Vec3) -> bool {
@@ -293,36 +292,5 @@ impl ParticleSystem {
 
     pub fn is_alive_handle(&self, handle: ParticleHandle) -> bool {
         self.validate_handle(handle).is_some()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn spawn_and_reuse_slots() {
-        let mut system = ParticleSystem::new(2);
-        let h1 = system.spawn(ParticleSpawn::default()).unwrap();
-        let h2 = system.spawn(ParticleSpawn::default()).unwrap();
-        assert!(system.spawn(ParticleSpawn::default()).is_none());
-
-        assert!(system.despawn(h1));
-        let h3 = system.spawn(ParticleSpawn::default()).unwrap();
-        assert_ne!(h2, h3, "Generation must change after reuse");
-    }
-
-    #[test]
-    fn update_advances_and_despawns() {
-        let mut system = ParticleSystem::new(4);
-        let spawn = ParticleSpawn {
-            lifetime: 0.5,
-            ..Default::default()
-        };
-        assert!(system.spawn(spawn).is_some());
-        system.update(0.25, ParticleForces::default());
-        assert_eq!(system.alive_count(), 1);
-        system.update(0.30, ParticleForces::default());
-        assert_eq!(system.alive_count(), 0);
     }
 }

@@ -31,9 +31,9 @@ use crate::builder::{
     ContreeBuilderResources, FloraInstanceResources, Instance, SceneAccelBuilderResources,
     SurfaceResources, TreeLeavesInstance,
 };
-use crate::particles::system::{ParticleSnapshot, DEFAULT_PARTICLE_CAPACITY};
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
+use crate::particles::system::{ParticleSnapshot, PARTICLE_CAPACITY};
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
 use crate::vkn::{
@@ -182,7 +182,7 @@ impl Tracer {
         let particle_resources = ParticleRendererResources::new(
             vulkan_ctx.device().clone(),
             allocator.clone(),
-            DEFAULT_PARTICLE_CAPACITY as u32,
+            PARTICLE_CAPACITY as u32,
         );
 
         let compute_pipelines = PipelineBuilder::create_compute_pipelines(

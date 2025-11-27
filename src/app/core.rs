@@ -8,7 +8,7 @@ use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
 use crate::particles::{
     ButterflyEmitter, FallenLeafEmitter, ParticleEmitter, ParticleForces, ParticleSnapshot,
-    ParticleSystem, DEFAULT_PARTICLE_CAPACITY,
+    ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
@@ -363,10 +363,11 @@ impl App {
 
         let debug_tree_pos = Vec3::new(2.0, 0.2, 2.0);
 
-        let particle_system = ParticleSystem::new(DEFAULT_PARTICLE_CAPACITY);
+        let particle_system = ParticleSystem::new(PARTICLE_CAPACITY);
         let mut leaf_emitters = Vec::new();
         leaf_emitters.push({
-            let mut emitter = FallenLeafEmitter::new(Vec3::new(2.5, 1.5, 2.5), Vec3::new(2.0, 0.5, 2.0), 42);
+            let mut emitter =
+                FallenLeafEmitter::new(Vec3::new(2.5, 1.5, 2.5), Vec3::new(2.0, 0.5, 2.0), 42);
             emitter.spawn_rate = 240.0;
             emitter
         });
@@ -374,7 +375,7 @@ impl App {
         let mut butterfly_emitter = ButterflyEmitter::new(Vec3::new(2.5, 1.1, 2.5), 6, 1337);
         butterfly_emitter.target_count = 6;
         butterfly_emitters.push(butterfly_emitter);
-        let particle_snapshots = Vec::with_capacity(DEFAULT_PARTICLE_CAPACITY);
+        let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             global_acceleration: Vec3::new(0.0, -0.3, 0.0),
             linear_damping: 0.08,
@@ -906,11 +907,7 @@ impl App {
         }
 
         Self::drive_emitters(&mut self.leaf_emitters, &mut self.particle_system, dt);
-        Self::drive_emitters(
-            &mut self.butterfly_emitters,
-            &mut self.particle_system,
-            dt,
-        );
+        Self::drive_emitters(&mut self.butterfly_emitters, &mut self.particle_system, dt);
 
         self.particle_system.update(dt, self.particle_forces);
         self.particle_system
