@@ -175,6 +175,9 @@ impl ParticleSystem {
                 .iter()
                 .position(|alive_slot| *alive_slot == idx)
             {
+                // this is O(1), orders of magnitude faster than remove(idx)
+                // the only downside is that the order of the alive_indices is not preserved,
+                // but we don't care about that in this use case
                 self.alive_indices.swap_remove(alive_idx);
             }
             self.retire_slot(idx);
