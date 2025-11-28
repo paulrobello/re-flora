@@ -247,6 +247,7 @@ impl ParticleSystem {
         self.validate_handle(handle).map(|idx| self.positions[idx])
     }
 
+    #[allow(dead_code)]
     pub fn set_position(&mut self, handle: ParticleHandle, pos: Vec3) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.positions[idx] = pos;
@@ -256,6 +257,7 @@ impl ParticleSystem {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_velocity(&mut self, handle: ParticleHandle, vel: Vec3) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.velocities[idx] = vel;
@@ -265,6 +267,7 @@ impl ParticleSystem {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_color(&mut self, handle: ParticleHandle, color: Vec4) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.colors[idx] = color;
@@ -274,6 +277,7 @@ impl ParticleSystem {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_size(&mut self, handle: ParticleHandle, size: f32) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.sizes[idx] = size.max(0.001);
@@ -293,6 +297,7 @@ impl ParticleSystem {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_alive_handle(&self, handle: ParticleHandle) -> bool {
         self.validate_handle(handle).is_some()
     }

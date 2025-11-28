@@ -7,8 +7,8 @@ use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBui
 use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
 use crate::particles::{
-    ButterflyEmitter, FallenLeafEmitter, ParticleEmitter, ParticleForces, ParticleSnapshot,
-    ParticleSystem, PARTICLE_CAPACITY,
+    FallenLeafEmitter, ParticleEmitter, ParticleForces, ParticleSnapshot, ParticleSystem,
+    PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
@@ -233,7 +233,6 @@ pub struct App {
 
     particle_system: ParticleSystem,
     leaf_emitters: Vec<FallenLeafEmitter>,
-    butterfly_emitters: Vec<ButterflyEmitter>,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
@@ -371,10 +370,6 @@ impl App {
             emitter.spawn_rate = 240.0;
             emitter
         });
-        let mut butterfly_emitters = Vec::new();
-        let mut butterfly_emitter = ButterflyEmitter::new(Vec3::new(2.5, 1.1, 2.5), 6, 1337);
-        butterfly_emitter.target_count = 6;
-        butterfly_emitters.push(butterfly_emitter);
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             global_acceleration: Vec3::new(0.0, -0.3, 0.0),
@@ -421,7 +416,6 @@ impl App {
 
             particle_system,
             leaf_emitters,
-            butterfly_emitters,
             particle_snapshots,
             particle_forces,
 
@@ -907,7 +901,6 @@ impl App {
         }
 
         Self::drive_emitters(&mut self.leaf_emitters, &mut self.particle_system, dt);
-        Self::drive_emitters(&mut self.butterfly_emitters, &mut self.particle_system, dt);
 
         self.particle_system.update(dt, self.particle_forces);
         self.particle_system
@@ -1683,30 +1676,6 @@ impl App {
                                             }
                                         }
 
-                                        if let Some(butterfly_emitter) =
-                                            self.butterfly_emitters.first_mut()
-                                        {
-                                            ui.separator();
-                                            ui.label("Butterflies");
-                                            let mut target_count =
-                                                butterfly_emitter.target_count as u32;
-                                            if ui.add(
-                                                egui::Slider::new(&mut target_count, 0..=24)
-                                                    .text("Count"),
-                                            )
-                                            .changed()
-                                            {
-                                                butterfly_emitter
-                                                    .set_target_count(target_count as usize);
-                                            }
-                                            ui.add(
-                                                egui::Slider::new(
-                                                    &mut butterfly_emitter.lifetime,
-                                                    5.0..=60.0,
-                                                )
-                                                .text("Lifetime (s)"),
-                                            );
-                                        }
                                     });
 
                                     ui.collapsing("Voxel Colors", |ui| {
