@@ -200,7 +200,7 @@ impl SurfaceBuilder {
             let data =
                 unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
             assert!(
-                total_u32 >= 1 + species_count,
+                total_u32 > species_count,
                 "make_surface_result buffer too small: expected at least {} u32s, got {}",
                 1 + species_count,
                 total_u32

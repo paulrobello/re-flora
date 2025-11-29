@@ -16,7 +16,6 @@ use crate::tree_gen::{Tree, TreeDesc};
 use crate::util::{cluster_positions, ClusterResult, TimeInfo, BENCH};
 use crate::util::{get_sun_dir, ShaderCompiler};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
-use crate::wind::Wind;
 use crate::{
     egui_renderer::EguiRenderer,
     vkn::{Swapchain, VulkanContext, VulkanContextDesc},
@@ -250,7 +249,6 @@ pub struct App {
     render_finished_semaphore: Semaphore,
     fence: Fence,
     time_info: TimeInfo,
-    wind: Wind,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
 
@@ -444,7 +442,6 @@ impl App {
 
             is_resize_pending: false,
             time_info: TimeInfo::default(),
-            wind: Wind::new(),
 
             gui_adjustables: GuiAdjustables::default(),
             debug_tree_pos,
@@ -976,7 +973,7 @@ impl App {
 
         for cluster in clusters {
             // Create extent based on the tree bound
-            let (_center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
+            let (_center, _extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
 
             // Use cluster position as the emitter center
             let cluster_center = cluster.pos;
@@ -984,7 +981,6 @@ impl App {
             // Create emitter with cluster-specific seed and tree leaf colors
             let mut emitter = FallenLeafEmitter::new(
                 cluster_center,
-                extent,
                 Vec::new(), // We'll spawn from cluster center, not specific leaf positions
                 tree_id as u64 + cluster.pos.x as u64 + cluster.pos.y as u64 + cluster.pos.z as u64,
                 leaf_color_low,

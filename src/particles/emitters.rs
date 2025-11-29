@@ -30,7 +30,6 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
 
 pub struct FallenLeafEmitter {
     pub center: Vec3,
-    pub extent: Vec3,
     pub spawn_rate: f32,
     pub base_velocity: Vec3,
     pub vertical_speed: RangeInclusive<f32>,
@@ -46,7 +45,6 @@ pub struct FallenLeafEmitter {
 impl FallenLeafEmitter {
     pub fn new(
         center: Vec3,
-        extent: Vec3,
         leaf_positions: Vec<Vec3>,
         seed: u64,
         color_low: Vec4,
@@ -54,7 +52,6 @@ impl FallenLeafEmitter {
     ) -> Self {
         Self {
             center,
-            extent,
             spawn_rate: 50.0,
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
             vertical_speed: -1.5..=-0.3,

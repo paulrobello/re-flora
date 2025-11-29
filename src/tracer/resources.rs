@@ -17,6 +17,8 @@ use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
 use resource_container_derive::ResourceContainer;
 
+type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
+
 #[derive(ResourceContainer)]
 pub struct FloraMeshResources {
     pub vertices: Resource<Buffer>,
@@ -29,7 +31,7 @@ impl FloraMeshResources {
         device: Device,
         allocator: Allocator,
         is_lod_used: bool,
-        generator: fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>,
+        generator: MeshGenerator,
     ) -> Self {
         let (vertices_data, indices_data) = generator(is_lod_used).unwrap();
         let indices_len = indices_data.len() as u32;
