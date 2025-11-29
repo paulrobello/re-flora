@@ -47,6 +47,8 @@ use anyhow::Result;
 use ash::vk;
 use std::collections::HashMap;
 
+const MAX_TERRAIN_QUERIES: u32 = 1_000;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct PushConstantStd140 {
@@ -177,7 +179,7 @@ impl Tracer {
             render_extent,
             screen_extent,
             Extent2D::new(1024, 1024),
-            1000, // max_terrain_queries
+            MAX_TERRAIN_QUERIES,
         );
         let particle_resources =
             ParticleRendererResources::new(vulkan_ctx.device().clone(), allocator.clone());

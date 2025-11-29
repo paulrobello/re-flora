@@ -35,7 +35,7 @@ pub struct FallenLeafEmitter {
     pub base_velocity: Vec3,
     pub vertical_speed: RangeInclusive<f32>,
     pub horizontal_jitter: f32,
-    pub size: RangeInclusive<f32>,
+    pub size: f32,
     pub lifetime: RangeInclusive<f32>,
     pub color_low: Vec4,
     pub color_high: Vec4,
@@ -52,7 +52,7 @@ impl FallenLeafEmitter {
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
             vertical_speed: -1.5..=-0.3,
             horizontal_jitter: 0.5,
-            size: 0.05..=0.12,
+            size: 1.0 / 256.0,
             lifetime: 4.0..=8.0,
             color_low: Vec4::new(0.7, 0.3, 0.05, 1.0),
             color_high: Vec4::new(0.95, 0.65, 0.25, 1.0),
@@ -80,7 +80,7 @@ impl FallenLeafEmitter {
             position: self.center + offset,
             velocity,
             color: random_color(&mut self.rng, self.color_low, self.color_high),
-            size: random_in_range(&mut self.rng, &self.size),
+            size: self.size,
             lifetime: random_in_range(&mut self.rng, &self.lifetime),
         };
         let _ = system.spawn(spawn);
