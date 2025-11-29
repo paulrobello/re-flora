@@ -13,8 +13,8 @@ use crate::particles::{
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
+use crate::util::{cluster_positions, ClusterResult, TimeInfo, BENCH};
 use crate::util::{get_sun_dir, ShaderCompiler};
-use crate::util::{TimeInfo, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
 use crate::wind::Wind;
 use crate::{
@@ -28,7 +28,7 @@ use egui::{Color32, RichText};
 use glam::{UVec3, Vec2, Vec3};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
-use std::collections::{hash_map::Entry, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::event::DeviceEvent;
@@ -40,6 +40,7 @@ use winit::{
 };
 
 const PARTICLE_WIND_RESPONSE: f32 = 0.4;
+const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -227,7 +228,7 @@ struct LeafEmitterSettings {
 impl Default for LeafEmitterSettings {
     fn default() -> Self {
         Self {
-            spawn_rate: 120.0,
+            spawn_rate: 0.2, // Base rate per cluster, scaled by cluster size
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
         }
     }
@@ -280,7 +281,7 @@ pub struct App {
 
     particle_system: ParticleSystem,
     leaf_emitters: Vec<TreeLeafEmitter>,
-    tree_leaf_emitter_indices: HashMap<u32, usize>,
+    tree_leaf_emitter_indices: HashMap<u32, Vec<usize>>,
     leaf_emitter_settings: LeafEmitterSettings,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
@@ -922,13 +923,14 @@ impl App {
 
         self.prev_bound = this_bound.union_with(&self.prev_bound);
 
-        let cluster_distance: f32 = 0.08;
-        self.tree_audio_manager.add_tree_sources(
+        // Cluster leaf positions once for both audio and particle systems
+        let leaf_clusters = cluster_positions(&world_leaf_positions, LEAF_CLUSTER_DISTANCE);
+
+        self.tree_audio_manager.add_tree_sources_from_clusters(
             tree_id,
             tree_pos,
-            &world_leaf_positions,
+            &leaf_clusters,
             false,
-            cluster_distance,
             true,
         )?;
 
@@ -940,7 +942,7 @@ impl App {
             },
         );
 
-        self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound, world_leaf_positions);
+        self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound, &leaf_clusters);
 
         Ok(())
     }
@@ -950,32 +952,48 @@ impl App {
         tree_id: u32,
         tree_pos: Vec3,
         bound: &UAabb3,
-        leaf_positions: Vec<Vec3>,
+        clusters: &[ClusterResult],
     ) {
-        let (center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
-        let mut leaf_positions = Some(leaf_positions);
-        match self.tree_leaf_emitter_indices.entry(tree_id) {
-            Entry::Occupied(entry) => {
-                if let Some(tree_emitter) = self.leaf_emitters.get_mut(*entry.get()) {
-                    tree_emitter.emitter.center = center;
-                    tree_emitter.emitter.extent = extent;
-                    if let Some(positions) = leaf_positions.take() {
-                        tree_emitter.emitter.set_leaf_data(positions);
-                    }
-                }
-            }
-            Entry::Vacant(entry) => {
-                if let Some(positions) = leaf_positions.take() {
-                    let mut emitter =
-                        FallenLeafEmitter::new(center, extent, positions, tree_id as u64 + 1);
-                    self.leaf_emitter_settings.apply_to(&mut emitter);
-                    let idx = self.leaf_emitters.len();
-                    self.leaf_emitters
-                        .push(TreeLeafEmitter::new(tree_id, emitter));
-                    entry.insert(idx);
-                }
-            }
+        // Remove existing emitters for this tree first
+        self.remove_leaf_emitter(tree_id);
+
+        if clusters.is_empty() {
+            return;
         }
+
+        let mut emitter_indices = Vec::with_capacity(clusters.len());
+
+        for cluster in clusters {
+            // Create extent based on the tree bound
+            let (_center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
+
+            // Use cluster position as the emitter center
+            let cluster_center = cluster.pos;
+
+            // Create emitter with cluster-specific seed
+            let mut emitter = FallenLeafEmitter::new(
+                cluster_center,
+                extent,
+                Vec::new(), // We'll spawn from cluster center, not specific leaf positions
+                tree_id as u64 + cluster.pos.x as u64 + cluster.pos.y as u64 + cluster.pos.z as u64,
+            );
+
+            // Apply base settings
+            self.leaf_emitter_settings.apply_to(&mut emitter);
+
+            // Scale spawn rate by cluster size (more leaves = more particles)
+            // Base rate is divided by expected average cluster size, then scaled by actual size
+            let cluster_size_multiplier = (cluster.items_count as f32).sqrt();
+            emitter.spawn_rate = self.leaf_emitter_settings.spawn_rate * cluster_size_multiplier;
+
+            let idx = self.leaf_emitters.len();
+            self.leaf_emitters
+                .push(TreeLeafEmitter::new(tree_id, emitter));
+            emitter_indices.push(idx);
+        }
+
+        self.tree_leaf_emitter_indices
+            .insert(tree_id, emitter_indices);
     }
 
     fn compute_leaf_emitter_region(tree_pos: Vec3, bound: &UAabb3) -> (Vec3, Vec3) {
@@ -1000,11 +1018,27 @@ impl App {
     }
 
     fn remove_leaf_emitter(&mut self, tree_id: u32) {
-        if let Some(index) = self.tree_leaf_emitter_indices.remove(&tree_id) {
-            self.leaf_emitters.swap_remove(index);
-            if let Some(swapped) = self.leaf_emitters.get(index) {
-                self.tree_leaf_emitter_indices
-                    .insert(swapped.tree_id(), index);
+        if let Some(indices) = self.tree_leaf_emitter_indices.remove(&tree_id) {
+            // Remove all emitters for this tree, starting from the highest index to avoid index shifts
+            let mut sorted_indices = indices;
+            sorted_indices.sort_unstable_by(|a, b| b.cmp(a)); // Sort in descending order
+
+            for index in sorted_indices {
+                self.leaf_emitters.swap_remove(index);
+                // Update the index map for any tree whose emitter was swapped
+                if let Some(swapped) = self.leaf_emitters.get(index) {
+                    if let Some(tree_indices) =
+                        self.tree_leaf_emitter_indices.get_mut(&swapped.tree_id())
+                    {
+                        // Find and update the old index to the new index
+                        if let Some(pos) = tree_indices
+                            .iter()
+                            .position(|&i| i == self.leaf_emitters.len())
+                        {
+                            tree_indices[pos] = index;
+                        }
+                    }
+                }
             }
         }
     }

@@ -62,10 +62,6 @@ impl FallenLeafEmitter {
         }
     }
 
-    pub fn set_leaf_data(&mut self, leaf_positions: Vec<Vec3>) {
-        self.leaf_positions = leaf_positions;
-    }
-
     fn spawn_leaf(&mut self, system: &mut ParticleSystem) {
         let spawn_position = if self.leaf_positions.is_empty() {
             self.center

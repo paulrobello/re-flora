@@ -1,5 +1,5 @@
-use crate::audio::cluster_positions;
 use crate::audio::{SpatialSoundManager, TreeAudioSource};
+use crate::util::{cluster_positions, ClusterResult};
 use crate::wind::Wind;
 use anyhow::Result;
 use glam::Vec3;
@@ -36,6 +36,10 @@ impl TreeAudioManager {
     /// If `per_tree_audio` is true or `leaf_positions` is empty, a single
     /// source is spawned at `tree_position`. Otherwise, the leaf positions
     /// are clustered and one emitter is spawned per cluster.
+    ///
+    /// Note: Consider using `add_tree_sources_from_clusters()` if you already have
+    /// pre-computed clusters to avoid duplicate clustering computation.
+    #[allow(dead_code)]
     pub fn add_tree_sources(
         &mut self,
         tree_id: u32,
@@ -87,6 +91,57 @@ impl TreeAudioManager {
             }
             return Ok(created);
         }
+
+        for cluster in clusters {
+            match self.spawn_looping_source(
+                tree_id,
+                cluster.pos,
+                cluster.items_count,
+                shuffle_phase,
+            ) {
+                Ok(uuid) => created.push(uuid),
+                Err(err) => {
+                    warn!(
+                        "Failed to spawn clustered tree audio for tree {} at {:?}: {}",
+                        tree_id, cluster.pos, err
+                    );
+                }
+            }
+        }
+
+        Ok(created)
+    }
+
+    /// Add audio emitters for the given tree using pre-computed clusters.
+    ///
+    /// If `per_tree_audio` is true or `clusters` is empty, a single
+    /// source is spawned at `tree_position`. Otherwise, one emitter is spawned per cluster.
+    pub fn add_tree_sources_from_clusters(
+        &mut self,
+        tree_id: u32,
+        tree_position: Vec3,
+        clusters: &[ClusterResult],
+        per_tree_audio: bool,
+        shuffle_phase: bool,
+    ) -> Result<Vec<Uuid>> {
+        // Remove any existing emitters for this tree before spawning new ones.
+        self.remove_tree(tree_id);
+
+        if per_tree_audio || clusters.is_empty() {
+            let mut created = Vec::new();
+            match self.spawn_looping_source(tree_id, tree_position, 1, shuffle_phase) {
+                Ok(uuid) => created.push(uuid),
+                Err(err) => {
+                    warn!(
+                        "Failed to spawn per-tree audio for tree {} at {:?}: {}",
+                        tree_id, tree_position, err
+                    );
+                }
+            }
+            return Ok(created);
+        }
+
+        let mut created = Vec::with_capacity(clusters.len());
 
         for cluster in clusters {
             match self.spawn_looping_source(
