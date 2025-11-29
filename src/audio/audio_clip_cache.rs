@@ -40,8 +40,6 @@ impl AudioClipCache {
         // Recursively load all .wav files
         Self::load_wav_files_recursive(&mut clips, sfx_path, &project_root)?;
 
-        println!("AudioClipCache initialized with {} clips", clips.len());
-
         Ok(Self { clips })
     }
 
@@ -85,7 +83,6 @@ impl AudioClipCache {
                 // Load the audio data
                 let audio_data = PetalSonicAudioData::from_path(&normalized_full_path)?;
 
-                println!("Cached audio clip: {}", relative_path);
                 clips.insert(relative_path, audio_data);
             }
         }
