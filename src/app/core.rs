@@ -16,6 +16,7 @@ use crate::tree_gen::{Tree, TreeDesc};
 use crate::util::{get_sun_dir, ShaderCompiler};
 use crate::util::{TimeInfo, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
+use crate::wind::Wind;
 use crate::{
     egui_renderer::EguiRenderer,
     vkn::{Swapchain, VulkanContext, VulkanContextDesc},
@@ -37,6 +38,8 @@ use winit::{
     keyboard::KeyCode,
     window::WindowId,
 };
+
+const PARTICLE_WIND_RESPONSE: f32 = 0.4;
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -247,6 +250,7 @@ pub struct App {
     render_finished_semaphore: Semaphore,
     fence: Fence,
     time_info: TimeInfo,
+    wind: Wind,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
 
@@ -413,7 +417,7 @@ impl App {
         let leaf_emitter_settings = LeafEmitterSettings::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
-            global_acceleration: Vec3::new(0.0, -0.3, 0.0),
+            global_acceleration: Vec3::new(0.0, -1.2, 0.0),
             linear_damping: 0.08,
         };
 
@@ -440,6 +444,7 @@ impl App {
 
             is_resize_pending: false,
             time_info: TimeInfo::default(),
+            wind: Wind::new(),
 
             gui_adjustables: GuiAdjustables::default(),
             debug_tree_pos,
@@ -1029,6 +1034,10 @@ impl App {
         }
 
         Self::drive_emitters(&mut self.leaf_emitters, &mut self.particle_system, dt);
+
+        let wind_time = self.time_info.time_since_start();
+        self.particle_system
+            .apply_wind(dt, &self.wind, wind_time, PARTICLE_WIND_RESPONSE);
 
         self.particle_system.update(dt, self.particle_forces);
         self.particle_system

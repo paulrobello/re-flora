@@ -1,3 +1,4 @@
+use crate::wind::Wind;
 use glam::{Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
@@ -257,6 +258,23 @@ impl ParticleSystem {
             true
         } else {
             false
+        }
+    }
+
+    /// Pushes particle velocities toward the sampled wind field.
+    pub fn apply_wind(&mut self, dt: f32, wind: &Wind, time: f32, responsiveness: f32) {
+        if dt <= 0.0 || self.alive_indices.is_empty() {
+            return;
+        }
+        let gain = (responsiveness.max(0.0)) * dt;
+        if gain <= 0.0 {
+            return;
+        }
+
+        for &slot in &self.alive_indices {
+            let target_vel = wind.sample(self.positions[slot], time);
+            let delta = target_vel - self.velocities[slot];
+            self.velocities[slot] += delta * gain;
         }
     }
 
