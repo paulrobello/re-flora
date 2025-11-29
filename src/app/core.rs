@@ -39,7 +39,6 @@ use winit::{
     window::WindowId,
 };
 
-const PARTICLE_WIND_RESPONSE: f32 = 0.4;
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
 
 #[derive(Debug, Clone)]
@@ -214,8 +213,8 @@ impl TreeLeafEmitter {
 }
 
 impl ParticleEmitter for TreeLeafEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32) {
-        self.emitter.update(system, dt, wind, time);
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
+        self.emitter.update(system, dt, time);
     }
 }
 
@@ -1053,12 +1052,8 @@ impl App {
             &mut self.leaf_emitters,
             &mut self.particle_system,
             dt,
-            &self.wind,
             wind_time,
         );
-
-        self.particle_system
-            .apply_wind(dt, &self.wind, wind_time, PARTICLE_WIND_RESPONSE);
 
         self.particle_system.update(dt, self.particle_forces);
         self.particle_system
@@ -1073,11 +1068,10 @@ impl App {
         emitters: &mut [E],
         particle_system: &mut ParticleSystem,
         dt: f32,
-        wind: &Wind,
         time: f32,
     ) {
         for emitter in emitters {
-            emitter.update(particle_system, dt, wind, time);
+            emitter.update(particle_system, dt, time);
         }
     }
 

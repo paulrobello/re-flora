@@ -1,13 +1,12 @@
 use std::{f32::consts::TAU, ops::RangeInclusive};
 
-use crate::wind::Wind;
 use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{ParticleSpawn, ParticleSystem};
 
 pub trait ParticleEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32);
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32);
 }
 
 fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
@@ -79,6 +78,16 @@ impl FallenLeafEmitter {
         let wind_factor = self.rng.random_range(0.6..=1.4);
         let gravity_factor = self.rng.random_range(0.8..=1.2);
 
+        // Randomize drift direction for turbulent motion
+        let drift_angle = self.rng.random_range(0.0..TAU);
+        let drift_direction = Vec3::new(
+            drift_angle.cos(),
+            self.rng.random_range(-0.2..=0.2),
+            drift_angle.sin(),
+        );
+        let drift_strength = self.rng.random_range(0.3..=0.8);
+        let drift_frequency = self.rng.random_range(0.5..=2.0);
+
         let spawn = ParticleSpawn {
             position: spawn_position,
             velocity,
@@ -87,19 +96,21 @@ impl FallenLeafEmitter {
             lifetime: random_in_range(&mut self.rng, &self.lifetime),
             wind_factor,
             gravity_factor,
+            drift_direction,
+            drift_strength,
+            drift_frequency,
         };
         let _ = system.spawn(spawn);
     }
 }
 
 impl ParticleEmitter for FallenLeafEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32) {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, _time: f32) {
         if self.spawn_rate <= 0.0 {
             return;
         }
-        let normalized_wind = wind.sample_normalized(self.center, time).length();
-        let wind_multiplier = (0.5 + normalized_wind.clamp(0.0, 1.0)).clamp(0.25, 2.0);
-        self.spawn_accumulator += self.spawn_rate * wind_multiplier * dt;
+        // Simple spawn rate without wind influence
+        self.spawn_accumulator += self.spawn_rate * dt;
         while self.spawn_accumulator >= 1.0 {
             self.spawn_leaf(system);
             self.spawn_accumulator -= 1.0;

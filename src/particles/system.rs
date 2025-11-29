@@ -1,4 +1,3 @@
-use crate::wind::Wind;
 use glam::{Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
@@ -32,6 +31,12 @@ pub struct ParticleSpawn {
     pub lifetime: f32,
     pub wind_factor: f32,
     pub gravity_factor: f32,
+    /// Random drift direction for turbulent motion
+    pub drift_direction: Vec3,
+    /// Strength of the drift/turbulence
+    pub drift_strength: f32,
+    /// How quickly the drift changes over time
+    pub drift_frequency: f32,
 }
 
 impl Default for ParticleSpawn {
@@ -44,6 +49,9 @@ impl Default for ParticleSpawn {
             lifetime: 1.0,
             wind_factor: 1.0,
             gravity_factor: 1.0,
+            drift_direction: Vec3::ZERO,
+            drift_strength: 0.0,
+            drift_frequency: 1.0,
         }
     }
 }
@@ -82,6 +90,9 @@ pub struct ParticleSystem {
     sizes: Vec<f32>,
     wind_factors: Vec<f32>,
     gravity_factors: Vec<f32>,
+    drift_directions: Vec<Vec3>,
+    drift_strengths: Vec<f32>,
+    drift_frequencies: Vec<f32>,
     lifetimes: Vec<f32>,
     ages: Vec<f32>,
     generations: Vec<u32>,
@@ -108,6 +119,9 @@ impl ParticleSystem {
             sizes: vec![0.0; max_particles],
             wind_factors: vec![1.0; max_particles],
             gravity_factors: vec![1.0; max_particles],
+            drift_directions: vec![zero_vec3; max_particles],
+            drift_strengths: vec![0.0; max_particles],
+            drift_frequencies: vec![1.0; max_particles],
             lifetimes: vec![0.0; max_particles],
             ages: vec![0.0; max_particles],
             generations: vec![0; max_particles],
@@ -166,6 +180,9 @@ impl ParticleSystem {
         self.sizes[slot] = spawn.size.max(0.001);
         self.wind_factors[slot] = spawn.wind_factor.max(0.0);
         self.gravity_factors[slot] = spawn.gravity_factor.max(0.0);
+        self.drift_directions[slot] = spawn.drift_direction.normalize_or_zero();
+        self.drift_strengths[slot] = spawn.drift_strength.max(0.0);
+        self.drift_frequencies[slot] = spawn.drift_frequency.max(0.001);
         self.lifetimes[slot] = spawn.lifetime.max(0.001);
         self.ages[slot] = 0.0;
         self.is_alive[slot] = true;
@@ -214,6 +231,7 @@ impl ParticleSystem {
     }
 
     /// Advances the simulation by `dt` seconds and applies forces/damping.
+    /// Applies randomized turbulent motion to simulate realistic leaf movement.
     pub fn update(&mut self, dt: f32, forces: ParticleForces) {
         if dt <= 0.0 || self.alive_indices.is_empty() {
             return;
@@ -227,6 +245,19 @@ impl ParticleSystem {
             let vel = &mut self.velocities[slot];
             let gravity_scale = self.gravity_factors[slot];
             *vel += forces.global_acceleration * gravity_scale * dt;
+
+            // Apply randomized turbulent drift
+            let age = self.ages[slot];
+            let drift_phase = age * self.drift_frequencies[slot];
+            let drift_offset_x = (drift_phase * 2.3).sin() * 0.7 + (drift_phase * 1.1).cos() * 0.3;
+            let drift_offset_y = (drift_phase * 1.7).sin() * 0.5;
+            let drift_offset_z = (drift_phase * 3.1).cos() * 0.7 + (drift_phase * 1.9).sin() * 0.3;
+
+            let turbulence = Vec3::new(drift_offset_x, drift_offset_y, drift_offset_z);
+            let drift_force =
+                (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
+            *vel += drift_force * dt;
+
             *vel *= damping;
 
             self.positions[slot] += *vel * dt;
@@ -269,24 +300,6 @@ impl ParticleSystem {
             true
         } else {
             false
-        }
-    }
-
-    /// Pushes particle velocities toward the sampled wind field.
-    pub fn apply_wind(&mut self, dt: f32, wind: &Wind, time: f32, responsiveness: f32) {
-        if dt <= 0.0 || self.alive_indices.is_empty() {
-            return;
-        }
-        let gain = (responsiveness.max(0.0)) * dt;
-        if gain <= 0.0 {
-            return;
-        }
-
-        for &slot in &self.alive_indices {
-            let target_vel = wind.sample(self.positions[slot], time);
-            let delta = target_vel - self.velocities[slot];
-            let wind_scale = self.wind_factors[slot];
-            self.velocities[slot] += delta * gain * wind_scale;
         }
     }
 
