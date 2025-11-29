@@ -1,12 +1,13 @@
 use std::{f32::consts::TAU, ops::RangeInclusive};
 
+use crate::wind::{Wind, WIND_MAX_STRENGTH, WIND_MIN_STRENGTH};
 use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{ParticleSpawn, ParticleSystem};
 
 pub trait ParticleEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32);
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32);
 }
 
 fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
@@ -48,11 +49,11 @@ impl FallenLeafEmitter {
         Self {
             center,
             extent,
-            spawn_rate: 100.0,
+            spawn_rate: 50.0,
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
             vertical_speed: -1.5..=-0.3,
             size: 1.0 / 256.0,
-            lifetime: 4.0..=8.0,
+            lifetime: 12.0..=24.0,
             color_low: Vec4::new(0.7, 0.3, 0.05, 1.0),
             color_high: Vec4::new(0.95, 0.65, 0.25, 1.0),
             leaf_positions,
@@ -96,11 +97,19 @@ impl FallenLeafEmitter {
 }
 
 impl ParticleEmitter for FallenLeafEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32) {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32) {
         if self.spawn_rate <= 0.0 {
             return;
         }
-        self.spawn_accumulator += self.spawn_rate * dt;
+        let wind_vec = wind.sample(self.center, time);
+        let wind_speed = wind_vec.length();
+        let normalized = if WIND_MAX_STRENGTH > WIND_MIN_STRENGTH {
+            (wind_speed - WIND_MIN_STRENGTH) / (WIND_MAX_STRENGTH - WIND_MIN_STRENGTH)
+        } else {
+            0.0
+        };
+        let wind_multiplier = (0.5 + normalized.clamp(0.0, 1.0)).clamp(0.25, 2.0);
+        self.spawn_accumulator += self.spawn_rate * wind_multiplier * dt;
         while self.spawn_accumulator >= 1.0 {
             self.spawn_leaf(system);
             self.spawn_accumulator -= 1.0;

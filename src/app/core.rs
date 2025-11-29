@@ -213,8 +213,8 @@ impl TreeLeafEmitter {
 }
 
 impl ParticleEmitter for TreeLeafEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32) {
-        self.emitter.update(system, dt);
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, wind: &Wind, time: f32) {
+        self.emitter.update(system, dt, wind, time);
     }
 }
 
@@ -227,7 +227,7 @@ struct LeafEmitterSettings {
 impl Default for LeafEmitterSettings {
     fn default() -> Self {
         Self {
-            spawn_rate: 240.0,
+            spawn_rate: 120.0,
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
         }
     }
@@ -1014,9 +1014,15 @@ impl App {
             return;
         }
 
-        Self::drive_emitters(&mut self.leaf_emitters, &mut self.particle_system, dt);
-
         let wind_time = self.time_info.time_since_start();
+        Self::drive_emitters(
+            &mut self.leaf_emitters,
+            &mut self.particle_system,
+            dt,
+            &self.wind,
+            wind_time,
+        );
+
         self.particle_system
             .apply_wind(dt, &self.wind, wind_time, PARTICLE_WIND_RESPONSE);
 
@@ -1033,9 +1039,11 @@ impl App {
         emitters: &mut [E],
         particle_system: &mut ParticleSystem,
         dt: f32,
+        wind: &Wind,
+        time: f32,
     ) {
         for emitter in emitters {
-            emitter.update(particle_system, dt);
+            emitter.update(particle_system, dt, wind, time);
         }
     }
 
