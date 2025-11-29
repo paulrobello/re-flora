@@ -28,92 +28,52 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
     )
 }
 
-fn random_point_in_sphere(rng: &mut SmallRng, radius: f32) -> Vec3 {
-    if radius <= 0.0 {
-        return Vec3::ZERO;
-    }
-    loop {
-        let point = Vec3::new(
-            rng.random_range(-1.0..=1.0),
-            rng.random_range(-1.0..=1.0),
-            rng.random_range(-1.0..=1.0),
-        );
-        if point.length_squared() <= 1.0 {
-            return point * radius;
-        }
-    }
-}
-
 pub struct FallenLeafEmitter {
     pub center: Vec3,
     pub extent: Vec3,
     pub spawn_rate: f32,
     pub base_velocity: Vec3,
     pub vertical_speed: RangeInclusive<f32>,
-    pub horizontal_jitter: f32,
     pub size: f32,
     pub lifetime: RangeInclusive<f32>,
     pub color_low: Vec4,
     pub color_high: Vec4,
     leaf_positions: Vec<Vec3>,
-    leaf_radius: f32,
     rng: SmallRng,
     spawn_accumulator: f32,
 }
 
 impl FallenLeafEmitter {
-    pub fn new(
-        center: Vec3,
-        extent: Vec3,
-        leaf_positions: Vec<Vec3>,
-        leaf_radius: f32,
-        seed: u64,
-    ) -> Self {
+    pub fn new(center: Vec3, extent: Vec3, leaf_positions: Vec<Vec3>, seed: u64) -> Self {
         Self {
             center,
             extent,
             spawn_rate: 100.0,
             base_velocity: Vec3::new(0.0, -0.5, 0.0),
             vertical_speed: -1.5..=-0.3,
-            horizontal_jitter: 0.5,
             size: 1.0 / 256.0,
             lifetime: 4.0..=8.0,
             color_low: Vec4::new(0.7, 0.3, 0.05, 1.0),
             color_high: Vec4::new(0.95, 0.65, 0.25, 1.0),
             leaf_positions,
-            leaf_radius,
             rng: SmallRng::seed_from_u64(seed),
             spawn_accumulator: 0.0,
         }
     }
 
-    pub fn set_leaf_data(&mut self, leaf_positions: Vec<Vec3>, leaf_radius: f32) {
+    pub fn set_leaf_data(&mut self, leaf_positions: Vec<Vec3>) {
         self.leaf_positions = leaf_positions;
-        self.leaf_radius = leaf_radius;
     }
 
     fn spawn_leaf(&mut self, system: &mut ParticleSystem) {
         let spawn_position = if self.leaf_positions.is_empty() {
-            let offset = Vec3::new(
-                self.rng.random_range(-self.extent.x..=self.extent.x),
-                self.rng.random_range(-self.extent.y..=self.extent.y),
-                self.rng.random_range(-self.extent.z..=self.extent.z),
-            );
-            self.center + offset
+            self.center
         } else {
             let leaf_idx = self.rng.random_range(0..self.leaf_positions.len());
-            let leaf_center = self.leaf_positions[leaf_idx];
-            let jitter = random_point_in_sphere(&mut self.rng, self.leaf_radius);
-            leaf_center + jitter
+            self.leaf_positions[leaf_idx]
         };
         let mut velocity = self.base_velocity;
         velocity.y = random_in_range(&mut self.rng, &self.vertical_speed);
-        velocity.x += self
-            .rng
-            .random_range(-self.horizontal_jitter..=self.horizontal_jitter);
-        velocity.z += self
-            .rng
-            .random_range(-self.horizontal_jitter..=self.horizontal_jitter);
 
         let spawn = ParticleSpawn {
             position: spawn_position,
