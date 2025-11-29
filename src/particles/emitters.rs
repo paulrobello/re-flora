@@ -1,6 +1,6 @@
 use std::{f32::consts::TAU, ops::RangeInclusive};
 
-use crate::wind::{Wind, WIND_MAX_STRENGTH, WIND_MIN_STRENGTH};
+use crate::wind::Wind;
 use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -101,14 +101,8 @@ impl ParticleEmitter for FallenLeafEmitter {
         if self.spawn_rate <= 0.0 {
             return;
         }
-        let wind_vec = wind.sample(self.center, time);
-        let wind_speed = wind_vec.length();
-        let normalized = if WIND_MAX_STRENGTH > WIND_MIN_STRENGTH {
-            (wind_speed - WIND_MIN_STRENGTH) / (WIND_MAX_STRENGTH - WIND_MIN_STRENGTH)
-        } else {
-            0.0
-        };
-        let wind_multiplier = (0.5 + normalized.clamp(0.0, 1.0)).clamp(0.25, 2.0);
+        let normalized_wind = wind.sample_normalized(self.center, time).length();
+        let wind_multiplier = (0.5 + normalized_wind.clamp(0.0, 1.0)).clamp(0.25, 2.0);
         self.spawn_accumulator += self.spawn_rate * wind_multiplier * dt;
         while self.spawn_accumulator >= 1.0 {
             self.spawn_leaf(system);

@@ -46,7 +46,7 @@ impl Wind {
         }
     }
 
-    pub fn sample(&self, world_pos: Vec3, time: f32) -> Vec3 {
+    pub fn sample_normalized(&self, world_pos: Vec3, time: f32) -> Vec3 {
         let sample_pos = Vec2::new(world_pos.x, world_pos.z) * WIND_SAMPLE_SCALE;
         let scroll_time = time * WIND_TIME_SCALE;
         let direction_time = WIND_DIRECTION_TIME_SCROLL * scroll_time;
@@ -71,11 +71,16 @@ impl Wind {
             sample_pos.y + WIND_STRENGTH_OFFSET.y + strength_time.y,
         );
         let normalized_strength = strength_noise * 0.5 + 0.5;
-        let strength =
-            WIND_MIN_STRENGTH + (WIND_MAX_STRENGTH - WIND_MIN_STRENGTH) * normalized_strength;
 
-        let wind_planar = direction * strength;
+        let wind_planar = direction * normalized_strength;
         Vec3::new(wind_planar.x, 0.0, wind_planar.y)
+    }
+
+    pub fn sample(&self, world_pos: Vec3, time: f32) -> Vec3 {
+        let normalized = self.sample_normalized(world_pos, time);
+        let strength =
+            WIND_MIN_STRENGTH + (WIND_MAX_STRENGTH - WIND_MIN_STRENGTH) * normalized.length();
+        normalized.normalize_or_zero() * strength
     }
 }
 

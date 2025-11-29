@@ -4,18 +4,18 @@
 #include "./core/definitions.glsl"
 #include "./core/fast_noise_lite.glsl"
 
-const int WIND_DIRECTION_SEED         = 1729;
-const int WIND_STRENGTH_SEED          = 2843;
-const float WIND_DIRECTION_FREQUENCY  = 0.0025f;
-const float WIND_STRENGTH_FREQUENCY   = 0.00125f;
-const float WIND_MIN_STRENGTH         = 0.5f;
-const float WIND_MAX_STRENGTH         = 5.0f;
-const float WIND_SAMPLE_SCALE         = 256.0f;
-const vec2 WIND_SECOND_SAMPLE_OFFSET  = vec2(57.23f, -113.87f);
-const vec2 WIND_STRENGTH_OFFSET       = vec2(-211.0f, 83.0f);
-const vec2 WIND_DIRECTION_TIME_SCROLL = vec2(0.2f, -0.3f);
-const vec2 WIND_STRENGTH_TIME_SCROLL  = vec2(-0.3f, 0.5f);
-const float WIND_TIME_SCALE           = 200.0f;
+const int WIND_DIRECTION_SEED              = 1729;
+const int WIND_STRENGTH_SEED               = 2843;
+const float WIND_DIRECTION_FREQUENCY       = 0.0025f;
+const float WIND_STRENGTH_FREQUENCY        = 0.00125f;
+const float WIND_MIN_STRENGTH              = 0.5f;
+const float WIND_MAX_STRENGTH              = 5.0f;
+const float WIND_SAMPLE_SCALE              = 256.0f;
+const vec2 WIND_SECOND_SAMPLE_OFFSET       = vec2(57.23f, -113.87f);
+const vec2 WIND_STRENGTH_OFFSET            = vec2(-211.0f, 83.0f);
+const vec2 WIND_DIRECTION_TIME_SCROLL      = vec2(0.2f, -0.3f);
+const vec2 WIND_STRENGTH_TIME_SCROLL       = vec2(-0.3f, 0.5f);
+const float WIND_TIME_SCALE                = 200.0f;
 const float WIND_DIRECTION_DETAIL_STRENGTH = 0.35f;
 
 fnl_state wind_noise_state(int seed, float frequency) {
@@ -38,13 +38,11 @@ vec3 get_wind(vec3 world_pos, float time) {
     fnl_state direction_state = wind_noise_state(WIND_DIRECTION_SEED, WIND_DIRECTION_FREQUENCY);
     fnl_state strength_state  = wind_noise_state(WIND_STRENGTH_SEED, WIND_STRENGTH_FREQUENCY);
 
-    float primary_direction_noise =
-        fnlGetNoise2D(direction_state, sample_pos.x + direction_time.x,
-                      sample_pos.y + direction_time.y);
-    float detail_direction_noise =
-        fnlGetNoise2D(direction_state,
-                      sample_pos.x + WIND_SECOND_SAMPLE_OFFSET.x + direction_time.x,
-                      sample_pos.y + WIND_SECOND_SAMPLE_OFFSET.y + direction_time.y);
+    float primary_direction_noise = fnlGetNoise2D(direction_state, sample_pos.x + direction_time.x,
+                                                  sample_pos.y + direction_time.y);
+    float detail_direction_noise  = fnlGetNoise2D(
+        direction_state, sample_pos.x + WIND_SECOND_SAMPLE_OFFSET.x + direction_time.x,
+        sample_pos.y + WIND_SECOND_SAMPLE_OFFSET.y + direction_time.y);
 
     float base_angle   = (primary_direction_noise * 0.5f + 0.5f) * TWO_PI;
     float detail_angle = detail_direction_noise * WIND_DIRECTION_DETAIL_STRENGTH;

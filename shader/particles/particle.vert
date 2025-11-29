@@ -44,15 +44,15 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
                        in_packed_data);
 
-    float scale = max(in_instance_size, 0.001);
+    float scale        = max(in_instance_size, 0.001);
     vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
 
     vec3 vertex_pos = in_instance_pos + vertex_offset;
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 
-    vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
-    vec3 lighting = max(vec3(0.0), sun_light + shading_info.ambient_light);
+    vec3 sun_light    = sun_info.sun_color * sun_info.sun_luminance;
+    vec3 lighting     = max(vec3(0.0), sun_light + shading_info.ambient_light);
     vec3 linear_color = srgb_to_linear(in_instance_color.rgb);
-    vert_color = vec4(linear_color * lighting, in_instance_color.a);
+    vert_color        = vec4(linear_color * lighting, in_instance_color.a);
 }
