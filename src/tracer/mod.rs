@@ -179,11 +179,8 @@ impl Tracer {
             Extent2D::new(1024, 1024),
             1000, // max_terrain_queries
         );
-        let particle_resources = ParticleRendererResources::new(
-            vulkan_ctx.device().clone(),
-            allocator.clone(),
-            PARTICLE_CAPACITY as u32,
-        );
+        let particle_resources =
+            ParticleRendererResources::new(vulkan_ctx.device().clone(), allocator.clone());
 
         let compute_pipelines = PipelineBuilder::create_compute_pipelines(
             &vulkan_ctx,
@@ -230,7 +227,7 @@ impl Tracer {
             vec![framebuffer_depth_only],
         );
 
-        let particle_capacity = particle_resources.instance_capacity as usize;
+        let particle_capacity = PARTICLE_CAPACITY;
 
         Ok(Self {
             vulkan_ctx,
@@ -1560,7 +1557,7 @@ impl Tracer {
     }
 
     pub fn upload_particles(&mut self, snapshots: &[ParticleSnapshot]) -> Result<()> {
-        let capacity = self.particle_resources.instance_capacity as usize;
+        let capacity = PARTICLE_CAPACITY;
         let count = snapshots.len().min(capacity);
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(count);

@@ -220,7 +220,10 @@ impl ParticleSystem {
             self.positions[slot] += *vel * dt;
             self.ages[slot] += dt;
 
-            if self.ages[slot] >= self.lifetimes[slot] {
+            // expire particles when lifetime ends or once they fall below the ground plane
+            let should_despawn =
+                self.ages[slot] >= self.lifetimes[slot] || self.positions[slot].y < 0.0;
+            if should_despawn {
                 self.kill_dead_particle(alive_cursor, slot);
                 continue;
             }

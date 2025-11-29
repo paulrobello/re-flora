@@ -27,7 +27,7 @@ use egui::{Color32, RichText};
 use glam::{UVec3, Vec2, Vec3};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
-use std::collections::{HashMap, HashSet};
+use std::collections::{hash_map::Entry, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::event::DeviceEvent;
@@ -194,6 +194,49 @@ struct TreeRecord {
     bound: UAabb3,
 }
 
+struct TreeLeafEmitter {
+    tree_id: u32,
+    emitter: FallenLeafEmitter,
+}
+
+impl TreeLeafEmitter {
+    fn new(tree_id: u32, emitter: FallenLeafEmitter) -> Self {
+        Self { tree_id, emitter }
+    }
+
+    fn tree_id(&self) -> u32 {
+        self.tree_id
+    }
+}
+
+impl ParticleEmitter for TreeLeafEmitter {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32) {
+        self.emitter.update(system, dt);
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+struct LeafEmitterSettings {
+    spawn_rate: f32,
+    base_velocity: Vec3,
+}
+
+impl Default for LeafEmitterSettings {
+    fn default() -> Self {
+        Self {
+            spawn_rate: 240.0,
+            base_velocity: Vec3::new(0.0, -0.5, 0.0),
+        }
+    }
+}
+
+impl LeafEmitterSettings {
+    fn apply_to(&self, emitter: &mut FallenLeafEmitter) {
+        emitter.spawn_rate = self.spawn_rate;
+        emitter.base_velocity = self.base_velocity;
+    }
+}
+
 pub struct App {
     egui_renderer: EguiRenderer,
     cmdbuf: CommandBuffer,
@@ -232,7 +275,9 @@ pub struct App {
     single_tree_id: u32, // ID for GUI single tree mode
 
     particle_system: ParticleSystem,
-    leaf_emitters: Vec<FallenLeafEmitter>,
+    leaf_emitters: Vec<TreeLeafEmitter>,
+    tree_leaf_emitter_indices: HashMap<u32, usize>,
+    leaf_emitter_settings: LeafEmitterSettings,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
@@ -363,13 +408,9 @@ impl App {
         let debug_tree_pos = Vec3::new(2.0, 0.2, 2.0);
 
         let particle_system = ParticleSystem::new(PARTICLE_CAPACITY);
-        let mut leaf_emitters = Vec::new();
-        leaf_emitters.push({
-            let mut emitter =
-                FallenLeafEmitter::new(Vec3::new(2.5, 1.5, 2.5), Vec3::new(2.0, 0.5, 2.0), 42);
-            emitter.spawn_rate = 240.0;
-            emitter
-        });
+        let leaf_emitters = Vec::new();
+        let tree_leaf_emitter_indices = HashMap::new();
+        let leaf_emitter_settings = LeafEmitterSettings::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             global_acceleration: Vec3::new(0.0, -0.3, 0.0),
@@ -416,6 +457,8 @@ impl App {
 
             particle_system,
             leaf_emitters,
+            tree_leaf_emitter_indices,
+            leaf_emitter_settings,
             particle_snapshots,
             particle_forces,
 
@@ -512,6 +555,7 @@ impl App {
         self.tracer
             .remove_tree_leaves(&mut self.surface_builder.resources, tree_id)?;
         self.tree_audio_manager.remove_tree(tree_id);
+        self.remove_leaf_emitter(tree_id);
         match self.tree_records.remove(&tree_id) {
             Some(record) => {
                 log::debug!(
@@ -892,7 +936,60 @@ impl App {
             },
         );
 
+        self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound);
+
         Ok(())
+    }
+
+    fn upsert_tree_leaf_emitter(&mut self, tree_id: u32, tree_pos: Vec3, bound: &UAabb3) {
+        let (center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
+        match self.tree_leaf_emitter_indices.entry(tree_id) {
+            Entry::Occupied(entry) => {
+                if let Some(tree_emitter) = self.leaf_emitters.get_mut(*entry.get()) {
+                    tree_emitter.emitter.center = center;
+                    tree_emitter.emitter.extent = extent;
+                }
+            }
+            Entry::Vacant(entry) => {
+                let mut emitter = FallenLeafEmitter::new(center, extent, tree_id as u64 + 1);
+                self.leaf_emitter_settings.apply_to(&mut emitter);
+                let idx = self.leaf_emitters.len();
+                self.leaf_emitters
+                    .push(TreeLeafEmitter::new(tree_id, emitter));
+                entry.insert(idx);
+            }
+        }
+    }
+
+    fn compute_leaf_emitter_region(tree_pos: Vec3, bound: &UAabb3) -> (Vec3, Vec3) {
+        if bound.min() == bound.max() {
+            return (
+                tree_pos + Vec3::new(0.5, 1.3, 0.5),
+                Vec3::new(2.0, 0.5, 2.0),
+            );
+        }
+
+        let min = bound.min().as_vec3() / 256.0;
+        let max = bound.max().as_vec3() / 256.0;
+        let size = max - min;
+        let center = min + size * 0.5;
+        let extent = Vec3::new(
+            (size.x * 0.5).max(0.75),
+            (size.y * 0.25).max(0.5),
+            (size.z * 0.5).max(0.75),
+        );
+
+        (center, extent)
+    }
+
+    fn remove_leaf_emitter(&mut self, tree_id: u32) {
+        if let Some(index) = self.tree_leaf_emitter_indices.remove(&tree_id) {
+            self.leaf_emitters.swap_remove(index);
+            if let Some(swapped) = self.leaf_emitters.get(index) {
+                self.tree_leaf_emitter_indices
+                    .insert(swapped.tree_id(), index);
+            }
+        }
     }
 
     fn update_particle_simulation(&mut self, dt: f32) {
@@ -1652,30 +1749,47 @@ impl App {
                                             self.particle_system.alive_count()
                                         ));
 
-                                        if let Some(leaf_emitter) = self.leaf_emitters.first_mut() {
-                                            ui.separator();
-                                            ui.label("Fallen Leaves");
-                                            ui.add(
+                                        ui.separator();
+                                        ui.label("Fallen Leaves");
+
+                                        let mut spawn_rate = self.leaf_emitter_settings.spawn_rate;
+                                        let spawn_rate_changed = ui
+                                            .add(
                                                 egui::Slider::new(
-                                                    &mut leaf_emitter.spawn_rate,
+                                                    &mut spawn_rate,
                                                     0.0..=400.0,
                                                 )
                                                 .text("Spawn Rate (per s)"),
-                                            );
-                                            let mut fall_speed = leaf_emitter.base_velocity.y;
-                                            if ui.add(
+                                            )
+                                            .changed();
+                                        if spawn_rate_changed {
+                                            self.leaf_emitter_settings.spawn_rate = spawn_rate;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.spawn_rate = spawn_rate;
+                                            }
+                                        }
+
+                                        let mut fall_speed =
+                                            self.leaf_emitter_settings.base_velocity.y;
+                                        let fall_speed_changed = ui
+                                            .add(
                                                 egui::Slider::new(
                                                     &mut fall_speed,
                                                     -4.0..=-0.1,
                                                 )
                                                 .text("Base Fall Speed"),
                                             )
-                                            .changed()
-                                            {
-                                                leaf_emitter.base_velocity.y = fall_speed;
+                                            .changed();
+                                        if fall_speed_changed {
+                                            self.leaf_emitter_settings.base_velocity.y = fall_speed;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.base_velocity.y = fall_speed;
                                             }
                                         }
 
+                                        if self.leaf_emitters.is_empty() {
+                                            ui.label("No active emitters");
+                                        }
                                     });
 
                                     ui.collapsing("Voxel Colors", |ui| {

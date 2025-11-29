@@ -1,5 +1,6 @@
 use crate::{
     flora::species,
+    particles::PARTICLE_CAPACITY,
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, DenoiserResources,
@@ -146,20 +147,21 @@ pub struct ParticleRendererResources {
     pub indices: Resource<Buffer>,
     pub indices_len: u32,
     pub instance_buffer: Resource<Buffer>,
-    pub instance_capacity: u32,
     pub instance_count: u32,
 }
 
 impl ParticleRendererResources {
-    pub fn new(device: Device, allocator: Allocator, max_instances: u32) -> Self {
-        let (vertices, indices, indices_len) = Self::create_cube_mesh(device.clone(), allocator.clone());
+    pub fn new(device: Device, allocator: Allocator) -> Self {
+        let instance_capacity = PARTICLE_CAPACITY as u32;
+        let (vertices, indices, indices_len) =
+            Self::create_cube_mesh(device.clone(), allocator.clone());
 
         let instance_buffer = Buffer::new_sized(
             device.clone(),
             allocator.clone(),
             BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
             gpu_allocator::MemoryLocation::CpuToGpu,
-            (std::mem::size_of::<ParticleInstanceGpu>() as u64) * max_instances as u64,
+            (std::mem::size_of::<ParticleInstanceGpu>() as u64) * instance_capacity as u64,
         );
 
         Self {
@@ -167,7 +169,6 @@ impl ParticleRendererResources {
             indices: Resource::new(indices),
             indices_len,
             instance_buffer: Resource::new(instance_buffer),
-            instance_capacity: max_instances,
             instance_count: 0,
         }
     }
@@ -220,9 +221,6 @@ pub struct TracerResources {
     pub shadow_camera_info: Resource<Buffer>,
     pub env_info: Resource<Buffer>,
     pub starlight_info: Resource<Buffer>,
-    // pub grass_info: Resource<Buffer>,
-    // pub lavender_info: Resource<Buffer>,
-    // pub leaves_info: Resource<Buffer>,
     pub voxel_colors: Resource<Buffer>,
     pub taa_info: Resource<Buffer>,
     pub god_ray_info: Resource<Buffer>,
@@ -540,9 +538,6 @@ impl TracerResources {
             shadow_camera_info: Resource::new(shadow_camera_info),
             env_info: Resource::new(env_info),
             starlight_info: Resource::new(starlight_info),
-            // grass_info: Resource::new(grass_info),
-            // lavender_info: Resource::new(lavender_info),
-            // leaves_info: Resource::new(leaves_info),
             voxel_colors: Resource::new(voxel_colors),
             taa_info: Resource::new(taa_info),
             god_ray_info: Resource::new(god_ray_info),
