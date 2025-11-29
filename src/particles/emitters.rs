@@ -44,7 +44,14 @@ pub struct FallenLeafEmitter {
 }
 
 impl FallenLeafEmitter {
-    pub fn new(center: Vec3, extent: Vec3, leaf_positions: Vec<Vec3>, seed: u64) -> Self {
+    pub fn new(
+        center: Vec3,
+        extent: Vec3,
+        leaf_positions: Vec<Vec3>,
+        seed: u64,
+        color_low: Vec4,
+        color_high: Vec4,
+    ) -> Self {
         Self {
             center,
             extent,
@@ -53,8 +60,8 @@ impl FallenLeafEmitter {
             vertical_speed: -1.5..=-0.3,
             size: 1.0 / 256.0,
             lifetime: 12.0..=24.0,
-            color_low: Vec4::new(0.7, 0.3, 0.05, 1.0),
-            color_high: Vec4::new(0.95, 0.65, 0.25, 1.0),
+            color_low,
+            color_high,
             leaf_positions,
             rng: SmallRng::seed_from_u64(seed),
             spawn_accumulator: 0.0,

@@ -25,7 +25,7 @@ use crate::{
 use anyhow::Result;
 use ash::vk;
 use egui::{Color32, RichText};
-use glam::{UVec3, Vec2, Vec3};
+use glam::{UVec3, Vec2, Vec3, Vec4};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
@@ -962,6 +962,18 @@ impl App {
 
         let mut emitter_indices = Vec::with_capacity(clusters.len());
 
+        // Convert leaf colors from Color32 to Vec4
+        let color_to_vec4 = |color: Color32| -> Vec4 {
+            Vec4::new(
+                color.r() as f32 / 255.0,
+                color.g() as f32 / 255.0,
+                color.b() as f32 / 255.0,
+                1.0,
+            )
+        };
+        let leaf_color_low = color_to_vec4(self.gui_adjustables.leaves_bottom_color.value);
+        let leaf_color_high = color_to_vec4(self.gui_adjustables.leaves_tip_color.value);
+
         for cluster in clusters {
             // Create extent based on the tree bound
             let (_center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
@@ -969,12 +981,14 @@ impl App {
             // Use cluster position as the emitter center
             let cluster_center = cluster.pos;
 
-            // Create emitter with cluster-specific seed
+            // Create emitter with cluster-specific seed and tree leaf colors
             let mut emitter = FallenLeafEmitter::new(
                 cluster_center,
                 extent,
                 Vec::new(), // We'll spawn from cluster center, not specific leaf positions
                 tree_id as u64 + cluster.pos.x as u64 + cluster.pos.y as u64 + cluster.pos.z as u64,
+                leaf_color_low,
+                leaf_color_high,
             );
 
             // Apply base settings
