@@ -30,6 +30,8 @@ pub struct ParticleSpawn {
     pub color: Vec4,
     pub size: f32,
     pub lifetime: f32,
+    pub wind_factor: f32,
+    pub gravity_factor: f32,
 }
 
 impl Default for ParticleSpawn {
@@ -40,6 +42,8 @@ impl Default for ParticleSpawn {
             color: Vec4::ONE,
             size: 1.0,
             lifetime: 1.0,
+            wind_factor: 1.0,
+            gravity_factor: 1.0,
         }
     }
 }
@@ -76,6 +80,8 @@ pub struct ParticleSystem {
     velocities: Vec<Vec3>,
     colors: Vec<Vec4>,
     sizes: Vec<f32>,
+    wind_factors: Vec<f32>,
+    gravity_factors: Vec<f32>,
     lifetimes: Vec<f32>,
     ages: Vec<f32>,
     generations: Vec<u32>,
@@ -100,6 +106,8 @@ impl ParticleSystem {
             velocities: vec![zero_vec3; max_particles],
             colors: vec![zero_vec4; max_particles],
             sizes: vec![0.0; max_particles],
+            wind_factors: vec![1.0; max_particles],
+            gravity_factors: vec![1.0; max_particles],
             lifetimes: vec![0.0; max_particles],
             ages: vec![0.0; max_particles],
             generations: vec![0; max_particles],
@@ -156,6 +164,8 @@ impl ParticleSystem {
         self.velocities[slot] = spawn.velocity;
         self.colors[slot] = spawn.color;
         self.sizes[slot] = spawn.size.max(0.001);
+        self.wind_factors[slot] = spawn.wind_factor.max(0.0);
+        self.gravity_factors[slot] = spawn.gravity_factor.max(0.0);
         self.lifetimes[slot] = spawn.lifetime.max(0.001);
         self.ages[slot] = 0.0;
         self.is_alive[slot] = true;
@@ -215,7 +225,8 @@ impl ParticleSystem {
             let slot = self.alive_indices[alive_cursor];
 
             let vel = &mut self.velocities[slot];
-            *vel += forces.global_acceleration * dt;
+            let gravity_scale = self.gravity_factors[slot];
+            *vel += forces.global_acceleration * gravity_scale * dt;
             *vel *= damping;
 
             self.positions[slot] += *vel * dt;
@@ -274,7 +285,8 @@ impl ParticleSystem {
         for &slot in &self.alive_indices {
             let target_vel = wind.sample(self.positions[slot], time);
             let delta = target_vel - self.velocities[slot];
-            self.velocities[slot] += delta * gain;
+            let wind_scale = self.wind_factors[slot];
+            self.velocities[slot] += delta * gain * wind_scale;
         }
     }
 

@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::{f32::consts::TAU, ops::RangeInclusive};
 
 use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -74,6 +74,13 @@ impl FallenLeafEmitter {
         };
         let mut velocity = self.base_velocity;
         velocity.y = random_in_range(&mut self.rng, &self.vertical_speed);
+        let roll_angle = self.rng.random_range(0.0..TAU);
+        let roll_strength = self.rng.random_range(0.05..=0.2);
+        velocity.x += roll_angle.cos() * roll_strength;
+        velocity.z += roll_angle.sin() * roll_strength;
+
+        let wind_factor = self.rng.random_range(0.6..=1.4);
+        let gravity_factor = self.rng.random_range(0.8..=1.2);
 
         let spawn = ParticleSpawn {
             position: spawn_position,
@@ -81,6 +88,8 @@ impl FallenLeafEmitter {
             color: random_color(&mut self.rng, self.color_low, self.color_high),
             size: self.size,
             lifetime: random_in_range(&mut self.rng, &self.lifetime),
+            wind_factor,
+            gravity_factor,
         };
         let _ = system.spawn(spawn);
     }
