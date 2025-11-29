@@ -861,6 +861,7 @@ impl App {
             self.single_tree_id
         };
 
+        let leaf_radius = Self::leaf_radius_from_desc(&tree_desc);
         let tree = Tree::new(tree_desc);
         let mut round_cones = Vec::with_capacity(tree.trunks().len());
         for tree_trunk in tree.trunks() {
@@ -885,6 +886,10 @@ impl App {
         self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
 
         let relative_leaf_positions = tree.relative_leaf_positions();
+        let world_leaf_positions = relative_leaf_positions
+            .iter()
+            .map(|leaf_pos| *leaf_pos / 256.0 + tree_pos)
+            .collect::<Vec<_>>();
         let offseted_leaf_positions = relative_leaf_positions
             .iter()
             .map(|leaf_pos| *leaf_pos + tree_pos * 256.0)
@@ -913,16 +918,11 @@ impl App {
 
         self.prev_bound = this_bound.union_with(&self.prev_bound);
 
-        let audio_positions = relative_leaf_positions
-            .iter()
-            .map(|leaf_pos| *leaf_pos / 256.0 + tree_pos)
-            .collect::<Vec<_>>();
-
         let cluster_distance: f32 = 0.08;
         self.tree_audio_manager.add_tree_sources(
             tree_id,
             tree_pos,
-            &audio_positions,
+            &world_leaf_positions,
             false,
             cluster_distance,
             true,
@@ -936,27 +936,52 @@ impl App {
             },
         );
 
-        self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound);
+        self.upsert_tree_leaf_emitter(
+            tree_id,
+            tree_pos,
+            &this_bound,
+            world_leaf_positions,
+            leaf_radius,
+        );
 
         Ok(())
     }
 
-    fn upsert_tree_leaf_emitter(&mut self, tree_id: u32, tree_pos: Vec3, bound: &UAabb3) {
+    fn upsert_tree_leaf_emitter(
+        &mut self,
+        tree_id: u32,
+        tree_pos: Vec3,
+        bound: &UAabb3,
+        leaf_positions: Vec<Vec3>,
+        leaf_radius: f32,
+    ) {
         let (center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
+        let mut leaf_positions = Some(leaf_positions);
         match self.tree_leaf_emitter_indices.entry(tree_id) {
             Entry::Occupied(entry) => {
                 if let Some(tree_emitter) = self.leaf_emitters.get_mut(*entry.get()) {
                     tree_emitter.emitter.center = center;
                     tree_emitter.emitter.extent = extent;
+                    if let Some(positions) = leaf_positions.take() {
+                        tree_emitter.emitter.set_leaf_data(positions, leaf_radius);
+                    }
                 }
             }
             Entry::Vacant(entry) => {
-                let mut emitter = FallenLeafEmitter::new(center, extent, tree_id as u64 + 1);
-                self.leaf_emitter_settings.apply_to(&mut emitter);
-                let idx = self.leaf_emitters.len();
-                self.leaf_emitters
-                    .push(TreeLeafEmitter::new(tree_id, emitter));
-                entry.insert(idx);
+                if let Some(positions) = leaf_positions.take() {
+                    let mut emitter = FallenLeafEmitter::new(
+                        center,
+                        extent,
+                        positions,
+                        leaf_radius,
+                        tree_id as u64 + 1,
+                    );
+                    self.leaf_emitter_settings.apply_to(&mut emitter);
+                    let idx = self.leaf_emitters.len();
+                    self.leaf_emitters
+                        .push(TreeLeafEmitter::new(tree_id, emitter));
+                    entry.insert(idx);
+                }
             }
         }
     }
@@ -980,6 +1005,12 @@ impl App {
         );
 
         (center, extent)
+    }
+
+    fn leaf_radius_from_desc(desc: &TreeDesc) -> f32 {
+        let level = desc.leaves_size_level.min(31);
+        let radius_voxels = 1u32 << level;
+        (radius_voxels as f32 / 256.0).max(1.0 / 256.0)
     }
 
     fn remove_leaf_emitter(&mut self, tree_id: u32) {
