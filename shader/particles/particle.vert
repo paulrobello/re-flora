@@ -36,6 +36,31 @@ layout(set = 0, binding = 3) uniform U_CameraInfo {
 }
 camera_info;
 
+layout(set = 0, binding = 4) uniform U_ShadowCameraInfo {
+    vec4 pos;
+    mat4 view_mat;
+    mat4 view_mat_inv;
+    mat4 proj_mat;
+    mat4 proj_mat_inv;
+    mat4 view_proj_mat;
+    mat4 view_proj_mat_inv;
+}
+shadow_camera_info;
+
+layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
+
+#include "../include/vsm.glsl"
+
+float get_shadow_weight(ivec3 vox_local_pos) {
+    vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
+    float shadow_negative_side_dropoff = max(0.0, dot(-vox_dir_normalized, sun_info.sun_dir));
+    shadow_negative_side_dropoff       = pow(shadow_negative_side_dropoff, 2.0);
+    float shadow_weight                = 1.0 - shadow_negative_side_dropoff;
+
+    shadow_weight = max(0.7, shadow_weight);
+    return shadow_weight;
+}
+
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -51,8 +76,12 @@ void main() {
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 
+    float shadow_weight =
+        get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(vertex_pos, 1.0));
+    shadow_weight *= get_shadow_weight(vox_local_pos);
+
     vec3 sun_light    = sun_info.sun_color * sun_info.sun_luminance;
-    vec3 lighting     = max(vec3(0.0), sun_light + shading_info.ambient_light);
     vec3 linear_color = srgb_to_linear(in_instance_color.rgb);
+    vec3 lighting     = sun_light * shadow_weight + shading_info.ambient_light;
     vert_color        = vec4(linear_color * lighting, in_instance_color.a);
 }
