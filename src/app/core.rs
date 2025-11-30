@@ -1812,24 +1812,6 @@ impl App {
                                             }
                                         }
 
-                                        let mut fall_speed =
-                                            self.leaf_emitter_desc.base_velocity.y;
-                                        let fall_speed_changed = ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut fall_speed,
-                                                    -4.0..=-0.1,
-                                                )
-                                                .text("Base Fall Speed"),
-                                            )
-                                            .changed();
-                                        if fall_speed_changed {
-                                            self.leaf_emitter_desc.base_velocity.y = fall_speed;
-                                            for tree_emitter in &mut self.leaf_emitters {
-                                                tree_emitter.emitter.base_velocity.y = fall_speed;
-                                            }
-                                        }
-
                                         let mut wind_spawn_min =
                                             self.leaf_emitter_desc.wind_spawn_min_strength;
                                         let min_changed = ui

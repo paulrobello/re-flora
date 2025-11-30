@@ -32,7 +32,6 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
 #[derive(Clone, Copy, Debug)]
 pub struct LeafEmitterDesc {
     pub spawn_rate: f32,
-    pub base_velocity: Vec3,
     pub wind_spawn_min_strength: f32,
     pub wind_spawn_max_strength: f32,
     pub wind_spawn_power: f32,
@@ -42,7 +41,6 @@ impl Default for LeafEmitterDesc {
     fn default() -> Self {
         Self {
             spawn_rate: 5.0,
-            base_velocity: Vec3::new(0.0, 0.0, 0.0),
             wind_spawn_min_strength: 0.4,
             wind_spawn_max_strength: 1.0,
             wind_spawn_power: 1.0,
@@ -53,7 +51,6 @@ impl Default for LeafEmitterDesc {
 pub struct FallenLeafEmitter {
     pub center: Vec3,
     pub spawn_rate: f32,
-    pub base_velocity: Vec3,
     pub vertical_speed: RangeInclusive<f32>,
     pub size: f32,
     pub lifetime: RangeInclusive<f32>,
@@ -80,7 +77,6 @@ impl FallenLeafEmitter {
         Self {
             center,
             spawn_rate: desc.spawn_rate,
-            base_velocity: desc.base_velocity,
             vertical_speed: -1.5..=-0.3,
             size: 1.0 / 256.0,
             lifetime: 12.0..=24.0,
@@ -103,7 +99,7 @@ impl FallenLeafEmitter {
             let leaf_idx = self.rng.random_range(0..self.leaf_positions.len());
             self.leaf_positions[leaf_idx]
         };
-        let mut velocity = self.base_velocity;
+        let mut velocity = Vec3::ZERO;
         velocity.y = random_in_range(&mut self.rng, &self.vertical_speed);
         let roll_angle = self.rng.random_range(0.0..TAU);
         let roll_strength = self.rng.random_range(0.05..=0.2);
