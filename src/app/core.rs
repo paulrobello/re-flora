@@ -7,8 +7,8 @@ use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBui
 use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
 use crate::particles::{
-    FallenLeafEmitter, ParticleEmitter, ParticleForces, ParticleSnapshot, ParticleSystem,
-    PARTICLE_CAPACITY,
+    FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter, ParticleForces, ParticleSnapshot,
+    ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
@@ -217,28 +217,6 @@ impl ParticleEmitter for TreeLeafEmitter {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-struct LeafEmitterSettings {
-    spawn_rate: f32,
-    base_velocity: Vec3,
-}
-
-impl Default for LeafEmitterSettings {
-    fn default() -> Self {
-        Self {
-            spawn_rate: 0.2, // Base rate per cluster, scaled by cluster size
-            base_velocity: Vec3::new(0.0, -0.5, 0.0),
-        }
-    }
-}
-
-impl LeafEmitterSettings {
-    fn apply_to(&self, emitter: &mut FallenLeafEmitter) {
-        emitter.spawn_rate = self.spawn_rate;
-        emitter.base_velocity = self.base_velocity;
-    }
-}
-
 pub struct App {
     egui_renderer: EguiRenderer,
     cmdbuf: CommandBuffer,
@@ -279,7 +257,7 @@ pub struct App {
     particle_system: ParticleSystem,
     leaf_emitters: Vec<TreeLeafEmitter>,
     tree_leaf_emitter_indices: HashMap<u32, Vec<usize>>,
-    leaf_emitter_settings: LeafEmitterSettings,
+    leaf_emitter_desc: LeafEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
@@ -412,7 +390,7 @@ impl App {
         let particle_system = ParticleSystem::new(PARTICLE_CAPACITY);
         let leaf_emitters = Vec::new();
         let tree_leaf_emitter_indices = HashMap::new();
-        let leaf_emitter_settings = LeafEmitterSettings::default();
+        let leaf_emitter_desc = LeafEmitterDesc::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             global_acceleration: Vec3::new(0.0, -1.2, 0.0),
@@ -460,7 +438,7 @@ impl App {
             particle_system,
             leaf_emitters,
             tree_leaf_emitter_indices,
-            leaf_emitter_settings,
+            leaf_emitter_desc,
             particle_snapshots,
             particle_forces,
 
@@ -985,15 +963,13 @@ impl App {
                 tree_id as u64 + cluster.pos.x as u64 + cluster.pos.y as u64 + cluster.pos.z as u64,
                 leaf_color_low,
                 leaf_color_high,
+                &self.leaf_emitter_desc,
             );
-
-            // Apply base settings
-            self.leaf_emitter_settings.apply_to(&mut emitter);
 
             // Scale spawn rate by cluster size (more leaves = more particles)
             // Base rate is divided by expected average cluster size, then scaled by actual size
             let cluster_size_multiplier = (cluster.items_count as f32).sqrt();
-            emitter.spawn_rate = self.leaf_emitter_settings.spawn_rate * cluster_size_multiplier;
+            emitter.spawn_rate = self.leaf_emitter_desc.spawn_rate * cluster_size_multiplier;
 
             let idx = self.leaf_emitters.len();
             self.leaf_emitters
@@ -1819,7 +1795,7 @@ impl App {
                                         ui.separator();
                                         ui.label("Fallen Leaves");
 
-                                        let mut spawn_rate = self.leaf_emitter_settings.spawn_rate;
+                                        let mut spawn_rate = self.leaf_emitter_desc.spawn_rate;
                                         let spawn_rate_changed = ui
                                             .add(
                                                 egui::Slider::new(
@@ -1830,14 +1806,14 @@ impl App {
                                             )
                                             .changed();
                                         if spawn_rate_changed {
-                                            self.leaf_emitter_settings.spawn_rate = spawn_rate;
+                                            self.leaf_emitter_desc.spawn_rate = spawn_rate;
                                             for tree_emitter in &mut self.leaf_emitters {
                                                 tree_emitter.emitter.spawn_rate = spawn_rate;
                                             }
                                         }
 
                                         let mut fall_speed =
-                                            self.leaf_emitter_settings.base_velocity.y;
+                                            self.leaf_emitter_desc.base_velocity.y;
                                         let fall_speed_changed = ui
                                             .add(
                                                 egui::Slider::new(
@@ -1848,9 +1824,69 @@ impl App {
                                             )
                                             .changed();
                                         if fall_speed_changed {
-                                            self.leaf_emitter_settings.base_velocity.y = fall_speed;
+                                            self.leaf_emitter_desc.base_velocity.y = fall_speed;
                                             for tree_emitter in &mut self.leaf_emitters {
                                                 tree_emitter.emitter.base_velocity.y = fall_speed;
+                                            }
+                                        }
+
+                                        let mut wind_spawn_min =
+                                            self.leaf_emitter_desc.wind_spawn_min_strength;
+                                        let min_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut wind_spawn_min,
+                                                    0.0..=1.0,
+                                                )
+                                                .text("Wind Start Strength"),
+                                            )
+                                            .changed();
+                                        if min_changed {
+                                            self.leaf_emitter_desc.wind_spawn_min_strength =
+                                                wind_spawn_min;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.wind_spawn_min_strength =
+                                                    wind_spawn_min;
+                                            }
+                                        }
+
+                                        let mut wind_spawn_max =
+                                            self.leaf_emitter_desc.wind_spawn_max_strength;
+                                        let max_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut wind_spawn_max,
+                                                    0.0..=1.0,
+                                                )
+                                                .text("Wind Full Strength"),
+                                            )
+                                            .changed();
+                                        if max_changed {
+                                            self.leaf_emitter_desc.wind_spawn_max_strength =
+                                                wind_spawn_max;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.wind_spawn_max_strength =
+                                                    wind_spawn_max;
+                                            }
+                                        }
+
+                                        let mut wind_spawn_power =
+                                            self.leaf_emitter_desc.wind_spawn_power;
+                                        let power_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut wind_spawn_power,
+                                                    0.1..=4.0,
+                                                )
+                                                .text("Wind Spawn Curve"),
+                                            )
+                                            .changed();
+                                        if power_changed {
+                                            self.leaf_emitter_desc.wind_spawn_power =
+                                                wind_spawn_power;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.wind_spawn_power =
+                                                    wind_spawn_power;
                                             }
                                         }
 

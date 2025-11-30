@@ -4,6 +4,7 @@ use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{ParticleSpawn, ParticleSystem};
+use crate::wind::Wind;
 
 pub trait ParticleEmitter {
     fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32);
@@ -28,6 +29,27 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
     )
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct LeafEmitterDesc {
+    pub spawn_rate: f32,
+    pub base_velocity: Vec3,
+    pub wind_spawn_min_strength: f32,
+    pub wind_spawn_max_strength: f32,
+    pub wind_spawn_power: f32,
+}
+
+impl Default for LeafEmitterDesc {
+    fn default() -> Self {
+        Self {
+            spawn_rate: 5.0,
+            base_velocity: Vec3::new(0.0, 0.0, 0.0),
+            wind_spawn_min_strength: 0.4,
+            wind_spawn_max_strength: 1.0,
+            wind_spawn_power: 1.0,
+        }
+    }
+}
+
 pub struct FallenLeafEmitter {
     pub center: Vec3,
     pub spawn_rate: f32,
@@ -37,9 +59,13 @@ pub struct FallenLeafEmitter {
     pub lifetime: RangeInclusive<f32>,
     pub color_low: Vec4,
     pub color_high: Vec4,
+    pub wind_spawn_min_strength: f32,
+    pub wind_spawn_max_strength: f32,
+    pub wind_spawn_power: f32,
     leaf_positions: Vec<Vec3>,
     rng: SmallRng,
     spawn_accumulator: f32,
+    wind: Wind,
 }
 
 impl FallenLeafEmitter {
@@ -49,19 +75,24 @@ impl FallenLeafEmitter {
         seed: u64,
         color_low: Vec4,
         color_high: Vec4,
+        desc: &LeafEmitterDesc,
     ) -> Self {
         Self {
             center,
-            spawn_rate: 50.0,
-            base_velocity: Vec3::new(0.0, -0.5, 0.0),
+            spawn_rate: desc.spawn_rate,
+            base_velocity: desc.base_velocity,
             vertical_speed: -1.5..=-0.3,
             size: 1.0 / 256.0,
             lifetime: 12.0..=24.0,
             color_low,
             color_high,
+            wind_spawn_min_strength: desc.wind_spawn_min_strength,
+            wind_spawn_max_strength: desc.wind_spawn_max_strength,
+            wind_spawn_power: desc.wind_spawn_power,
             leaf_positions,
             rng: SmallRng::seed_from_u64(seed),
             spawn_accumulator: 0.0,
+            wind: Wind::new(),
         }
     }
 
@@ -106,15 +137,44 @@ impl FallenLeafEmitter {
         };
         let _ = system.spawn(spawn);
     }
+
+    fn wind_spawn_multiplier(&self, time: f32) -> f32 {
+        let normalized_strength = self
+            .wind
+            .sample_normalized(self.center, time)
+            .length()
+            .clamp(0.0, 1.0);
+        let (min_strength, max_strength) =
+            if self.wind_spawn_min_strength <= self.wind_spawn_max_strength {
+                (self.wind_spawn_min_strength, self.wind_spawn_max_strength)
+            } else {
+                (self.wind_spawn_max_strength, self.wind_spawn_min_strength)
+            };
+        let range = max_strength - min_strength;
+        if range <= f32::EPSILON {
+            return if normalized_strength >= max_strength {
+                1.0
+            } else {
+                0.0
+            };
+        }
+        let scaled = ((normalized_strength - min_strength) / range).clamp(0.0, 1.0);
+        let exponent = self.wind_spawn_power.max(0.001);
+        scaled.powf(exponent)
+    }
 }
 
 impl ParticleEmitter for FallenLeafEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, _time: f32) {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
         if self.spawn_rate <= 0.0 {
             return;
         }
-        // Simple spawn rate without wind influence
-        self.spawn_accumulator += self.spawn_rate * dt;
+        let wind_multiplier = self.wind_spawn_multiplier(time);
+        if wind_multiplier <= 0.0 {
+            return;
+        }
+        let effective_spawn_rate = self.spawn_rate * wind_multiplier;
+        self.spawn_accumulator += effective_spawn_rate * dt;
         while self.spawn_accumulator >= 1.0 {
             self.spawn_leaf(system);
             self.spawn_accumulator -= 1.0;
