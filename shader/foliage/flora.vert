@@ -81,6 +81,10 @@ float get_shadow_weight(ivec3 vox_local_pos) {
     return shadow_weight;
 }
 
+vec3 clamp_to_grid(vec3 position) {
+    return round(position / scaling_factor) * scaling_factor;
+}
+
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -93,9 +97,9 @@ void main() {
 
     vec3 wind_vec    = get_wind(instance_pos, pc.time);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
-    vec3 anchor_pos  = (vox_local_pos + wind_offset) * scaling_factor + instance_pos;
-    vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
-    vec3 vert_pos    = anchor_pos + vert_offset_in_vox * scaling_factor;
+    vec3 anchor_pos  = clamp_to_grid((vox_local_pos + wind_offset) * scaling_factor + instance_pos);
+    vec3 voxel_pos   = clamp_to_grid(anchor_pos + vec3(0.5) * scaling_factor);
+    vec3 vert_pos    = clamp_to_grid(anchor_pos + vert_offset_in_vox * scaling_factor);
 
     float shadow_weight =
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(voxel_pos, 1.0));

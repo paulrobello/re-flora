@@ -51,6 +51,8 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/vsm.glsl"
 
+const float scaling_factor = 1.0 / 256.0;
+
 float get_shadow_weight(ivec3 vox_local_pos) {
     vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
     float shadow_negative_side_dropoff = max(0.0, dot(-vox_dir_normalized, sun_info.sun_dir));
@@ -59,6 +61,10 @@ float get_shadow_weight(ivec3 vox_local_pos) {
 
     shadow_weight = max(0.7, shadow_weight);
     return shadow_weight;
+}
+
+vec3 clamp_to_grid(vec3 position) {
+    return round(position / scaling_factor) * scaling_factor;
 }
 
 void main() {
@@ -72,7 +78,7 @@ void main() {
     float scale        = max(in_instance_size, 0.001);
     vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
 
-    vec3 vertex_pos = in_instance_pos + vertex_offset;
+    vec3 vertex_pos = clamp_to_grid(in_instance_pos + vertex_offset);
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 
