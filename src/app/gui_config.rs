@@ -89,8 +89,8 @@ declare_gui_adjustables! {
         leaves_outer_density: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Outer Density",
         leaves_inner_radius: crate::gui_adjustables::FloatParam = 12.0, float(1.0..=64.0), "Inner Radius",
         leaves_outer_radius: crate::gui_adjustables::FloatParam = 17.0, float(1.0..=64.0), "Outer Radius",
-        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(232, 142, 0), color, "Bottom Color",
-        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 219, 71), color, "Tip Color",
+        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(187, 0, 0), color, "Bottom Color",
+        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 205, 0), color, "Tip Color",
     },
 
     [Voxel] {
