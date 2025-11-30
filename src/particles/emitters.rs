@@ -40,8 +40,8 @@ pub struct LeafEmitterDesc {
 impl Default for LeafEmitterDesc {
     fn default() -> Self {
         Self {
-            spawn_rate: 5.0,
-            wind_spawn_min_strength: 0.4,
+            spawn_rate: 2.0,
+            wind_spawn_min_strength: 0.5,
             wind_spawn_max_strength: 1.0,
             wind_spawn_power: 1.0,
         }
