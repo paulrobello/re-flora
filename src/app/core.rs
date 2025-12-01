@@ -21,9 +21,9 @@ use crate::{
     vkn::{Swapchain, VulkanContext, VulkanContextDesc},
     window::{WindowMode, WindowState, WindowStateDesc},
 };
-use anyhow::Result;
+use anyhow::{Context, Result};
 use ash::vk;
-use egui::{Color32, RichText};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, RichText};
 use glam::{UVec3, Vec2, Vec3, Vec4};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
@@ -39,6 +39,8 @@ use winit::{
 };
 
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
+const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/PixelifySans-VariableFont_wght.ttf");
+const CUSTOM_GUI_FONT_NAME: &str = "re_flora_gui_font";
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -446,6 +448,8 @@ impl App {
             tree_audio_manager,
         };
 
+        app.configure_gui_font()?;
+
         app.add_tree(
             app.debug_tree_desc.clone(),
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
@@ -461,6 +465,33 @@ impl App {
         )?;
 
         Ok(app)
+    }
+
+    fn configure_gui_font(&mut self) -> Result<()> {
+        if let Some(font_path) = CUSTOM_GUI_FONT_PATH {
+            let font_bytes = std::fs::read(font_path)
+                .with_context(|| format!("Failed to read GUI font from {font_path}"))?;
+            let ctx = self.egui_renderer.context();
+
+            let mut fonts = FontDefinitions::default();
+            fonts.font_data.insert(
+                CUSTOM_GUI_FONT_NAME.to_owned(),
+                FontData::from_owned(font_bytes).into(),
+            );
+
+            if let Some(family) = fonts.families.get_mut(&FontFamily::Proportional) {
+                family.insert(0, CUSTOM_GUI_FONT_NAME.to_owned());
+            }
+
+            if let Some(family) = fonts.families.get_mut(&FontFamily::Monospace) {
+                family.insert(0, CUSTOM_GUI_FONT_NAME.to_owned());
+            }
+
+            ctx.set_fonts(fonts);
+            log::info!("Loaded custom GUI font from {}", font_path);
+        }
+
+        Ok(())
     }
 
     fn generate_procedural_trees(&mut self) -> Result<()> {
