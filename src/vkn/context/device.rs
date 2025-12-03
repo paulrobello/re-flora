@@ -4,6 +4,12 @@ use ash::vk;
 use comfy_table::Table;
 use std::{collections::HashSet, ffi::CStr, fmt::Debug, sync::Arc};
 
+#[derive(Clone)]
+struct DeviceExtensionRequirement {
+    name: &'static CStr,
+    reason: &'static str,
+}
+
 struct DeviceInner {
     device: ash::Device,
 }
@@ -46,11 +52,13 @@ impl Device {
         queue_family_indices: &QueueFamilyIndices,
     ) -> Self {
         let physical_device_raw = physical_device.as_raw();
-        validate_device_capabilities(instance.as_raw(), physical_device_raw);
+        let extension_requirements = device_extension_requirements();
+        validate_device_capabilities(instance.as_raw(), physical_device_raw, &extension_requirements);
         let device = create_device(
             instance.as_raw(),
             physical_device_raw,
             queue_family_indices,
+            &extension_requirements,
         );
         Self(Arc::new(DeviceInner { device }))
     }
@@ -79,6 +87,7 @@ fn create_device(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
     queue_family_indices: &QueueFamilyIndices,
+    extension_requirements: &[DeviceExtensionRequirement],
 ) -> ash::Device {
     let queue_priorities = [1.0f32];
     let queue_create_infos = {
@@ -96,10 +105,9 @@ fn create_device(
             .collect::<Vec<_>>()
     };
 
-    let required_extension_names = required_device_extensions();
-    let extension_ptrs: Vec<*const i8> = required_extension_names
+    let extension_ptrs: Vec<*const i8> = extension_requirements
         .iter()
-        .map(|ext| ext.as_ptr())
+        .map(|req| req.name.as_ptr())
         .collect();
 
     let physical_device_features = vk::PhysicalDeviceFeatures {
@@ -155,40 +163,62 @@ fn create_device(
     }
 }
 
-fn required_device_extensions() -> Vec<&'static CStr> {
-    let mut required = vec![
-        vk::KHR_SWAPCHAIN_NAME,
-        vk::KHR_DEFERRED_HOST_OPERATIONS_NAME,
-        vk::KHR_SHADER_CLOCK_NAME,
-        vk::EXT_SHADER_ATOMIC_FLOAT_NAME,
+fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
+    let mut requirements = vec![
+        DeviceExtensionRequirement {
+            name: vk::KHR_SWAPCHAIN_NAME,
+            reason: "Required to present rendered images to the window surface",
+        },
+        DeviceExtensionRequirement {
+            name: vk::KHR_DEFERRED_HOST_OPERATIONS_NAME,
+            reason: "Needed for `VK_KHR_acceleration_structure` companion functionality (shader builds)",
+        },
+        DeviceExtensionRequirement {
+            name: vk::KHR_SHADER_CLOCK_NAME,
+            reason: "Used for time queries and GPU profiling in compute shaders",
+        },
+        DeviceExtensionRequirement {
+            name: vk::EXT_SHADER_ATOMIC_FLOAT_NAME,
+            reason: "Required for float atomics inside compute pipelines",
+        },
     ];
+
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
-        required.push(ash::khr::portability_subset::NAME);
+        requirements.push(DeviceExtensionRequirement {
+            name: ash::khr::portability_subset::NAME,
+            reason: "macOS/iOS MoltenVK portability requirements",
+        });
     }
-    required
+
+    requirements
 }
 
-fn collect_missing_extension_names(
+fn collect_missing_extension_rows(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
-    required_extensions: &[&'static CStr],
-) -> Vec<String> {
+    requirements: &[DeviceExtensionRequirement],
+) -> Vec<(String, String)> {
     let properties = unsafe {
         instance
             .enumerate_device_extension_properties(physical_device)
             .expect("Failed to enumerate device extension properties")
     };
 
-    required_extensions
+    requirements
         .iter()
-        .filter(|&&required_ext| {
+        .filter(|req| {
             !properties.iter().any(|ext| {
                 let name = unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) };
-                name == required_ext
+                name == req.name
             })
         })
-        .map(|ext| ext.to_string_lossy().into_owned())
+        .map(|req| {
+            (
+                req.name.to_string_lossy().into_owned(),
+                req.reason.to_string(),
+            )
+        })
         .collect()
 }
 
@@ -287,10 +317,10 @@ fn collect_missing_feature_rows(
 fn validate_device_capabilities(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
+    extension_requirements: &[DeviceExtensionRequirement],
 ) {
-    let required_extensions = required_device_extensions();
     let missing_extensions =
-        collect_missing_extension_names(instance, physical_device, &required_extensions);
+        collect_missing_extension_rows(instance, physical_device, extension_requirements);
     let missing_features = collect_missing_feature_rows(instance, physical_device);
 
     if missing_extensions.is_empty() && missing_features.is_empty() {
@@ -311,11 +341,11 @@ fn validate_device_capabilities(
     let mut table = Table::new();
     table.set_header(vec!["Type", "Name", "Details"]);
 
-    for ext in missing_extensions {
+    for (ext, detail) in missing_extensions {
         table.add_row(vec![
             "Extension".to_string(),
             ext,
-            "Not reported by the selected physical device".to_string(),
+            format!("{detail} (not reported by the selected physical device)"),
         ]);
     }
 
