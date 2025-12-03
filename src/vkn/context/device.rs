@@ -1,9 +1,8 @@
 use super::Queue;
 use super::{instance::Instance, physical_device::PhysicalDevice, queue::QueueFamilyIndices};
 use ash::vk;
-use std::collections::HashSet;
-use std::fmt::Debug;
-use std::sync::Arc;
+use comfy_table::Table;
+use std::{collections::HashSet, ffi::CStr, fmt::Debug, sync::Arc};
 
 struct DeviceInner {
     device: ash::Device,
@@ -46,9 +45,11 @@ impl Device {
         physical_device: &PhysicalDevice,
         queue_family_indices: &QueueFamilyIndices,
     ) -> Self {
+        let physical_device_raw = physical_device.as_raw();
+        validate_device_capabilities(instance.as_raw(), physical_device_raw);
         let device = create_device(
             instance.as_raw(),
-            physical_device.as_raw(),
+            physical_device_raw,
             queue_family_indices,
         );
         Self(Arc::new(DeviceInner { device }))
@@ -95,19 +96,11 @@ fn create_device(
             .collect::<Vec<_>>()
     };
 
-    let device_extensions_ptrs = [
-        vk::KHR_SWAPCHAIN_NAME.as_ptr(),
-        #[cfg(any(target_os = "macos", target_os = "ios"))]
-        ash::khr::portability_subset::NAME.as_ptr(),
-        // vk::KHR_ACCELERATION_STRUCTURE_NAME.as_ptr(),
-        vk::KHR_DEFERRED_HOST_OPERATIONS_NAME.as_ptr(), // must be coupled with ACCLERATION_STRUCTURE
-        vk::KHR_SHADER_CLOCK_NAME.as_ptr(),
-        vk::EXT_SHADER_ATOMIC_FLOAT_NAME.as_ptr(),
-        // vk::KHR_RAY_QUERY_NAME.as_ptr(),
-        // vk::KHR_RAY_TRACING_PIPELINE_NAME.as_ptr(),
-        // vk::KHR_PIPELINE_LIBRARY_NAME.as_ptr(),
-        // vk::KHR_BUFFER_DEVICE_ADDRESS_NAME.as_ptr(),
-    ];
+    let required_extension_names = required_device_extensions();
+    let extension_ptrs: Vec<*const i8> = required_extension_names
+        .iter()
+        .map(|ext| ext.as_ptr())
+        .collect();
 
     let physical_device_features = vk::PhysicalDeviceFeatures {
         shader_int64: vk::TRUE,
@@ -149,7 +142,7 @@ fn create_device(
 
     let device_create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_create_infos)
-        .enabled_extension_names(&device_extensions_ptrs)
+        .enabled_extension_names(&extension_ptrs)
         .enabled_features(&physical_device_features)
         .push_next(&mut buffer_device_address_features)
         .push_next(&mut physical_device_shader_clock_features_khr)
@@ -160,4 +153,184 @@ fn create_device(
             .create_device(physical_device, &device_create_info, None)
             .expect("Failed to create logical device")
     }
+}
+
+fn required_device_extensions() -> Vec<&'static CStr> {
+    let mut required = vec![
+        vk::KHR_SWAPCHAIN_NAME,
+        vk::KHR_DEFERRED_HOST_OPERATIONS_NAME,
+        vk::KHR_SHADER_CLOCK_NAME,
+        vk::EXT_SHADER_ATOMIC_FLOAT_NAME,
+    ];
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        required.push(ash::khr::portability_subset::NAME);
+    }
+    required
+}
+
+fn collect_missing_extension_names(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+    required_extensions: &[&'static CStr],
+) -> Vec<String> {
+    let properties = unsafe {
+        instance
+            .enumerate_device_extension_properties(physical_device)
+            .expect("Failed to enumerate device extension properties")
+    };
+
+    required_extensions
+        .iter()
+        .filter(|&&required_ext| {
+            !properties.iter().any(|ext| {
+                let name = unsafe { CStr::from_ptr(ext.extension_name.as_ptr()) };
+                name == required_ext
+            })
+        })
+        .map(|ext| ext.to_string_lossy().into_owned())
+        .collect()
+}
+
+fn collect_missing_feature_rows(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+) -> Vec<(String, String)> {
+    let mut rows = Vec::new();
+
+    let mut buffer_device_address_features = vk::PhysicalDeviceBufferDeviceAddressFeatures::default();
+    let mut shader_atomic_float_features = vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT::default();
+    let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::default();
+
+    let mut features2 = vk::PhysicalDeviceFeatures2::default()
+        .push_next(&mut buffer_device_address_features)
+        .push_next(&mut shader_clock_features)
+        .push_next(&mut shader_atomic_float_features);
+
+    unsafe {
+        instance.get_physical_device_features2(physical_device, &mut features2);
+    }
+
+    if features2.features.shader_int64 != vk::TRUE {
+        rows.push((
+            "shaderInt64".to_string(),
+            "Core Vulkan feature required for renderer compute passes".to_string(),
+        ));
+    }
+
+    if buffer_device_address_features.buffer_device_address != vk::TRUE {
+        rows.push((
+            "bufferDeviceAddress".to_string(),
+            "VK_KHR_buffer_device_address feature required for GPU pointers".to_string(),
+        ));
+    }
+
+    let mut missing_atomic_caps = Vec::new();
+    let atomic_requirements = [
+        (
+            shader_atomic_float_features.shader_buffer_float32_atomics,
+            "shader_buffer_float32_atomics",
+        ),
+        (
+            shader_atomic_float_features.shader_buffer_float32_atomic_add,
+            "shader_buffer_float32_atomic_add",
+        ),
+        (
+            shader_atomic_float_features.shader_shared_float32_atomics,
+            "shader_shared_float32_atomics",
+        ),
+        (
+            shader_atomic_float_features.shader_shared_float32_atomic_add,
+            "shader_shared_float32_atomic_add",
+        ),
+        (
+            shader_atomic_float_features.shader_image_float32_atomics,
+            "shader_image_float32_atomics",
+        ),
+        (
+            shader_atomic_float_features.shader_image_float32_atomic_add,
+            "shader_image_float32_atomic_add",
+        ),
+        (
+            shader_atomic_float_features.sparse_image_float32_atomics,
+            "sparse_image_float32_atomics",
+        ),
+        (
+            shader_atomic_float_features.sparse_image_float32_atomic_add,
+            "sparse_image_float32_atomic_add",
+        ),
+    ];
+
+    for (flag, name) in atomic_requirements {
+        if flag != vk::TRUE {
+            missing_atomic_caps.push(name);
+        }
+    }
+
+    if !missing_atomic_caps.is_empty() {
+        rows.push((
+            "VK_EXT_shader_atomic_float".to_string(),
+            format!("Missing capabilities: {}", missing_atomic_caps.join(", ")),
+        ));
+    }
+
+    if shader_clock_features.shader_subgroup_clock != vk::TRUE {
+        rows.push((
+            "shader_subgroup_clock".to_string(),
+            "VK_KHR_shader_clock feature required for GPU timing".to_string(),
+        ));
+    }
+
+    rows
+}
+
+fn validate_device_capabilities(
+    instance: &ash::Instance,
+    physical_device: vk::PhysicalDevice,
+) {
+    let required_extensions = required_device_extensions();
+    let missing_extensions =
+        collect_missing_extension_names(instance, physical_device, &required_extensions);
+    let missing_features = collect_missing_feature_rows(instance, physical_device);
+
+    if missing_extensions.is_empty() && missing_features.is_empty() {
+        return;
+    }
+
+    let props = unsafe { instance.get_physical_device_properties(physical_device) };
+    let device_name = unsafe {
+        CStr::from_ptr(props.device_name.as_ptr())
+            .to_string_lossy()
+            .into_owned()
+    };
+
+    println!(
+        "\n--- Device capability check failed for \"{}\" ---",
+        device_name
+    );
+    let mut table = Table::new();
+    table.set_header(vec!["Type", "Name", "Details"]);
+
+    for ext in missing_extensions {
+        table.add_row(vec![
+            "Extension".to_string(),
+            ext,
+            "Not reported by the selected physical device".to_string(),
+        ]);
+    }
+
+    for (name, details) in missing_features {
+        table.add_row(vec![
+            "Feature".to_string(),
+            name,
+            details,
+        ]);
+    }
+
+    println!("{table}");
+
+    panic!(
+        "Selected GPU \"{}\" lacks required Vulkan capabilities. Please choose a device that provides the extensions/features listed above.",
+        device_name
+    );
 }
