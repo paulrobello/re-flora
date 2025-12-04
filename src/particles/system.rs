@@ -1,7 +1,9 @@
-use glam::{Vec3, Vec4};
+use glam::{UVec3, Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
+// Keep in sync with shader/particles/particle.vert scaling_factor (1.0 / 256.0).
+const PARTICLE_POSITION_SCALE: f32 = 256.0;
 
 /// Handle that uniquely identifies a live particle.
 /// Internally, it keeps track of the slot index and a generation counter.
@@ -77,7 +79,7 @@ impl Default for ParticleForces {
 /// A lightweight copy of particle data used by the renderer.
 #[derive(Clone, Copy, Debug)]
 pub struct ParticleSnapshot {
-    pub position: Vec3,
+    pub position: UVec3,
     pub color: Vec4,
     pub size: f32,
 }
@@ -281,7 +283,7 @@ impl ParticleSystem {
         out.reserve(self.alive_indices.len());
         for slot in &self.alive_indices {
             out.push(ParticleSnapshot {
-                position: self.positions[*slot],
+                position: Self::quantize_position(self.positions[*slot]),
                 color: self.colors[*slot],
                 size: self.sizes[*slot],
             });
@@ -346,5 +348,15 @@ impl ParticleSystem {
     #[allow(dead_code)]
     pub fn is_alive_handle(&self, handle: ParticleHandle) -> bool {
         self.validate_handle(handle).is_some()
+    }
+
+    fn quantize_position(position: Vec3) -> UVec3 {
+        let scaled = (position * PARTICLE_POSITION_SCALE).round();
+        let clamp_component = |component: f32| component.clamp(0.0, u32::MAX as f32) as u32;
+        UVec3::new(
+            clamp_component(scaled.x),
+            clamp_component(scaled.y),
+            clamp_component(scaled.z),
+        )
     }
 }
