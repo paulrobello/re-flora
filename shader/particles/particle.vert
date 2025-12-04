@@ -6,7 +6,7 @@
 #include "../include/core/color.glsl"
 
 layout(location = 0) in uint in_packed_data;
-layout(location = 1) in uvec3 in_instance_pos;
+layout(location = 1) in vec3 in_instance_pos;
 layout(location = 2) in float in_instance_size;
 layout(location = 3) in vec4 in_instance_color;
 
@@ -77,9 +77,8 @@ void main() {
 
     float scale        = max(in_instance_size, 0.001);
     vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
-    vec3 instance_pos  = vec3(in_instance_pos) * scaling_factor;
 
-    vec3 vertex_pos = clamp_to_grid(instance_pos + vertex_offset);
+    vec3 vertex_pos = clamp_to_grid(in_instance_pos + vertex_offset);
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 

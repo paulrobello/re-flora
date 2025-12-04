@@ -53,11 +53,7 @@ impl Device {
     ) -> Self {
         let physical_device_raw = physical_device.as_raw();
         let extension_requirements = device_extension_requirements();
-        validate_device_capabilities(
-            instance.as_raw(),
-            physical_device_raw,
-            &extension_requirements,
-        );
+        validate_device_capabilities(instance.as_raw(), physical_device_raw, &extension_requirements);
         let device = create_device(
             instance.as_raw(),
             physical_device_raw,
@@ -175,8 +171,7 @@ fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
         },
         DeviceExtensionRequirement {
             name: vk::KHR_DEFERRED_HOST_OPERATIONS_NAME,
-            reason:
-                "Needed for `VK_KHR_acceleration_structure` companion functionality (shader builds)",
+            reason: "Needed for `VK_KHR_acceleration_structure` companion functionality (shader builds)",
         },
         DeviceExtensionRequirement {
             name: vk::KHR_SHADER_CLOCK_NAME,
@@ -233,10 +228,8 @@ fn collect_missing_feature_rows(
 ) -> Vec<(String, String)> {
     let mut rows = Vec::new();
 
-    let mut buffer_device_address_features =
-        vk::PhysicalDeviceBufferDeviceAddressFeatures::default();
-    let mut shader_atomic_float_features =
-        vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT::default();
+    let mut buffer_device_address_features = vk::PhysicalDeviceBufferDeviceAddressFeatures::default();
+    let mut shader_atomic_float_features = vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT::default();
     let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::default();
 
     let mut features2 = vk::PhysicalDeviceFeatures2::default()
@@ -357,7 +350,11 @@ fn validate_device_capabilities(
     }
 
     for (name, details) in missing_features {
-        table.add_row(vec!["Feature".to_string(), name, details]);
+        table.add_row(vec![
+            "Feature".to_string(),
+            name,
+            details,
+        ]);
     }
 
     println!("{table}");
