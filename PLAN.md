@@ -82,11 +82,22 @@ The goal is to avoid using these unsupported extensions. These extensions and fe
 
 1. Analyze the current steps for creating the contree, and where these unsupported extensions are used
 
-   Write down to this place
+   The command buffer recorded in `src/builder/contree/mod.rs:190-299` executes the builder as a series of compute passes:
+   - `buffer_setup.comp` initializes `ContreeBuildState`, zeroes the per-level counters, and writes the indirect dispatch sizes for later passes.
+   - `leaf_write.comp` scans each 4×4×4 brick of the source surface, builds leaf payloads, and uses `atomicAdd` on `contree_build_result.leaf_len` to reserve slots (`shader/builder/contree/leaf_write.comp:62`). The atomics are purely 32-bit integer SSBO operations.
+   - `buffer_update.comp` shrinks the working dimension by 4× in each axis and recomputes the indirect dispatch arguments for the next tree level.
+   - `tree_write.comp` performs the higher-level reductions. Each invocation reads the child bricks, determines which of the 64 children exist, and writes them to the dense buffer. It maintains the per-level prefix offsets with `atomicAdd` on `counter_for_levels` and `contree_build_result.node_len` (`shader/builder/contree/tree_write.comp:56-58`).
+   - `last_buffer_update.comp` copies the root node into the dense buffer, fixes up the node counters, and emits the indirect dispatch arguments for the final concatenation.
+   - `concat.comp` walks the dense per-level chunks and writes the final packed tree into `contree_node_data`.
+
+   Within these passes the only extensions pulled in are `GL_GOOGLE_include_directive` (for `#include`) and `GL_ARB_gpu_shader_int64` (to express the 64-bit child masks in `shader/include/contree_node.glsl`). There are no references to `GL_ARB_shader_clock` or any of the `GL_EXT_shader_atomic_float` capabilities in the contree shaders. GPU timing helpers live in `shader/include/core/shader_clock.glsl` and are only included from `shader/tracer/tracer.comp:101`, while every `atomicAdd` the contree builder performs operates on unsigned integers in SSBOs. The crash therefore stems from `src/vkn/context/device.rs:127-317` unconditionally requesting `VK_KHR_shader_clock` and `VK_EXT_shader_atomic_float`, not from the builder code actually relying on them.
 
 2. Analyze how to avoid using these extensions, regarding the context we are using it, and analyze is it possible not to touch the performance of our builder.
 
-   Write down to this place
+   Because the contree shaders already stick to integer atomics and never read a shader clock, we can stop requesting the unsupported capabilities without touching the builder’s data flow:
+   - Remove `VK_KHR_shader_clock` from `device_extension_requirements()` and from the `vk::DeviceCreateInfo` `pNext` chain (`src/vkn/context/device.rs`). If GPU-side profiling is still desirable on desktop GPUs, gate the timing helper behind a feature flag (e.g., define `ENABLE_SHADER_CLOCK`) so the shader include and extension pragma in `shader/include/core/shader_clock.glsl` are only compiled when explicitly enabled. For routine builds (macOS/MoltenVK) we fall back to regular `vkCmdWriteTimestamp` calls between dispatches for timing, which keeps the contree command buffer identical and has zero shader cost.
+   - Drop the unconditional `VK_EXT_shader_atomic_float` requirement and the corresponding `vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT` block. The contree builder’s counters (`contree_build_result`, `counter_for_levels`) are all `uint`, and even the surface sampling path uses an `r32ui` image (`shader/builder/contree/leaf_write.comp:32`). As long as we keep the buffers in integer formats (which they already are), removing the feature flag does not alter the kernels or their occupancy. The memory-layout (shared memory scans, prefix sums, indirect dispatch reuse) stays the same, so performance remains unchanged.
+   - After the device stops requesting those features by default, add an opt-in path (e.g., a debug CLI flag) that appends them back in for developers who want shader-clock profiling on compatible hardware. This keeps high-end GPUs debuggable while letting Apple GPUs run the builder without capability failures.
 
 ## Particle System (need testing)
 
