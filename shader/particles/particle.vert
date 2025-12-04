@@ -63,10 +63,6 @@ float get_shadow_weight(ivec3 vox_local_pos) {
     return shadow_weight;
 }
 
-vec3 clamp_to_grid(vec3 position) {
-    return round(position / scaling_factor) * scaling_factor;
-}
-
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -79,7 +75,7 @@ void main() {
     vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
     vec3 instance_pos  = vec3(in_instance_pos) * scaling_factor;
 
-    vec3 vertex_pos = clamp_to_grid(instance_pos + vertex_offset);
+    vec3 vertex_pos = instance_pos + vertex_offset;
 
     gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
 
