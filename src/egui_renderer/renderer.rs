@@ -134,6 +134,11 @@ impl EguiRenderer {
         );
     }
 
+    /// Get a reference to the underlying egui context so the caller can configure global settings.
+    pub fn context(&self) -> &egui::Context {
+        &self.egui_context
+    }
+
     /// Free egui managed textures.
     ///
     /// You should pass the list of textures detla contained in the [`egui::TexturesDelta::set`].
