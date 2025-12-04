@@ -41,6 +41,15 @@ use winit::{
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
 const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/PixelifySans-VariableFont_wght.ttf");
 const CUSTOM_GUI_FONT_NAME: &str = "re_flora_gui_font";
+const RETRO_CANVAS_COLOR: Color32 = Color32::from_rgb(18, 18, 38);
+const RETRO_PANEL_COLOR: Color32 = Color32::from_rgb(32, 28, 58);
+const RETRO_PANEL_DARK: Color32 = Color32::from_rgb(22, 20, 42);
+const RETRO_PANEL_LIGHT: Color32 = Color32::from_rgb(52, 42, 94);
+const RETRO_PINK_ACCENT: Color32 = Color32::from_rgb(255, 80, 200);
+const RETRO_CYAN_ACCENT: Color32 = Color32::from_rgb(80, 220, 255);
+const RETRO_GOLD_ACCENT: Color32 = Color32::from_rgb(255, 200, 80);
+const RETRO_TEXT_COLOR: Color32 = Color32::from_rgb(230, 235, 245);
+const RETRO_SHADOW_COLOR: Color32 = Color32::from_rgba_premultiplied(8, 8, 18, 200);
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -492,6 +501,105 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn apply_retro_gui_style(style: &mut egui::Style) {
+        style.visuals.override_text_color = Some(RETRO_TEXT_COLOR);
+        style.visuals.hyperlink_color = RETRO_CYAN_ACCENT;
+        style.visuals.selection.bg_fill = RETRO_PINK_ACCENT;
+        style.visuals.selection.stroke = egui::Stroke::new(2.0, RETRO_GOLD_ACCENT);
+        style.visuals.window_fill = RETRO_PANEL_COLOR;
+        style.visuals.panel_fill = RETRO_CANVAS_COLOR;
+        style.visuals.extreme_bg_color = RETRO_PANEL_DARK;
+        style.visuals.code_bg_color = RETRO_PANEL_DARK;
+        style.visuals.text_edit_bg_color = Some(RETRO_PANEL_DARK);
+        style.visuals.faint_bg_color = RETRO_PANEL_DARK;
+        style.visuals.window_corner_radius = egui::CornerRadius::same(4);
+        style.visuals.menu_corner_radius = egui::CornerRadius::same(4);
+        style.visuals.window_stroke = egui::Stroke::new(2.5, RETRO_CYAN_ACCENT);
+        style.visuals.popup_shadow = egui::epaint::Shadow {
+            offset: [4, 4],
+            blur: 0,
+            spread: 0,
+            color: RETRO_SHADOW_COLOR,
+        };
+        style.visuals.window_shadow = egui::epaint::Shadow {
+            offset: [5, 5],
+            blur: 0,
+            spread: 0,
+            color: RETRO_SHADOW_COLOR,
+        };
+        style.visuals.window_highlight_topmost = false;
+        style.visuals.button_frame = true;
+        style.visuals.collapsing_header_frame = true;
+        style.visuals.slider_trailing_fill = true;
+        style.visuals.handle_shape = egui::style::HandleShape::Rect { aspect_ratio: 0.5 };
+
+        style.spacing.item_spacing = egui::Vec2::new(12.0, 8.0);
+        style.spacing.button_padding = egui::Vec2::new(12.0, 6.0);
+        style.spacing.window_margin = egui::Margin::symmetric(16, 14);
+        style.spacing.menu_margin = egui::Margin::symmetric(12, 8);
+        style.spacing.indent = 18.0;
+        style.spacing.interact_size = egui::Vec2::new(32.0, 26.0);
+        style.spacing.slider_width = 220.0;
+        style.spacing.icon_spacing = 10.0;
+        style.spacing.scroll.floating = true;
+        style.spacing.scroll.bar_width = 10.0;
+        style.spacing.scroll.floating_width = 5.0;
+        style.spacing.scroll.foreground_color = true;
+        style.spacing.scroll.dormant_background_opacity = 0.5;
+        style.spacing.scroll.active_background_opacity = 0.85;
+        style.spacing.scroll.interact_background_opacity = 1.0;
+        style.spacing.scroll.dormant_handle_opacity = 0.75;
+        style.spacing.scroll.active_handle_opacity = 0.95;
+        style.spacing.scroll.interact_handle_opacity = 1.0;
+
+        style.visuals.widgets.noninteractive = Self::retro_widget_visuals(
+            RETRO_PANEL_DARK,
+            RETRO_PANEL_DARK,
+            Color32::from_rgb(60, 140, 180),
+            RETRO_TEXT_COLOR,
+        );
+        style.visuals.widgets.inactive = Self::retro_widget_visuals(
+            RETRO_PANEL_LIGHT,
+            RETRO_PANEL_LIGHT,
+            RETRO_CYAN_ACCENT,
+            RETRO_TEXT_COLOR,
+        );
+        style.visuals.widgets.hovered = Self::retro_widget_visuals(
+            Color32::from_rgb(68, 52, 110),
+            Color32::from_rgb(68, 52, 110),
+            RETRO_PINK_ACCENT,
+            RETRO_GOLD_ACCENT,
+        );
+        style.visuals.widgets.active = Self::retro_widget_visuals(
+            RETRO_PINK_ACCENT,
+            RETRO_PINK_ACCENT,
+            RETRO_GOLD_ACCENT,
+            Color32::from_rgb(18, 18, 38),
+        );
+        style.visuals.widgets.open = Self::retro_widget_visuals(
+            Color32::from_rgb(60, 48, 100),
+            Color32::from_rgb(60, 48, 100),
+            RETRO_CYAN_ACCENT,
+            RETRO_TEXT_COLOR,
+        );
+    }
+
+    fn retro_widget_visuals(
+        bg_fill: Color32,
+        weak_bg_fill: Color32,
+        stroke_color: Color32,
+        text_color: Color32,
+    ) -> egui::style::WidgetVisuals {
+        egui::style::WidgetVisuals {
+            bg_fill,
+            weak_bg_fill,
+            bg_stroke: egui::Stroke::new(2.0, stroke_color),
+            corner_radius: egui::CornerRadius::same(3),
+            fg_stroke: egui::Stroke::new(1.8, text_color),
+            expansion: 0.0,
+        }
     }
 
     fn generate_procedural_trees(&mut self) -> Result<()> {
@@ -1257,24 +1365,24 @@ impl App {
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
-                        style.visuals.override_text_color = Some(egui::Color32::WHITE);
+                        Self::apply_retro_gui_style(&mut style);
                         ctx.set_style(style);
 
                         let mut config_panel_open = self.config_panel_visible;
                         if config_panel_open {
                             let config_frame = egui::containers::Frame {
-                                fill: Color32::from_rgba_premultiplied(20, 22, 30, 245),
-                                inner_margin: egui::Margin::symmetric(18, 12),
-                                corner_radius: egui::CornerRadius::same(14),
+                                fill: RETRO_PANEL_COLOR,
+                                inner_margin: egui::Margin::symmetric(20, 16),
+                                corner_radius: egui::CornerRadius::same(6),
                                 shadow: egui::epaint::Shadow {
-                                    offset: [0, 12],
-                                    blur: 32,
-                                    spread: 6,
-                                    color: Color32::from_rgba_premultiplied(0, 0, 0, 180),
+                                    offset: [6, 6],
+                                    blur: 0,
+                                    spread: 0,
+                                    color: RETRO_SHADOW_COLOR,
                                 },
                                 stroke: egui::Stroke::new(
-                                    1.0,
-                                    Color32::from_rgba_premultiplied(255, 255, 255, 26),
+                                    3.0,
+                                    RETRO_CYAN_ACCENT,
                                 ),
                                 ..Default::default()
                             };
@@ -1290,7 +1398,11 @@ impl App {
                                 .min_width(280.0)
                                 .show(ctx, |ui| {
                                     ui.horizontal(|ui| {
-                                        ui.heading(RichText::new("Scene Configuration").size(18.0));
+                                        ui.heading(
+                                            RichText::new("Scene Configuration")
+                                                .size(18.0)
+                                                .color(RETRO_GOLD_ACCENT),
+                                        );
                                     });
 
                                     ui.add_space(4.0);
@@ -1948,26 +2060,42 @@ impl App {
 
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
-                            .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::new(-10.0, -10.0))
+                            .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::new(-16.0, -16.0))
                             .show(ctx, |ui| {
                                 let fps_frame = egui::containers::Frame {
-                                    fill: Color32::from_rgba_premultiplied(0, 0, 0, 180),
-                                    inner_margin: egui::Margin::same(6),
+                                    fill: RETRO_PANEL_DARK,
+                                    inner_margin: egui::Margin::symmetric(10, 6),
                                     corner_radius: egui::CornerRadius::same(4),
+                                    shadow: egui::epaint::Shadow {
+                                        offset: [4, 4],
+                                        blur: 0,
+                                        spread: 0,
+                                        color: RETRO_SHADOW_COLOR,
+                                    },
+                                    stroke: egui::Stroke::new(2.0, RETRO_PINK_ACCENT),
                                     ..Default::default()
                                 };
 
                                 fps_frame.show(ui, |ui| {
                                     ui.allocate_ui_with_layout(
-                                        egui::Vec2::new(80.0, 20.0),
+                                        egui::Vec2::new(110.0, 24.0),
                                         egui::Layout::left_to_right(egui::Align::Center),
                                         |ui| {
+                                            ui.label(
+                                                RichText::new("FPS")
+                                                    .color(RETRO_GOLD_ACCENT)
+                                                    .monospace()
+                                                    .size(12.0),
+                                            );
+                                            ui.add_space(6.0);
                                             ui.label(
                                                 RichText::new(format!(
                                                     "{:.1}",
                                                     self.time_info.display_fps()
                                                 ))
-                                                .color(Color32::LIGHT_GRAY),
+                                                .color(RETRO_CYAN_ACCENT)
+                                                .monospace()
+                                                .strong(),
                                             );
                                         },
                                     );
