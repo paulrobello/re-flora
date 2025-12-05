@@ -53,8 +53,17 @@ Failed to grab cursor: NotSupported(NotSupportedError)
 [16:46:59.082 INFO re_flora::vkn::swapchain] Swapchain present mode: FIFO
 ```
 
-## Particle System (need testing)
+## Grass System
 
-currently, we are passing Vec3 for each partical position to GPU, but we are clamping its position anyway inside the partical.vert shader, so my thoughts are, to only pass integer
-  position into the GPU, for lowering the bandwidth consumption. see in_instance_pos for more reference, we are using uvec3 position there. we can utilize the same thing too for our
-  particle system.
+We already have grasses, as drawn by flora system. However the density of the grasses is not enough. We need to increase the density of the grasses.
+
+Also, the grasses are of the same height, which needs some more variations to make it more realistic.
+
+We have two plans for this:
+
+1. Create different types of grasses model, with different heights, and spawn them randomly.
+2. Use a single grass model, but degenerate some of the topped voxels based on the real height, in flora.vert.
+
+Analyze which is better, the first one seems has better perf, but the second one is more flexible.
+
+Write your thoughts here.
