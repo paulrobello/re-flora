@@ -148,7 +148,7 @@ fn create_device(
         .enabled_features(&physical_device_features)
         .push_next(&mut maintenance4_features)
         .push_next(&mut buffer_device_address_features);
-        // .push_next(&mut physical_device_shader_clock_features_khr);
+    // .push_next(&mut physical_device_shader_clock_features_khr);
 
     unsafe {
         instance
@@ -231,7 +231,7 @@ fn collect_missing_feature_rows(
     let mut features2 = vk::PhysicalDeviceFeatures2::default()
         .push_next(&mut buffer_device_address_features)
         .push_next(&mut maintenance4_features);
-        // .push_next(&mut shader_clock_features);
+    // .push_next(&mut shader_clock_features);
 
     unsafe {
         instance.get_physical_device_features2(physical_device, &mut features2);
@@ -254,7 +254,8 @@ fn collect_missing_feature_rows(
     if maintenance4_features.maintenance4 != vk::TRUE {
         rows.push((
             "maintenance4".to_string(),
-            "VK_KHR_maintenance4 feature required for compute shaders that declare LocalSizeId".to_string(),
+            "VK_KHR_maintenance4 feature required for compute shaders that declare LocalSizeId"
+                .to_string(),
         ));
     }
 
