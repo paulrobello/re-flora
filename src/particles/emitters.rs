@@ -77,9 +77,9 @@ impl FallenLeafEmitter {
         Self {
             center,
             spawn_rate: desc.spawn_rate,
-            vertical_speed: -1.5..=-0.3,
+            vertical_speed: -0.0..=-0.0,
             size: 1.0 / 256.0,
-            lifetime: 12.0..=24.0,
+            lifetime: 120.0..=240.0,
             color_low,
             color_high,
             wind_spawn_min_strength: desc.wind_spawn_min_strength,
@@ -107,7 +107,7 @@ impl FallenLeafEmitter {
         velocity.z += roll_angle.sin() * roll_strength;
 
         let wind_factor = self.rng.random_range(0.6..=1.4);
-        let gravity_factor = self.rng.random_range(0.8..=1.2);
+        let gravity_factor = self.rng.random_range(0.8..=1.0);
 
         // Randomize drift direction for turbulent motion
         let drift_angle = self.rng.random_range(0.0..TAU);

@@ -404,7 +404,7 @@ impl App {
         let leaf_emitter_desc = LeafEmitterDesc::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
-            global_acceleration: Vec3::new(0.0, -1.2, 0.0),
+            global_acceleration: Vec3::new(0.0, -1.0, 0.0),
             linear_damping: 0.08,
         };
 
