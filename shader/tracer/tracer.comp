@@ -98,7 +98,7 @@ layout(set = 3, binding = 12, r11f_g11f_b10f) uniform image2D denoiser_spatial_p
 #include "../include/core/definitions.glsl"
 #include "../include/core/hash.glsl"
 #include "../include/core/packer.glsl"
-#include "../include/core/shader_clock.glsl"
+// #include "../include/core/shader_clock.glsl" // enable for GPU-side timing on supported devices
 #include "../include/core/viridis.glsl"
 #include "../include/marching_result.glsl"
 #include "../include/pcss.glsl"

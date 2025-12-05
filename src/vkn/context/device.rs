@@ -147,17 +147,18 @@ fn create_device(
     //     ..Default::default()
     // };
 
-    let mut physical_device_shader_clock_features_khr = vk::PhysicalDeviceShaderClockFeaturesKHR {
-        shader_subgroup_clock: vk::TRUE,
-        ..Default::default()
-    };
+    // Shader clock is debug-only and disabled by default for broader GPU compatibility.
+    // let mut physical_device_shader_clock_features_khr = vk::PhysicalDeviceShaderClockFeaturesKHR {
+    //     shader_subgroup_clock: vk::TRUE,
+    //     ..Default::default()
+    // };
 
     let device_create_info = vk::DeviceCreateInfo::default()
         .queue_create_infos(&queue_create_infos)
         .enabled_extension_names(&extension_ptrs)
         .enabled_features(&physical_device_features)
         .push_next(&mut buffer_device_address_features)
-        .push_next(&mut physical_device_shader_clock_features_khr)
+        // .push_next(&mut physical_device_shader_clock_features_khr)
         .push_next(&mut physical_device_shader_atomic_float_features_khr);
 
     unsafe {
@@ -178,10 +179,10 @@ fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
             reason:
                 "Needed for `VK_KHR_acceleration_structure` companion functionality (shader builds)",
         },
-        DeviceExtensionRequirement {
-            name: vk::KHR_SHADER_CLOCK_NAME,
-            reason: "Used for time queries and GPU profiling in compute shaders",
-        },
+        // DeviceExtensionRequirement {
+        //     name: vk::KHR_SHADER_CLOCK_NAME,
+        //     reason: "Used for time queries and GPU profiling in compute shaders",
+        // },
         DeviceExtensionRequirement {
             name: vk::EXT_SHADER_ATOMIC_FLOAT_NAME,
             reason: "Required for float atomics inside compute pipelines",
@@ -237,11 +238,11 @@ fn collect_missing_feature_rows(
         vk::PhysicalDeviceBufferDeviceAddressFeatures::default();
     let mut shader_atomic_float_features =
         vk::PhysicalDeviceShaderAtomicFloatFeaturesEXT::default();
-    let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::default();
+    // let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::default();
 
     let mut features2 = vk::PhysicalDeviceFeatures2::default()
         .push_next(&mut buffer_device_address_features)
-        .push_next(&mut shader_clock_features)
+        // .push_next(&mut shader_clock_features)
         .push_next(&mut shader_atomic_float_features);
 
     unsafe {
@@ -311,12 +312,12 @@ fn collect_missing_feature_rows(
         ));
     }
 
-    if shader_clock_features.shader_subgroup_clock != vk::TRUE {
-        rows.push((
-            "shader_subgroup_clock".to_string(),
-            "VK_KHR_shader_clock feature required for GPU timing".to_string(),
-        ));
-    }
+    // if shader_clock_features.shader_subgroup_clock != vk::TRUE {
+    //     rows.push((
+    //         "shader_subgroup_clock".to_string(),
+    //         "VK_KHR_shader_clock feature required for GPU timing".to_string(),
+    //     ));
+    // }
 
     rows
 }
