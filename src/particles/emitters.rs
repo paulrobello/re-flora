@@ -21,17 +21,30 @@ fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
 }
 
 fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
+    let ordered = |a: f32, b: f32| -> (f32, f32) { (a.min(b), a.max(b)) };
+    let (min_x, max_x) = ordered(low.x, high.x);
+    let (min_y, max_y) = ordered(low.y, high.y);
+    let (min_z, max_z) = ordered(low.z, high.z);
+    let (min_w, max_w) = ordered(low.w, high.w);
+
     Vec4::new(
-        rng.random_range(low.x..=high.x),
-        rng.random_range(low.y..=high.y),
-        rng.random_range(low.z..=high.z),
-        rng.random_range(low.w..=high.w),
+        rng.random_range(min_x..=max_x),
+        rng.random_range(min_y..=max_y),
+        rng.random_range(min_z..=max_z),
+        rng.random_range(min_w..=max_w),
     )
 }
 
 #[derive(Clone, Copy, Debug)]
 pub struct LeafEmitterDesc {
     pub spawn_rate: f32,
+    pub vertical_speed_min: f32,
+    pub vertical_speed_max: f32,
+    pub size: f32,
+    pub lifetime_min: f32,
+    pub lifetime_max: f32,
+    pub color_low: Vec4,
+    pub color_high: Vec4,
     pub wind_spawn_min_strength: f32,
     pub wind_spawn_max_strength: f32,
     pub wind_spawn_power: f32,
@@ -41,6 +54,13 @@ impl Default for LeafEmitterDesc {
     fn default() -> Self {
         Self {
             spawn_rate: 2.0,
+            vertical_speed_min: -0.0,
+            vertical_speed_max: -0.0,
+            size: 1.0 / 256.0,
+            lifetime_min: 120.0,
+            lifetime_max: 240.0,
+            color_low: Vec4::new(187.0 / 255.0, 0.0, 0.0, 1.0),
+            color_high: Vec4::new(242.0 / 255.0, 205.0 / 255.0, 0.0, 1.0),
             wind_spawn_min_strength: 0.5,
             wind_spawn_max_strength: 1.0,
             wind_spawn_power: 1.0,
@@ -66,22 +86,15 @@ pub struct FallenLeafEmitter {
 }
 
 impl FallenLeafEmitter {
-    pub fn new(
-        center: Vec3,
-        leaf_positions: Vec<Vec3>,
-        seed: u64,
-        color_low: Vec4,
-        color_high: Vec4,
-        desc: &LeafEmitterDesc,
-    ) -> Self {
+    pub fn new(center: Vec3, leaf_positions: Vec<Vec3>, seed: u64, desc: &LeafEmitterDesc) -> Self {
         Self {
             center,
             spawn_rate: desc.spawn_rate,
-            vertical_speed: -0.0..=-0.0,
-            size: 1.0 / 256.0,
-            lifetime: 120.0..=240.0,
-            color_low,
-            color_high,
+            vertical_speed: desc.vertical_speed_min..=desc.vertical_speed_max,
+            size: desc.size,
+            lifetime: desc.lifetime_min..=desc.lifetime_max,
+            color_low: desc.color_low,
+            color_high: desc.color_high,
             wind_spawn_min_strength: desc.wind_spawn_min_strength,
             wind_spawn_max_strength: desc.wind_spawn_max_strength,
             wind_spawn_power: desc.wind_spawn_power,

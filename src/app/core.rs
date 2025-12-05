@@ -397,11 +397,25 @@ impl App {
         )?;
 
         let debug_tree_pos = Vec3::new(2.0, 0.2, 2.0);
+        let gui_adjustables = GuiAdjustables::default();
+
+        let color_to_vec4 = |color: Color32| -> Vec4 {
+            Vec4::new(
+                color.r() as f32 / 255.0,
+                color.g() as f32 / 255.0,
+                color.b() as f32 / 255.0,
+                1.0,
+            )
+        };
 
         let particle_system = ParticleSystem::new(PARTICLE_CAPACITY);
         let leaf_emitters = Vec::new();
         let tree_leaf_emitter_indices = HashMap::new();
-        let leaf_emitter_desc = LeafEmitterDesc::default();
+        let leaf_emitter_desc = LeafEmitterDesc {
+            color_low: color_to_vec4(gui_adjustables.leaves_bottom_color.value),
+            color_high: color_to_vec4(gui_adjustables.leaves_tip_color.value),
+            ..LeafEmitterDesc::default()
+        };
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             global_acceleration: Vec3::new(0.0, -1.0, 0.0),
@@ -432,7 +446,7 @@ impl App {
             is_resize_pending: false,
             time_info: TimeInfo::default(),
 
-            gui_adjustables: GuiAdjustables::default(),
+            gui_adjustables,
             debug_tree_pos,
             debug_tree_desc: TreeDesc::default(),
             tree_variation_config: TreeVariationConfig::default(),
@@ -1076,18 +1090,6 @@ impl App {
 
         let mut emitter_indices = Vec::with_capacity(clusters.len());
 
-        // Convert leaf colors from Color32 to Vec4
-        let color_to_vec4 = |color: Color32| -> Vec4 {
-            Vec4::new(
-                color.r() as f32 / 255.0,
-                color.g() as f32 / 255.0,
-                color.b() as f32 / 255.0,
-                1.0,
-            )
-        };
-        let leaf_color_low = color_to_vec4(self.gui_adjustables.leaves_bottom_color.value);
-        let leaf_color_high = color_to_vec4(self.gui_adjustables.leaves_tip_color.value);
-
         for cluster in clusters {
             // Create extent based on the tree bound
             let (_center, _extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
@@ -1100,8 +1102,6 @@ impl App {
                 cluster_center,
                 Vec::new(), // We'll spawn from cluster center, not specific leaf positions
                 tree_id as u64 + cluster.pos.x as u64 + cluster.pos.y as u64 + cluster.pos.z as u64,
-                leaf_color_low,
-                leaf_color_high,
                 &self.leaf_emitter_desc,
             );
 
@@ -2012,6 +2012,142 @@ impl App {
                                             for tree_emitter in &mut self.leaf_emitters {
                                                 tree_emitter.emitter.wind_spawn_power =
                                                     wind_spawn_power;
+                                            }
+                                        }
+
+                                        ui.separator();
+
+                                        let mut vertical_speed_min =
+                                            self.leaf_emitter_desc.vertical_speed_min;
+                                        let mut vertical_speed_max =
+                                            self.leaf_emitter_desc.vertical_speed_max;
+
+                                        let mut vertical_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut vertical_speed_min,
+                                                    -2.0..=2.0,
+                                                )
+                                                .text("Vertical Speed Min"),
+                                            )
+                                            .changed();
+                                        vertical_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut vertical_speed_max,
+                                                    -2.0..=2.0,
+                                                )
+                                                .text("Vertical Speed Max"),
+                                            )
+                                            .changed();
+                                        if vertical_changed {
+                                            if vertical_speed_min > vertical_speed_max {
+                                                std::mem::swap(
+                                                    &mut vertical_speed_min,
+                                                    &mut vertical_speed_max,
+                                                );
+                                            }
+                                            self.leaf_emitter_desc.vertical_speed_min =
+                                                vertical_speed_min;
+                                            self.leaf_emitter_desc.vertical_speed_max =
+                                                vertical_speed_max;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.vertical_speed =
+                                                    vertical_speed_min..=vertical_speed_max;
+                                            }
+                                        }
+
+                                        let mut particle_size = self.leaf_emitter_desc.size;
+                                        let size_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut particle_size,
+                                                    0.001..=0.05,
+                                                )
+                                                .text("Particle Size"),
+                                            )
+                                            .changed();
+                                        if size_changed {
+                                            self.leaf_emitter_desc.size = particle_size;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.size = particle_size;
+                                            }
+                                        }
+
+                                        let mut lifetime_min = self.leaf_emitter_desc.lifetime_min;
+                                        let mut lifetime_max = self.leaf_emitter_desc.lifetime_max;
+                                        let mut lifetime_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut lifetime_min,
+                                                    0.0..=600.0,
+                                                )
+                                                .text("Lifetime Min (s)"),
+                                            )
+                                            .changed();
+                                        lifetime_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut lifetime_max,
+                                                    0.0..=600.0,
+                                                )
+                                                .text("Lifetime Max (s)"),
+                                            )
+                                            .changed();
+                                        if lifetime_changed {
+                                            if lifetime_min > lifetime_max {
+                                                std::mem::swap(&mut lifetime_min, &mut lifetime_max);
+                                            }
+                                            self.leaf_emitter_desc.lifetime_min = lifetime_min;
+                                            self.leaf_emitter_desc.lifetime_max = lifetime_max;
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.lifetime =
+                                                    lifetime_min..=lifetime_max;
+                                            }
+                                        }
+
+                                        let vec4_to_color32 = |color: Vec4| -> Color32 {
+                                            Color32::from_rgba_unmultiplied(
+                                                (color.x * 255.0) as u8,
+                                                (color.y * 255.0) as u8,
+                                                (color.z * 255.0) as u8,
+                                                (color.w * 255.0) as u8,
+                                            )
+                                        };
+                                        let color32_to_vec4 = |color: Color32| -> Vec4 {
+                                            Vec4::new(
+                                                color.r() as f32 / 255.0,
+                                                color.g() as f32 / 255.0,
+                                                color.b() as f32 / 255.0,
+                                                color.a() as f32 / 255.0,
+                                            )
+                                        };
+
+                                        let mut color_low =
+                                            vec4_to_color32(self.leaf_emitter_desc.color_low);
+                                        let mut color_high =
+                                            vec4_to_color32(self.leaf_emitter_desc.color_high);
+                                        let mut color_changed = false;
+
+                                        ui.horizontal(|ui| {
+                                            ui.label("Color Low:");
+                                            color_changed |= ui.color_edit_button_srgba(&mut color_low).changed();
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Color High:");
+                                            color_changed |= ui.color_edit_button_srgba(&mut color_high).changed();
+                                        });
+
+                                        if color_changed {
+                                            self.leaf_emitter_desc.color_low =
+                                                color32_to_vec4(color_low);
+                                            self.leaf_emitter_desc.color_high =
+                                                color32_to_vec4(color_high);
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.color_low =
+                                                    self.leaf_emitter_desc.color_low;
+                                                tree_emitter.emitter.color_high =
+                                                    self.leaf_emitter_desc.color_high;
                                             }
                                         }
 
