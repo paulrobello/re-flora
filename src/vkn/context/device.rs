@@ -123,6 +123,8 @@ fn create_device(
         buffer_device_address: vk::TRUE,
         ..Default::default()
     };
+    let mut maintenance4_features =
+        vk::PhysicalDeviceMaintenance4Features::default().maintenance4(true);
 
     // let mut physical_device_acceleration_structure_features_khr =
     //     vk::PhysicalDeviceAccelerationStructureFeaturesKHR {
@@ -144,6 +146,7 @@ fn create_device(
         .queue_create_infos(&queue_create_infos)
         .enabled_extension_names(&extension_ptrs)
         .enabled_features(&physical_device_features)
+        .push_next(&mut maintenance4_features)
         .push_next(&mut buffer_device_address_features);
         // .push_next(&mut physical_device_shader_clock_features_khr);
 
@@ -159,6 +162,10 @@ fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
         DeviceExtensionRequirement {
             name: vk::KHR_SWAPCHAIN_NAME,
             reason: "Required to present rendered images to the window surface",
+        },
+        DeviceExtensionRequirement {
+            name: vk::KHR_MAINTENANCE4_NAME,
+            reason: "Needed because compute shaders rely on LocalSizeId execution mode",
         },
         DeviceExtensionRequirement {
             name: vk::KHR_DEFERRED_HOST_OPERATIONS_NAME,
@@ -218,10 +225,12 @@ fn collect_missing_feature_rows(
 
     let mut buffer_device_address_features =
         vk::PhysicalDeviceBufferDeviceAddressFeatures::default();
+    let mut maintenance4_features = vk::PhysicalDeviceMaintenance4Features::default();
     // let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::default();
 
     let mut features2 = vk::PhysicalDeviceFeatures2::default()
-        .push_next(&mut buffer_device_address_features);
+        .push_next(&mut buffer_device_address_features)
+        .push_next(&mut maintenance4_features);
         // .push_next(&mut shader_clock_features);
 
     unsafe {
@@ -239,6 +248,13 @@ fn collect_missing_feature_rows(
         rows.push((
             "bufferDeviceAddress".to_string(),
             "VK_KHR_buffer_device_address feature required for GPU pointers".to_string(),
+        ));
+    }
+
+    if maintenance4_features.maintenance4 != vk::TRUE {
+        rows.push((
+            "maintenance4".to_string(),
+            "VK_KHR_maintenance4 feature required for compute shaders that declare LocalSizeId".to_string(),
         ));
     }
 
