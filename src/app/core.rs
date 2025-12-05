@@ -23,6 +23,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use ash::vk;
+use egui::style::WidgetVisuals;
 use egui::{Color32, FontData, FontDefinitions, FontFamily, RichText};
 use glam::{UVec3, Vec2, Vec3, Vec4};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
@@ -41,15 +42,15 @@ use winit::{
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
 const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/PixelifySans-VariableFont_wght.ttf");
 const CUSTOM_GUI_FONT_NAME: &str = "re_flora_gui_font";
-const RETRO_CANVAS_COLOR: Color32 = Color32::from_rgb(18, 18, 38);
-const RETRO_PANEL_COLOR: Color32 = Color32::from_rgb(32, 28, 58);
-const RETRO_PANEL_DARK: Color32 = Color32::from_rgb(22, 20, 42);
-const RETRO_PANEL_LIGHT: Color32 = Color32::from_rgb(52, 42, 94);
-const RETRO_PINK_ACCENT: Color32 = Color32::from_rgb(255, 80, 200);
-const RETRO_CYAN_ACCENT: Color32 = Color32::from_rgb(80, 220, 255);
-const RETRO_GOLD_ACCENT: Color32 = Color32::from_rgb(255, 200, 80);
-const RETRO_TEXT_COLOR: Color32 = Color32::from_rgb(230, 235, 245);
-const RETRO_SHADOW_COLOR: Color32 = Color32::from_rgba_premultiplied(8, 8, 18, 200);
+
+const PANEL_BG: Color32 = Color32::from_rgb(35, 40, 40);
+const PANEL_LIGHT: Color32 = Color32::from_rgb(50, 58, 58);
+const PANEL_DARK: Color32 = Color32::from_rgb(25, 28, 28);
+const TEXT_COLOR: Color32 = Color32::from_rgb(235, 230, 215);
+const GOLD_ACCENT: Color32 = Color32::from_rgb(235, 165, 60);
+const FLOWER_ACCENT: Color32 = Color32::from_rgb(190, 160, 210);
+const SAGE_ACCENT: Color32 = Color32::from_rgb(110, 140, 120);
+const SHADOW_COLOR: Color32 = Color32::from_rgba_premultiplied(10, 15, 10, 180);
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -517,101 +518,132 @@ impl App {
         Ok(())
     }
 
-    fn apply_retro_gui_style(style: &mut egui::Style) {
-        style.visuals.override_text_color = Some(RETRO_TEXT_COLOR);
-        style.visuals.hyperlink_color = RETRO_CYAN_ACCENT;
-        style.visuals.selection.bg_fill = RETRO_PINK_ACCENT;
-        style.visuals.selection.stroke = egui::Stroke::new(2.0, RETRO_GOLD_ACCENT);
-        style.visuals.window_fill = RETRO_PANEL_COLOR;
-        style.visuals.panel_fill = RETRO_CANVAS_COLOR;
-        style.visuals.extreme_bg_color = RETRO_PANEL_DARK;
-        style.visuals.code_bg_color = RETRO_PANEL_DARK;
-        style.visuals.text_edit_bg_color = Some(RETRO_PANEL_DARK);
-        style.visuals.faint_bg_color = RETRO_PANEL_DARK;
-        style.visuals.window_corner_radius = egui::CornerRadius::same(4);
-        style.visuals.menu_corner_radius = egui::CornerRadius::same(4);
-        style.visuals.window_stroke = egui::Stroke::new(2.5, RETRO_CYAN_ACCENT);
+    fn apply_gui_style(style: &mut egui::Style) {
+        // --- GENERAL VISUALS ---
+        style.visuals.override_text_color = Some(TEXT_COLOR);
+        style.visuals.hyperlink_color = GOLD_ACCENT;
+
+        // Selection (Text highlighting)
+        style.visuals.selection.bg_fill = FLOWER_ACCENT.linear_multiply(0.4);
+        style.visuals.selection.stroke = egui::Stroke::new(1.0, GOLD_ACCENT);
+
+        // Window/Panel Backgrounds
+        style.visuals.window_fill = PANEL_BG;
+        style.visuals.panel_fill = PANEL_BG;
+
+        // Input fields and deep backgrounds
+        style.visuals.extreme_bg_color = PANEL_DARK;
+        style.visuals.code_bg_color = PANEL_DARK;
+        style.visuals.text_edit_bg_color = Some(PANEL_DARK);
+        style.visuals.faint_bg_color = PANEL_DARK;
+
+        // Soften the corners slightly (6.0 looks friendlier than 4.0)
+        style.visuals.window_corner_radius = egui::CornerRadius::same(6);
+        style.visuals.menu_corner_radius = egui::CornerRadius::same(6);
+
+        // Border: Thinner and Earthy Green instead of Neon Cyan
+        style.visuals.window_stroke = egui::Stroke::new(1.5, SAGE_ACCENT);
+
+        // Shadows: Keep them to separate UI from the 3D world
         style.visuals.popup_shadow = egui::epaint::Shadow {
             offset: [4, 4],
-            blur: 0,
+            blur: 10, // Increased blur for a softer shadow
             spread: 0,
-            color: RETRO_SHADOW_COLOR,
+            color: SHADOW_COLOR,
         };
         style.visuals.window_shadow = egui::epaint::Shadow {
-            offset: [5, 5],
-            blur: 0,
+            offset: [6, 6],
+            blur: 12,
             spread: 0,
-            color: RETRO_SHADOW_COLOR,
+            color: SHADOW_COLOR,
         };
+
         style.visuals.window_highlight_topmost = false;
         style.visuals.button_frame = true;
         style.visuals.collapsing_header_frame = true;
         style.visuals.slider_trailing_fill = true;
-        style.visuals.handle_shape = egui::style::HandleShape::Rect { aspect_ratio: 0.5 };
 
-        style.spacing.item_spacing = egui::Vec2::new(12.0, 8.0);
-        style.spacing.button_padding = egui::Vec2::new(12.0, 6.0);
-        style.spacing.window_margin = egui::Margin::symmetric(16, 14);
-        style.spacing.menu_margin = egui::Margin::symmetric(12, 8);
-        style.spacing.indent = 18.0;
-        style.spacing.interact_size = egui::Vec2::new(32.0, 26.0);
-        style.spacing.slider_width = 220.0;
-        style.spacing.icon_spacing = 10.0;
+        // Make handles slightly rounder/softer
+        style.visuals.handle_shape = egui::style::HandleShape::Rect { aspect_ratio: 0.6 };
+
+        // --- SPACING ---
+        style.spacing.item_spacing = egui::Vec2::new(10.0, 8.0);
+        style.spacing.button_padding = egui::Vec2::new(10.0, 6.0);
+        style.spacing.window_margin = egui::Margin::symmetric(14, 14);
+        style.spacing.menu_margin = egui::Margin::symmetric(10, 8);
+        style.spacing.indent = 20.0; // Slightly more indentation for hierarchy
+        style.spacing.interact_size = egui::Vec2::new(40.0, 24.0); // Wider sliders
+        style.spacing.slider_width = 200.0;
+        style.spacing.icon_spacing = 8.0;
+
+        // Scrollbars
         style.spacing.scroll.floating = true;
-        style.spacing.scroll.bar_width = 10.0;
-        style.spacing.scroll.floating_width = 5.0;
+        style.spacing.scroll.bar_width = 8.0;
+        style.spacing.scroll.floating_width = 4.0;
         style.spacing.scroll.foreground_color = true;
-        style.spacing.scroll.dormant_background_opacity = 0.5;
-        style.spacing.scroll.active_background_opacity = 0.85;
-        style.spacing.scroll.interact_background_opacity = 1.0;
-        style.spacing.scroll.dormant_handle_opacity = 0.75;
-        style.spacing.scroll.active_handle_opacity = 0.95;
+        style.spacing.scroll.dormant_background_opacity = 0.0;
+        style.spacing.scroll.active_background_opacity = 0.4;
+        style.spacing.scroll.interact_background_opacity = 0.6;
+        style.spacing.scroll.dormant_handle_opacity = 0.6;
+        style.spacing.scroll.active_handle_opacity = 0.9;
         style.spacing.scroll.interact_handle_opacity = 1.0;
 
-        style.visuals.widgets.noninteractive = Self::retro_widget_visuals(
-            RETRO_PANEL_DARK,
-            RETRO_PANEL_DARK,
-            Color32::from_rgb(60, 140, 180),
-            RETRO_TEXT_COLOR,
+        // --- WIDGET STATES ---
+
+        // Non-interactive (Labels, etc)
+        style.visuals.widgets.noninteractive = Self::widget_visuals(
+            Color32::TRANSPARENT, // Transparent background for labels
+            Color32::TRANSPARENT,
+            SAGE_ACCENT, // Border color for separators
+            TEXT_COLOR,
+            1.0, // Thinner stroke
         );
-        style.visuals.widgets.inactive = Self::retro_widget_visuals(
-            RETRO_PANEL_LIGHT,
-            RETRO_PANEL_LIGHT,
-            RETRO_CYAN_ACCENT,
-            RETRO_TEXT_COLOR,
+
+        // Inactive (Buttons, Sliders not hovered)
+        style.visuals.widgets.inactive = Self::widget_visuals(
+            PANEL_LIGHT, // Slightly lighter than BG
+            PANEL_LIGHT,
+            Color32::TRANSPARENT, // No border when inactive for a cleaner look
+            TEXT_COLOR,
+            0.0,
         );
-        style.visuals.widgets.hovered = Self::retro_widget_visuals(
-            Color32::from_rgb(68, 52, 110),
-            Color32::from_rgb(68, 52, 110),
-            RETRO_PINK_ACCENT,
-            RETRO_GOLD_ACCENT,
+
+        // Hovered
+        style.visuals.widgets.hovered = Self::widget_visuals(
+            Color32::from_rgb(65, 75, 75), // Lighten up
+            Color32::from_rgb(65, 75, 75),
+            FLOWER_ACCENT, // Lavender border on hover
+            GOLD_ACCENT,   // Text turns Gold on hover
+            1.5,
         );
-        style.visuals.widgets.active = Self::retro_widget_visuals(
-            RETRO_PINK_ACCENT,
-            RETRO_PINK_ACCENT,
-            RETRO_GOLD_ACCENT,
-            Color32::from_rgb(18, 18, 38),
+
+        // Active (Clicked / Dragging)
+        style.visuals.widgets.active = Self::widget_visuals(
+            GOLD_ACCENT, // Fill with Gold
+            GOLD_ACCENT,
+            GOLD_ACCENT,
+            Color32::from_rgb(30, 35, 30), // Dark text on Gold background
+            1.0,
         );
-        style.visuals.widgets.open = Self::retro_widget_visuals(
-            Color32::from_rgb(60, 48, 100),
-            Color32::from_rgb(60, 48, 100),
-            RETRO_CYAN_ACCENT,
-            RETRO_TEXT_COLOR,
-        );
+
+        // Open (Menu / Combo box open)
+        style.visuals.widgets.open =
+            Self::widget_visuals(PANEL_LIGHT, PANEL_LIGHT, GOLD_ACCENT, TEXT_COLOR, 1.5);
     }
 
-    fn retro_widget_visuals(
+    fn widget_visuals(
         bg_fill: Color32,
         weak_bg_fill: Color32,
         stroke_color: Color32,
         text_color: Color32,
-    ) -> egui::style::WidgetVisuals {
-        egui::style::WidgetVisuals {
+        stroke_width: f32,
+    ) -> WidgetVisuals {
+        WidgetVisuals {
             bg_fill,
             weak_bg_fill,
-            bg_stroke: egui::Stroke::new(2.0, stroke_color),
-            corner_radius: egui::CornerRadius::same(3),
-            fg_stroke: egui::Stroke::new(1.8, text_color),
+            bg_stroke: egui::Stroke::new(stroke_width, stroke_color),
+            corner_radius: egui::CornerRadius::same(4), // Slightly rounded widgets
+            fg_stroke: egui::Stroke::new(1.5, text_color),
             expansion: 0.0,
         }
     }
@@ -1365,24 +1397,24 @@ impl App {
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
-                        Self::apply_retro_gui_style(&mut style);
+                        Self::apply_gui_style(&mut style);
                         ctx.set_style(style);
 
                         let mut config_panel_open = self.config_panel_visible;
                         if config_panel_open {
                             let config_frame = egui::containers::Frame {
-                                fill: RETRO_PANEL_COLOR,
+                                fill: PANEL_BG,
                                 inner_margin: egui::Margin::symmetric(20, 16),
                                 corner_radius: egui::CornerRadius::same(6),
                                 shadow: egui::epaint::Shadow {
                                     offset: [6, 6],
                                     blur: 0,
                                     spread: 0,
-                                    color: RETRO_SHADOW_COLOR,
+                                    color: SHADOW_COLOR,
                                 },
                                 stroke: egui::Stroke::new(
                                     3.0,
-                                    RETRO_CYAN_ACCENT,
+                                    SAGE_ACCENT,
                                 ),
                                 ..Default::default()
                             };
@@ -1401,7 +1433,7 @@ impl App {
                                         ui.heading(
                                             RichText::new("Scene Configuration")
                                                 .size(18.0)
-                                                .color(RETRO_GOLD_ACCENT),
+                                                .color(GOLD_ACCENT),
                                         );
                                     });
 
@@ -2199,16 +2231,16 @@ impl App {
                             .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::new(-16.0, -16.0))
                             .show(ctx, |ui| {
                                 let fps_frame = egui::containers::Frame {
-                                    fill: RETRO_PANEL_DARK,
+                                    fill: PANEL_DARK,
                                     inner_margin: egui::Margin::symmetric(10, 6),
                                     corner_radius: egui::CornerRadius::same(4),
                                     shadow: egui::epaint::Shadow {
                                         offset: [4, 4],
                                         blur: 0,
                                         spread: 0,
-                                        color: RETRO_SHADOW_COLOR,
+                                        color: SHADOW_COLOR,
                                     },
-                                    stroke: egui::Stroke::new(2.0, RETRO_PINK_ACCENT),
+                                    stroke: egui::Stroke::new(2.0, FLOWER_ACCENT),
                                     ..Default::default()
                                 };
 
@@ -2219,7 +2251,7 @@ impl App {
                                         |ui| {
                                             ui.label(
                                                 RichText::new("FPS")
-                                                    .color(RETRO_GOLD_ACCENT)
+                                                    .color(GOLD_ACCENT)
                                                     .monospace()
                                                     .size(12.0),
                                             );
@@ -2229,7 +2261,7 @@ impl App {
                                                     "{:.1}",
                                                     self.time_info.display_fps()
                                                 ))
-                                                .color(RETRO_CYAN_ACCENT)
+                                                .color(SAGE_ACCENT)
                                                 .monospace()
                                                 .strong(),
                                             );
