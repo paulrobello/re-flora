@@ -40,7 +40,7 @@ use winit::{
 };
 
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
-const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/PixelifySans-VariableFont_wght.ttf");
+const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/ark-pixel-font-12px-monospaced-ttf-v2025.10.20/ark-pixel-12px-monospaced-zh_cn.ttf");
 const CUSTOM_GUI_FONT_NAME: &str = "re_flora_gui_font";
 
 const PANEL_BG: Color32 = Color32::from_rgb(35, 40, 40);
