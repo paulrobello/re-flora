@@ -1157,10 +1157,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fora_audio"
-version = "0.1.0"
-
-[[package]]
 name = "foreign-types"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2692,7 +2688,6 @@ dependencies = [
  "egui-winit",
  "env_logger",
  "fastnoise-lite",
- "fora_audio",
  "glam",
  "gpu-allocator",
  "image",
