@@ -2049,19 +2049,6 @@ impl App {
 
                                         ui.separator();
 
-                                        let mut perlin_enabled =
-                                            self.particle_forces.speed_noise.enabled;
-                                        if ui
-                                            .checkbox(
-                                                &mut perlin_enabled,
-                                                "Perlin Fall Speed (no gravity)",
-                                            )
-                                            .changed()
-                                        {
-                                            self.particle_forces.speed_noise.enabled =
-                                                perlin_enabled;
-                                        }
-
                                         let mut perlin_min_speed =
                                             self.particle_forces.speed_noise.min_speed;
                                         let mut perlin_max_speed =

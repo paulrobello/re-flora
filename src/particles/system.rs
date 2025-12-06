@@ -65,8 +65,6 @@ impl Default for ParticleSpawn {
 /// Parameters driving the global forces applied during simulation.
 #[derive(Clone, Copy, Debug)]
 pub struct SpeedNoise {
-    /// Whether to drive the vertical speed with Perlin noise (no acceleration integration).
-    pub enabled: bool,
     /// Frequency of the Perlin sampling along time.
     pub frequency: f32,
     /// Minimum downward speed (positive value) mapped from noise.
@@ -78,7 +76,6 @@ pub struct SpeedNoise {
 impl Default for SpeedNoise {
     fn default() -> Self {
         Self {
-            enabled: true,
             min_speed: -0.05,
             max_speed: 0.18,
             frequency: 0.5,
@@ -88,18 +85,15 @@ impl Default for SpeedNoise {
 
 #[derive(Clone, Copy, Debug)]
 pub struct ParticleForces {
-    /// Constant acceleration applied to every particle. Use for gravity/wind.
-    pub global_acceleration: Vec3,
     /// Linear damping factor (0..1). Use small values to avoid instability.
     pub linear_damping: f32,
-    /// Optional Perlin-driven speed profile (used for falling leaves).
+    /// Perlin-driven speed profile (used for falling leaves).
     pub speed_noise: SpeedNoise,
 }
 
 impl Default for ParticleForces {
     fn default() -> Self {
         Self {
-            global_acceleration: Vec3::ZERO,
             linear_damping: 0.0,
             speed_noise: SpeedNoise::default(),
         }
@@ -278,10 +272,8 @@ impl ParticleSystem {
             return;
         }
         let damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
-        if forces.speed_noise.enabled {
-            let clamped_freq = forces.speed_noise.frequency.max(0.0001);
-            self.speed_noise.set_frequency(Some(clamped_freq));
-        }
+        let clamped_freq = forces.speed_noise.frequency.max(0.0001);
+        self.speed_noise.set_frequency(Some(clamped_freq));
 
         let mut alive_cursor = 0;
         while alive_cursor < self.alive_indices.len() {
@@ -302,29 +294,22 @@ impl ParticleSystem {
                 (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
             *vel += drift_force * dt;
 
-            if forces.speed_noise.enabled {
-                // Clamp and order the speed range
-                let (min_speed, max_speed) =
-                    if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
-                        (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
-                    } else {
-                        (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
-                    };
-
-                let noise_t = age + self.speed_noise_offsets[slot];
-                let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
-                let normalized = noise_val * 0.5 + 0.5; // 0..1
-                let target_speed =
-                    (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
-
-                // Keep horizontal motion damped; vertical comes purely from noise.
-                vel.x *= damping;
-                vel.z *= damping;
-                vel.y = -target_speed;
+            // Clamp and order the speed range
+            let (min_speed, max_speed) = if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
+                (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
             } else {
-                *vel += forces.global_acceleration * gravity_scale * dt;
-                *vel *= damping;
-            }
+                (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
+            };
+
+            let noise_t = age + self.speed_noise_offsets[slot];
+            let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
+            let normalized = noise_val * 0.5 + 0.5; // 0..1
+            let target_speed = (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
+
+            // Keep horizontal motion damped; vertical comes purely from noise.
+            vel.x *= damping;
+            vel.z *= damping;
+            vel.y = -target_speed;
 
             self.positions[slot] += *vel * dt;
             self.ages[slot] += dt;
