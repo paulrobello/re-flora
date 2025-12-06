@@ -71,6 +71,7 @@ impl Default for LeafEmitterDesc {
 pub struct FallenLeafEmitter {
     pub center: Vec3,
     pub spawn_rate: f32,
+    pub fall_chance: f32,
     pub vertical_speed: RangeInclusive<f32>,
     pub size: f32,
     pub lifetime: RangeInclusive<f32>,
@@ -87,9 +88,12 @@ pub struct FallenLeafEmitter {
 
 impl FallenLeafEmitter {
     pub fn new(center: Vec3, leaf_positions: Vec<Vec3>, seed: u64, desc: &LeafEmitterDesc) -> Self {
+        let mut rng = SmallRng::seed_from_u64(seed);
+        let fall_chance = rng.random_range(0.2..=1.0);
         Self {
             center,
             spawn_rate: desc.spawn_rate,
+            fall_chance,
             vertical_speed: desc.vertical_speed_min..=desc.vertical_speed_max,
             size: desc.size,
             lifetime: desc.lifetime_min..=desc.lifetime_max,
@@ -99,7 +103,7 @@ impl FallenLeafEmitter {
             wind_spawn_max_strength: desc.wind_spawn_max_strength,
             wind_spawn_power: desc.wind_spawn_power,
             leaf_positions,
-            rng: SmallRng::seed_from_u64(seed),
+            rng,
             spawn_accumulator: 0.0,
             wind: Wind::new(),
         }
@@ -178,7 +182,7 @@ impl ParticleEmitter for FallenLeafEmitter {
         if self.spawn_rate <= 0.0 {
             return;
         }
-        let wind_multiplier = self.wind_spawn_multiplier(time);
+        let wind_multiplier = self.wind_spawn_multiplier(time) * self.fall_chance;
         if wind_multiplier <= 0.0 {
             return;
         }
