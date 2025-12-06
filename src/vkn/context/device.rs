@@ -158,7 +158,7 @@ fn create_device(
 }
 
 fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
-    let mut requirements = vec![
+    let requirements = vec![
         DeviceExtensionRequirement {
             name: vk::KHR_SWAPCHAIN_NAME,
             reason: "Required to present rendered images to the window surface",
