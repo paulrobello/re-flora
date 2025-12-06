@@ -50,7 +50,7 @@ const TEXT_COLOR: Color32 = Color32::from_rgb(235, 230, 215);
 const GOLD_ACCENT: Color32 = Color32::from_rgb(235, 165, 60);
 const FLOWER_ACCENT: Color32 = Color32::from_rgb(190, 160, 210);
 const SAGE_ACCENT: Color32 = Color32::from_rgb(110, 140, 120);
-const SHADOW_COLOR: Color32 = Color32::from_rgba_premultiplied(10, 15, 10, 180);
+const SHADOW_COLOR: Color32 = Color32::from_rgb(75, 60, 85);
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -537,9 +537,9 @@ impl App {
         style.visuals.text_edit_bg_color = Some(PANEL_DARK);
         style.visuals.faint_bg_color = PANEL_DARK;
 
-        // Soften the corners slightly (6.0 looks friendlier than 4.0)
-        style.visuals.window_corner_radius = egui::CornerRadius::same(6);
-        style.visuals.menu_corner_radius = egui::CornerRadius::same(6);
+        // Pixel-art UI: keep panel corners square
+        style.visuals.window_corner_radius = egui::CornerRadius::same(0);
+        style.visuals.menu_corner_radius = egui::CornerRadius::same(0);
 
         // Border: Thinner and Earthy Green instead of Neon Cyan
         style.visuals.window_stroke = egui::Stroke::new(1.5, SAGE_ACCENT);
@@ -1405,7 +1405,7 @@ impl App {
                             let config_frame = egui::containers::Frame {
                                 fill: PANEL_BG,
                                 inner_margin: egui::Margin::symmetric(20, 16),
-                                corner_radius: egui::CornerRadius::same(6),
+                                corner_radius: egui::CornerRadius::same(0),
                                 shadow: egui::epaint::Shadow {
                                     offset: [6, 6],
                                     blur: 0,
@@ -2226,7 +2226,7 @@ impl App {
                                 let fps_frame = egui::containers::Frame {
                                     fill: PANEL_DARK,
                                     inner_margin: egui::Margin::symmetric(10, 6),
-                                    corner_radius: egui::CornerRadius::same(4),
+                                    corner_radius: egui::CornerRadius::same(0),
                                     shadow: egui::epaint::Shadow {
                                         offset: [4, 4],
                                         blur: 0,
