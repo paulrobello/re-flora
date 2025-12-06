@@ -2089,23 +2089,6 @@ impl App {
                                             }
                                         }
 
-                                        let mut particle_size = self.leaf_emitter_desc.size;
-                                        let size_changed = ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut particle_size,
-                                                    0.001..=0.05,
-                                                )
-                                                .text("Particle Size"),
-                                            )
-                                            .changed();
-                                        if size_changed {
-                                            self.leaf_emitter_desc.size = particle_size;
-                                            for tree_emitter in &mut self.leaf_emitters {
-                                                tree_emitter.emitter.size = particle_size;
-                                            }
-                                        }
-
                                         let mut lifetime_min = self.leaf_emitter_desc.lifetime_min;
                                         let mut lifetime_max = self.leaf_emitter_desc.lifetime_max;
                                         let mut lifetime_changed = ui
