@@ -55,7 +55,7 @@ impl Default for LeafEmitterDesc {
             size: 1.0 / 256.0,
             lifetime_min: 120.0,
             lifetime_max: 240.0,
-            color_low: Vec4::new(187.0 / 255.0, 0.0, 0.0, 1.0),
+            color_low: Vec4::new(212.0 / 255.0, 111.0 / 255.0, 0.0, 1.0),
             color_high: Vec4::new(242.0 / 255.0, 205.0 / 255.0, 0.0, 1.0),
             wind_spawn_min_strength: 0.5,
             wind_spawn_max_strength: 1.0,
