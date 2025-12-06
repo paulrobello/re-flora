@@ -2049,46 +2049,6 @@ impl App {
 
                                         ui.separator();
 
-                                        let mut vertical_speed_min =
-                                            self.leaf_emitter_desc.vertical_speed_min;
-                                        let mut vertical_speed_max =
-                                            self.leaf_emitter_desc.vertical_speed_max;
-
-                                        let mut vertical_changed = ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut vertical_speed_min,
-                                                    -2.0..=2.0,
-                                                )
-                                                .text("Vertical Speed Min"),
-                                            )
-                                            .changed();
-                                        vertical_changed |= ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut vertical_speed_max,
-                                                    -2.0..=2.0,
-                                                )
-                                                .text("Vertical Speed Max"),
-                                            )
-                                            .changed();
-                                        if vertical_changed {
-                                            if vertical_speed_min > vertical_speed_max {
-                                                std::mem::swap(
-                                                    &mut vertical_speed_min,
-                                                    &mut vertical_speed_max,
-                                                );
-                                            }
-                                            self.leaf_emitter_desc.vertical_speed_min =
-                                                vertical_speed_min;
-                                            self.leaf_emitter_desc.vertical_speed_max =
-                                                vertical_speed_max;
-                                            for tree_emitter in &mut self.leaf_emitters {
-                                                tree_emitter.emitter.vertical_speed =
-                                                    vertical_speed_min..=vertical_speed_max;
-                                            }
-                                        }
-
                                         let mut lifetime_min = self.leaf_emitter_desc.lifetime_min;
                                         let mut lifetime_max = self.leaf_emitter_desc.lifetime_max;
                                         let mut lifetime_changed = ui
