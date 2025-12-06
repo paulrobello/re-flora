@@ -82,7 +82,9 @@ float get_shadow_weight(ivec3 vox_local_pos) {
 }
 
 vec3 clamp_to_grid(vec3 position) {
-    return round(position / scaling_factor) * scaling_factor;
+    // lower the grid size here to reduce chunky feeling, but maintain a good impression of pixel vibe
+    const float clamp_fac = scaling_factor * 0.5;
+    return round(position / clamp_fac) * clamp_fac;
 }
 
 void main() {
