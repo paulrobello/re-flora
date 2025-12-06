@@ -204,55 +204,71 @@ void main() {
     // 2. Density Noise (Clumping vs Clearings)
     fnl_state density_noise_state  = fnlCreateState(42);
     density_noise_state.noise_type = FNL_NOISE_PERLIN;
-    density_noise_state.frequency  = 0.05;
+    density_noise_state.frequency  = 5.0;
     float density_noise            = fnlGetNoise2D(density_noise_state, world_pos.x, world_pos.z);
 
     // Threshold for ANY plant to appear
-    float placement_threshold = smoothstep(-0.2, 0.8, density_noise) * 0.25;
+    // float placement_threshold = smoothstep(-0.2, 0.8, density_noise);
+    float placement_threshold = (density_noise + 1.0) / 2.0;
+    placement_threshold *= 0.2;
 
-    if (rng_placement < placement_threshold) {
+    // Give grass extra placement allowance without touching other flora densities
+    float grass_placement_threshold = clamp(placement_threshold, 0.0, 1.0);
 
-        if (is_surface_top(uvi) && is_normal_valid && normal_not_too_steep(normal, 0.8) &&
-            is_surface_plantable(voxel_type)) {
+    bool allow_any_flora = rng_placement < placement_threshold;
+    bool allow_grass     = rng_placement < grass_placement_threshold;
 
-            // 3. Biome Selection
-            fnl_state biome_state  = fnlCreateState(1337);
-            biome_state.noise_type = FNL_NOISE_PERLIN;
-            biome_state.frequency  = 0.02;
-            float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
+    if (!(allow_any_flora || allow_grass)) {
+        return;
+    }
 
-            float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
+    if (!is_surface_top(uvi) || !is_normal_valid || !normal_not_too_steep(normal, 0.8) ||
+        !is_surface_plantable(voxel_type)) {
+        return;
+    }
 
-            // Default to Grass
-            uint flora_type = FLORA_SPECIES_GRASS;
+    // If this spot only passes the grass-only threshold, skip biome selection and place grass.
+    if (!allow_any_flora && allow_grass) {
+        add_flora_instance(world_pos, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
+        return;
+    }
 
-            // 4. Flower Sparsity Logic
-            float lavender_sparsity        = 0.3;
-            float ember_bloom_sparsity     = 0.04;
-            float grass_decreased_sparsity = 0.45;
+    // 3. Biome Selection
+    fnl_state biome_state  = fnlCreateState(1337);
+    biome_state.noise_type = FNL_NOISE_PERLIN;
+    biome_state.frequency  = 0.02;
+    float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
 
-            // Lavender Region
-            if (biome_val > 0.3) {
-                // Calculate how "strong" the biome is here
-                float biome_strength = (biome_val - 0.3) * 1.5;
+    float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
 
-                if (species_rng < lavender_sparsity) {
-                    flora_type = FLORA_SPECIES_LAVENDER;
-                } else if (species_rng < grass_decreased_sparsity) {
-                    flora_type = FLORA_SPECIES_GRASS;
-                } else {
-                    return;
-                }
-            } else if (biome_val < -0.3) {
-                if (species_rng < ember_bloom_sparsity) {
-                    flora_type = FLORA_SPECIES_EMBER_BLOOM;
-                } else if (species_rng < grass_decreased_sparsity) {
-                    flora_type = FLORA_SPECIES_GRASS;
-                } else {
-                    return;
-                }
-            }
-            add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
+    // Default to Grass
+    uint flora_type = FLORA_SPECIES_GRASS;
+
+    // 4. Flower Sparsity Logic
+    float lavender_sparsity        = 0.3;
+    float ember_bloom_sparsity     = 0.04;
+    float grass_decreased_sparsity = 0.45;
+
+    // Lavender Region
+    if (biome_val > 0.3) {
+        // Calculate how "strong" the biome is here
+        float biome_strength = (biome_val - 0.3) * 1.5;
+
+        if (species_rng < lavender_sparsity) {
+            flora_type = FLORA_SPECIES_LAVENDER;
+        } else if (species_rng < grass_decreased_sparsity) {
+            flora_type = FLORA_SPECIES_GRASS;
+        } else {
+            return;
+        }
+    } else if (biome_val < -0.3) {
+        if (species_rng < ember_bloom_sparsity) {
+            flora_type = FLORA_SPECIES_EMBER_BLOOM;
+        } else if (species_rng < grass_decreased_sparsity) {
+            flora_type = FLORA_SPECIES_GRASS;
+        } else {
+            return;
         }
     }
+    add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
 }
