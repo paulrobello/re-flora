@@ -126,16 +126,6 @@ fn create_device(
     let mut maintenance4_features =
         vk::PhysicalDeviceMaintenance4Features::default().maintenance4(true);
 
-    // let mut physical_device_acceleration_structure_features_khr =
-    //     vk::PhysicalDeviceAccelerationStructureFeaturesKHR {
-    //         acceleration_structure: vk::TRUE,
-    //         ..Default::default()
-    //     };
-    // let mut physical_device_ray_query_features_khr = vk::PhysicalDeviceRayQueryFeaturesKHR {
-    //     ray_query: vk::TRUE,
-    //     ..Default::default()
-    // };
-
     // Shader clock is debug-only and disabled by default for broader GPU compatibility.
     // let mut physical_device_shader_clock_features_khr = vk::PhysicalDeviceShaderClockFeaturesKHR {
     //     shader_subgroup_clock: vk::TRUE,
