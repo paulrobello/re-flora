@@ -140,6 +140,7 @@ impl FallenLeafEmitter {
             drift_direction,
             drift_strength,
             drift_frequency,
+            speed_noise_offset: self.rng.random_range(0.0..10_000.0),
         };
         let _ = system.spawn(spawn);
     }

@@ -419,8 +419,8 @@ impl App {
         };
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
-            global_acceleration: Vec3::new(0.0, -1.0, 0.0),
             linear_damping: 0.08,
+            ..ParticleForces::default()
         };
 
         let mut app = Self {
@@ -2045,6 +2045,69 @@ impl App {
                                                 tree_emitter.emitter.wind_spawn_power =
                                                     wind_spawn_power;
                                             }
+                                        }
+
+                                        ui.separator();
+
+                                        let mut perlin_enabled =
+                                            self.particle_forces.speed_noise.enabled;
+                                        if ui
+                                            .checkbox(
+                                                &mut perlin_enabled,
+                                                "Perlin Fall Speed (no gravity)",
+                                            )
+                                            .changed()
+                                        {
+                                            self.particle_forces.speed_noise.enabled =
+                                                perlin_enabled;
+                                        }
+
+                                        let mut perlin_min_speed =
+                                            self.particle_forces.speed_noise.min_speed;
+                                        let mut perlin_max_speed =
+                                            self.particle_forces.speed_noise.max_speed;
+                                        let mut perlin_freq =
+                                            self.particle_forces.speed_noise.frequency;
+                                        let mut perlin_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut perlin_min_speed,
+                                                    -1.0..=1.0,
+                                                )
+                                                .text("Perlin Speed Min"),
+                                            )
+                                            .changed();
+                                        perlin_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut perlin_max_speed,
+                                                    -1.0..=1.0,
+                                                )
+                                                .text("Perlin Speed Max"),
+                                            )
+                                            .changed();
+                                        perlin_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut perlin_freq,
+                                                    0.01..=2.0,
+                                                )
+                                                .text("Perlin Speed Frequency"),
+                                            )
+                                            .changed();
+                                        if perlin_changed {
+                                            if perlin_min_speed > perlin_max_speed {
+                                                std::mem::swap(
+                                                    &mut perlin_min_speed,
+                                                    &mut perlin_max_speed,
+                                                );
+                                            }
+                                            self.particle_forces.speed_noise.min_speed =
+                                                perlin_min_speed;
+                                            self.particle_forces.speed_noise.max_speed =
+                                                perlin_max_speed;
+                                            self.particle_forces.speed_noise.frequency =
+                                                perlin_freq;
                                         }
 
                                         ui.separator();

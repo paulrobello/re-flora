@@ -1,3 +1,4 @@
+use fastnoise_lite::{FastNoiseLite, NoiseType};
 use glam::{UVec3, Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
@@ -39,6 +40,8 @@ pub struct ParticleSpawn {
     pub drift_strength: f32,
     /// How quickly the drift changes over time
     pub drift_frequency: f32,
+    /// Per-particle offset for the Perlin speed sampling to decorrelate leaves
+    pub speed_noise_offset: f32,
 }
 
 impl Default for ParticleSpawn {
@@ -54,17 +57,43 @@ impl Default for ParticleSpawn {
             drift_direction: Vec3::ZERO,
             drift_strength: 0.0,
             drift_frequency: 1.0,
+            speed_noise_offset: 0.0,
         }
     }
 }
 
 /// Parameters driving the global forces applied during simulation.
 #[derive(Clone, Copy, Debug)]
+pub struct SpeedNoise {
+    /// Whether to drive the vertical speed with Perlin noise (no acceleration integration).
+    pub enabled: bool,
+    /// Frequency of the Perlin sampling along time.
+    pub frequency: f32,
+    /// Minimum downward speed (positive value) mapped from noise.
+    pub min_speed: f32,
+    /// Maximum downward speed (positive value) mapped from noise.
+    pub max_speed: f32,
+}
+
+impl Default for SpeedNoise {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            min_speed: -0.05,
+            max_speed: 0.18,
+            frequency: 0.5,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct ParticleForces {
     /// Constant acceleration applied to every particle. Use for gravity/wind.
     pub global_acceleration: Vec3,
     /// Linear damping factor (0..1). Use small values to avoid instability.
     pub linear_damping: f32,
+    /// Optional Perlin-driven speed profile (used for falling leaves).
+    pub speed_noise: SpeedNoise,
 }
 
 impl Default for ParticleForces {
@@ -72,6 +101,7 @@ impl Default for ParticleForces {
         Self {
             global_acceleration: Vec3::ZERO,
             linear_damping: 0.0,
+            speed_noise: SpeedNoise::default(),
         }
     }
 }
@@ -102,6 +132,8 @@ pub struct ParticleSystem {
     alive_indices: Vec<usize>,
     free_list: Vec<usize>,
     max_particles: usize,
+    speed_noise_offsets: Vec<f32>,
+    speed_noise: FastNoiseLite,
 }
 
 impl ParticleSystem {
@@ -113,6 +145,10 @@ impl ParticleSystem {
         for idx in (0..max_particles).rev() {
             free_list.push(idx);
         }
+
+        let mut speed_noise = FastNoiseLite::with_seed(1337);
+        speed_noise.set_noise_type(Some(NoiseType::Perlin));
+        speed_noise.set_frequency(Some(SpeedNoise::default().frequency));
 
         Self {
             positions: vec![zero_vec3; max_particles],
@@ -131,6 +167,8 @@ impl ParticleSystem {
             alive_indices: Vec::with_capacity(max_particles),
             free_list,
             max_particles,
+            speed_noise_offsets: vec![0.0; max_particles],
+            speed_noise,
         }
     }
 
@@ -189,6 +227,7 @@ impl ParticleSystem {
         self.ages[slot] = 0.0;
         self.is_alive[slot] = true;
         self.alive_indices.push(slot);
+        self.speed_noise_offsets[slot] = spawn.speed_noise_offset;
 
         Some(ParticleHandle {
             index: slot as u32,
@@ -239,6 +278,10 @@ impl ParticleSystem {
             return;
         }
         let damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
+        if forces.speed_noise.enabled {
+            let clamped_freq = forces.speed_noise.frequency.max(0.0001);
+            self.speed_noise.set_frequency(Some(clamped_freq));
+        }
 
         let mut alive_cursor = 0;
         while alive_cursor < self.alive_indices.len() {
@@ -246,7 +289,6 @@ impl ParticleSystem {
 
             let vel = &mut self.velocities[slot];
             let gravity_scale = self.gravity_factors[slot];
-            *vel += forces.global_acceleration * gravity_scale * dt;
 
             // Apply randomized turbulent drift
             let age = self.ages[slot];
@@ -260,7 +302,29 @@ impl ParticleSystem {
                 (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
             *vel += drift_force * dt;
 
-            *vel *= damping;
+            if forces.speed_noise.enabled {
+                // Clamp and order the speed range
+                let (min_speed, max_speed) =
+                    if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
+                        (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
+                    } else {
+                        (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
+                    };
+
+                let noise_t = age + self.speed_noise_offsets[slot];
+                let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
+                let normalized = noise_val * 0.5 + 0.5; // 0..1
+                let target_speed =
+                    (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
+
+                // Keep horizontal motion damped; vertical comes purely from noise.
+                vel.x *= damping;
+                vel.z *= damping;
+                vel.y = -target_speed;
+            } else {
+                *vel += forces.global_acceleration * gravity_scale * dt;
+                *vel *= damping;
+            }
 
             self.positions[slot] += *vel * dt;
             self.ages[slot] += dt;
