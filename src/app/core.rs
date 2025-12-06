@@ -1778,10 +1778,6 @@ impl App {
                                                 )
                                                 .text("Weight"),
                                             );
-                                            ui.horizontal(|ui| {
-                                                ui.label("Color:");
-                                                ui.color_edit_button_srgba(&mut self.gui_adjustables.god_ray_color.value);
-                                            });
                                         });
 
                                         ui.collapsing("Spatial Settings", |ui| {
@@ -2366,9 +2362,9 @@ impl App {
                         self.gui_adjustables.god_ray_max_checks.value,
                         self.gui_adjustables.god_ray_weight.value,
                         Vec3::new(
-                            self.gui_adjustables.god_ray_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.god_ray_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.god_ray_color.value.b() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.b() as f32 / 255.0,
                         ),
                         self.gui_adjustables.starlight_iterations.value,
                         self.gui_adjustables.starlight_formuparam.value,

@@ -17,9 +17,9 @@ declare_gui_adjustables! {
         sun_altitude: crate::gui_adjustables::FloatParam = 0.25, float(-1.0..=1.0), "Altitude (normalized)",
         sun_azimuth: crate::gui_adjustables::FloatParam = 0.8, float(0.0..=1.0), "Azimuth (normalized)",
         sun_size: crate::gui_adjustables::FloatParam = 0.1, float(0.0..=1.0), "Size (relative)",
-        sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 233, 144), color, "Sun Color",
+        sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
         sun_luminance: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=10.0), "Sun Luminance",
-        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(100, 48, 3), color, "Ambient Light",
+        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(25, 25, 25), color, "Ambient Light",
         auto_daynight_cycle: crate::gui_adjustables::BoolParam = true, bool, "Auto Day/Night Cycle",
         time_of_day: crate::gui_adjustables::FloatParam = 0.65, float(0.0..=1.0), "Time of Day",
         latitude: crate::gui_adjustables::FloatParam = 0.5, float(-1.0..=1.0), "Latitude",
@@ -47,10 +47,9 @@ declare_gui_adjustables! {
     },
 
     [GodRay] {
-        god_ray_max_depth: crate::gui_adjustables::FloatParam = 2.0, float(0.1..=10.0), "Max Depth",
+        god_ray_max_depth: crate::gui_adjustables::FloatParam = 1.0, float(0.1..=10.0), "Max Depth",
         god_ray_max_checks: crate::gui_adjustables::UintParam = 32, uint(1..=64), "Max Checks",
-        god_ray_weight: crate::gui_adjustables::FloatParam = 0.4, float(0.0..=2.0), "Weight",
-        god_ray_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 240, 178), color, "Color",
+        god_ray_weight: crate::gui_adjustables::FloatParam = 0.2, float(0.0..=2.0), "Weight",
     },
 
     [Spatial] {
