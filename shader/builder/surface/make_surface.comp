@@ -245,7 +245,7 @@ void main() {
     uint flora_type = FLORA_SPECIES_GRASS;
 
     // 4. Flower Sparsity Logic
-    float lavender_sparsity        = 0.3;
+    float lavender_sparsity        = 0.1;
     float ember_bloom_sparsity     = 0.04;
     float grass_decreased_sparsity = 0.45;
 

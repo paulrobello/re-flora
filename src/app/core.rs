@@ -926,7 +926,7 @@ impl App {
         };
         let window_descriptor = WindowStateDesc {
             title: using_mode.to_owned(),
-            window_mode: WindowMode::Windowed(false),
+            window_mode: WindowMode::BorderlessFullscreen,
             cursor_locked: true,
             cursor_visible: false,
             ..Default::default()

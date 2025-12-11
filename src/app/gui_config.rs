@@ -19,7 +19,7 @@ declare_gui_adjustables! {
         sun_size: crate::gui_adjustables::FloatParam = 0.1, float(0.0..=1.0), "Size (relative)",
         sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
         sun_luminance: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=10.0), "Sun Luminance",
-        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(25, 25, 25), color, "Ambient Light",
+        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(50, 34, 0), color, "Ambient Light",
         auto_daynight_cycle: crate::gui_adjustables::BoolParam = true, bool, "Auto Day/Night Cycle",
         time_of_day: crate::gui_adjustables::FloatParam = 0.65, float(0.0..=1.0), "Time of Day",
         latitude: crate::gui_adjustables::FloatParam = 0.5, float(-1.0..=1.0), "Latitude",
@@ -75,7 +75,7 @@ declare_gui_adjustables! {
 
     [Lavender] {
         lavender_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(74, 165, 0), color, "Bottom Color",
-        lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(85, 0, 207), color, "Tip Color",
+        lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(170, 74, 0), color, "Tip Color",
     },
 
     [EmberBloom] {
