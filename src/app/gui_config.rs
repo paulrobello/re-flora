@@ -94,9 +94,9 @@ declare_gui_adjustables! {
 
     [Voxel] {
         voxel_sand_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(245, 222, 179), color, "Sand Color",
-        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(68, 192, 0), color, "Dirt Color",
+        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(169, 169, 169), color, "Dirt Color",
         voxel_rock_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(235, 92, 0), color, "Rock Color",
         voxel_leaf_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 199, 36), color, "Leaf Color",
-        voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(215, 194, 168), color, "Trunk Color",
+        voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(169, 136, 86), color, "Trunk Color",
     },
 }
