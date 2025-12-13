@@ -222,8 +222,25 @@ void main() {
         return;
     }
 
-    if (!is_surface_top(uvi) || !is_normal_valid || !normal_not_too_steep(normal, 0.8) ||
-        !is_surface_plantable(voxel_type)) {
+    // Basic surface checks (no normal steepness check yet)
+    if (!is_surface_top(uvi) || !is_normal_valid || !is_surface_plantable(voxel_type)) {
+        return;
+    }
+
+    // Calculate spawn chance based on surface flatness (stiffness)
+    // dot product with up: 1.0 = flat, 0.0 = vertical wall
+    vec3 up                = vec3(0.0, 1.0, 0.0);
+    float surface_flatness = dot(normal, up);
+
+    // Map flatness to spawn chance: only surfaces above 0.5 flatness can spawn
+    // spawn_chance smoothly ramps from 0 at 0.5 flatness to 1.0 at 1.0 flatness
+    float spawn_chance = smoothstep(0.5, 1.0, surface_flatness);
+
+    // Generate random value for stiffness-based spawning
+    float rng_stiffness = hash(vec2(world_pos.x + 123.0, world_pos.z + 456.0));
+
+    // Probabilistic spawn based on surface flatness
+    if (rng_stiffness > spawn_chance) {
         return;
     }
 
