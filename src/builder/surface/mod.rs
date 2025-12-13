@@ -6,8 +6,8 @@ use crate::{
     util::ShaderCompiler,
     vkn::{
         Allocator, Buffer, ClearValue, ColorClearValue, CommandBuffer, ComputePipeline,
-        DescriptorPool, Extent3D, PlainMemberTypeWithData, ShaderModule, StructMemberDataBuilder,
-        VulkanContext, WriteDescriptorSet,
+        DescriptorPool, Extent3D, MemoryBarrier, PipelineBarrier, PlainMemberTypeWithData,
+        ShaderModule, StructMemberDataBuilder, VulkanContext, WriteDescriptorSet,
     },
 };
 use anyhow::Result;
@@ -23,6 +23,7 @@ pub struct SurfaceBuilder {
     pool: DescriptorPool,
 
     make_surface_ppl: ComputePipeline,
+    place_flora_ppl: ComputePipeline,
 
     chunk_bound: UAabb3,
     voxel_dim_per_chunk: UVec3,
@@ -50,11 +51,20 @@ impl SurfaceBuilder {
         )
         .unwrap();
 
+        let place_flora_sm = ShaderModule::from_glsl(
+            device,
+            shader_compiler,
+            "shader/builder/surface/place_flora.comp",
+            "main",
+        )
+        .unwrap();
+
         let resources = SurfaceResources::new(
             device.clone(),
             allocator,
             voxel_dim_per_chunk,
             &make_surface_sm,
+            &place_flora_sm,
             chunk_bound,
         );
 
@@ -67,11 +77,19 @@ impl SurfaceBuilder {
             &[&resources, plain_builder_resources],
         );
 
+        let place_flora_ppl = ComputePipeline::new(
+            device,
+            &place_flora_sm,
+            &pool,
+            &[&resources, plain_builder_resources],
+        );
+
         Self {
             vulkan_ctx,
             resources,
             pool,
             make_surface_ppl,
+            place_flora_ppl,
             chunk_bound,
             voxel_dim_per_chunk,
             flora_species_count,
@@ -89,7 +107,7 @@ impl SurfaceBuilder {
             .1;
 
         for (species_index, instance_resource) in chunk_resources.iter().enumerate() {
-            self.make_surface_ppl.write_descriptor_set(
+            self.place_flora_ppl.write_descriptor_set(
                 1,
                 WriteDescriptorSet::new_buffer_write(0, &instance_resource.instances_buf)
                     .with_array_element(species_index as u32),
@@ -115,7 +133,14 @@ impl SurfaceBuilder {
             true,
         )?;
 
+        update_place_flora_info(
+            &self.resources.place_flora_info,
+            atlas_read_offset,
+            atlas_read_dim,
+        )?;
+
         cleanup_make_surface_result(&self.resources.make_surface_result)?;
+        cleanup_place_flora_result(&self.resources.place_flora_result)?;
 
         self.update_flora_instance_set(chunk_id);
 
@@ -137,16 +162,25 @@ impl SurfaceBuilder {
 
         self.make_surface_ppl.record(&cmdbuf, extent, None);
 
+        // Barrier to ensure make_surface writes complete before place_flora reads
+        let barrier = PipelineBarrier::new(
+            vk::PipelineStageFlags::COMPUTE_SHADER,
+            vk::PipelineStageFlags::COMPUTE_SHADER,
+            vec![MemoryBarrier::new_shader_access()],
+        );
+        barrier.record_insert(&device, &cmdbuf);
+
+        self.place_flora_ppl.record(&cmdbuf, extent, None);
+
         cmdbuf.end();
 
         cmdbuf.submit(&self.vulkan_ctx.get_general_queue(), None);
 
         device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
 
-        let (active_voxel_len, flora_instance_lengths) = get_result(
-            &self.resources.make_surface_result,
-            self.flora_species_count,
-        );
+        let active_voxel_len = get_make_surface_result(&self.resources.make_surface_result);
+        let flora_instance_lengths =
+            get_flora_result(&self.resources.place_flora_result, self.flora_species_count);
 
         let chunk_resources = self
             .resources
@@ -193,22 +227,62 @@ impl SurfaceBuilder {
             Ok(())
         }
 
-        /// Returns: (active_voxel_len, per-species instance lengths)
-        fn get_result(frag_img_build_result: &Buffer, species_count: usize) -> (u32, Vec<u32>) {
-            let raw_data = frag_img_build_result.read_back().unwrap();
+        fn update_place_flora_info(
+            place_flora_info: &Buffer,
+            atlas_read_offset: UVec3,
+            atlas_read_dim: UVec3,
+        ) -> Result<()> {
+            let data = StructMemberDataBuilder::from_buffer(place_flora_info)
+                .set_field(
+                    "atlas_read_offset",
+                    PlainMemberTypeWithData::UVec3(atlas_read_offset.to_array()),
+                )
+                .set_field(
+                    "atlas_read_dim",
+                    PlainMemberTypeWithData::UVec3(atlas_read_dim.to_array()),
+                )
+                .build()?;
+            place_flora_info.fill_with_raw_u8(&data)?;
+            Ok(())
+        }
+
+        fn cleanup_place_flora_result(place_flora_result: &Buffer) -> Result<()> {
+            let layout = place_flora_result.get_layout().unwrap();
+            let buffer_size = layout.root_member.get_size_bytes() as usize;
+            let zeroed = vec![0u8; buffer_size];
+            place_flora_result.fill_with_raw_u8(&zeroed)?;
+            Ok(())
+        }
+
+        /// Returns: active_voxel_len
+        fn get_make_surface_result(make_surface_result: &Buffer) -> u32 {
+            let raw_data = make_surface_result.read_back().unwrap();
             let total_u32 = raw_data.len() / std::mem::size_of::<u32>();
             let data =
                 unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
             assert!(
-                total_u32 > species_count,
-                "make_surface_result buffer too small: expected at least {} u32s, got {}",
-                1 + species_count,
+                total_u32 >= 1,
+                "make_surface_result buffer too small: expected at least 1 u32, got {}",
                 total_u32
             );
-            let active_voxel_len = data[0];
+            data[0]
+        }
+
+        /// Returns: per-species instance lengths
+        fn get_flora_result(place_flora_result: &Buffer, species_count: usize) -> Vec<u32> {
+            let raw_data = place_flora_result.read_back().unwrap();
+            let total_u32 = raw_data.len() / std::mem::size_of::<u32>();
+            let data =
+                unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
+            assert!(
+                total_u32 >= species_count,
+                "place_flora_result buffer too small: expected at least {} u32s, got {}",
+                species_count,
+                total_u32
+            );
             let mut flora_instance_lengths = Vec::with_capacity(species_count);
-            flora_instance_lengths.extend_from_slice(&data[1..1 + species_count]);
-            (active_voxel_len, flora_instance_lengths)
+            flora_instance_lengths.extend_from_slice(&data[0..species_count]);
+            flora_instance_lengths
         }
     }
 
