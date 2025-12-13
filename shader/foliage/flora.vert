@@ -108,7 +108,16 @@ void main() {
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(voxel_pos, 1.0));
     shadow_weight *= get_shadow_weight(vox_local_pos);
 
-    gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
+    // Add tiny depth offset in view space based on instance hash to prevent z-fighting
+    // This gives consistent world-space offset regardless of distance from camera
+    uint hash = in_instance_pos.x * 73856093u ^ in_instance_pos.y * 19349663u ^
+                in_instance_pos.z * 83492791u;
+    float depth_offset = fract(float(hash) * 0.0001) * 5e-4;
+
+    // Transform to view space, apply offset, then project
+    vec4 view_pos = camera_info.view_mat * vec4(vert_pos, 1.0);
+    view_pos.z -= depth_offset; // Push away from camera in view space
+    gl_Position = camera_info.proj_mat * view_pos;
 
     vec3 interpolated_color =
         mix(srgb_to_linear(pc.bottom_color), srgb_to_linear(pc.tip_color), color_gradient);
