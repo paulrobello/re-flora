@@ -247,17 +247,6 @@ impl BufferUpdater {
         Ok(())
     }
 
-    pub fn update_taa_info(resources: &TracerResources, is_taa_enabled: bool) -> Result<()> {
-        let data = StructMemberDataBuilder::from_buffer(&resources.taa_info)
-            .set_field(
-                "is_taa_enabled",
-                PlainMemberTypeWithData::UInt(is_taa_enabled as u32),
-            )
-            .build()?;
-        resources.taa_info.fill_with_raw_u8(&data)?;
-        Ok(())
-    }
-
     pub fn update_god_ray_info(
         resources: &TracerResources,
         max_depth: f32,

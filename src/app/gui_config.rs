@@ -64,10 +64,6 @@ declare_gui_adjustables! {
         a_trous_iteration_count: crate::gui_adjustables::UintParam = 3, uint(1..=5), "A-Trous Iterations",
     },
 
-    [AntiAliasing] {
-        is_taa_enabled: crate::gui_adjustables::BoolParam = false, bool, "Enable Temporal Anti-Aliasing",
-    },
-
     [Grass] {
         grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(7, 137, 59), color, "Bottom Color",
         grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(164, 197, 0), color, "Tip Color",

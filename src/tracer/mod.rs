@@ -171,7 +171,6 @@ impl Tracer {
             &shader_modules.composition_sm,
             &shader_modules.temporal_sm,
             &shader_modules.spatial_sm,
-            &shader_modules.taa_sm,
             &shader_modules.god_ray_sm,
             &shader_modules.post_processing_sm,
             &shader_modules.player_collider_sm,
@@ -377,7 +376,6 @@ impl Tracer {
         update_compute_fn(&self.compute_pipelines.temporal_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.spatial_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.composition_ppl, tracer_resources);
-        update_compute_fn(&self.compute_pipelines.taa_ppl, tracer_resources);
         update_compute_fn(
             &self.compute_pipelines.post_processing_ppl,
             tracer_resources,
@@ -430,7 +428,6 @@ impl Tracer {
         is_changing_lum_phi: bool,
         is_spatial_denoising_enabled: bool,
         a_trous_iteration_count: u32,
-        is_taa_enabled: bool,
         god_ray_max_depth: f32,
         god_ray_max_checks: u32,
         god_ray_weight: f32,
@@ -472,8 +469,6 @@ impl Tracer {
             self.camera_view_mat_prev_frame,
             self.camera_proj_mat_prev_frame,
         )?;
-
-        BufferUpdater::update_taa_info(&self.resources, is_taa_enabled)?;
 
         BufferUpdater::update_god_ray_info(
             &self.resources,
@@ -740,8 +735,6 @@ impl Tracer {
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_composition_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_taa_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_post_processing_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_player_collider_pass(cmdbuf);
@@ -797,10 +790,6 @@ impl Tracer {
             copy_fn(
                 &resources.denoiser_resources.tex.denoiser_accumed_tex,
                 &resources.denoiser_resources.tex.denoiser_accumed_tex_prev,
-            );
-            copy_fn(
-                &resources.extent_dependent_resources.taa_tex,
-                &resources.extent_dependent_resources.taa_tex_prev,
             );
         }
     }
@@ -1430,30 +1419,6 @@ impl Tracer {
             self.resources
                 .extent_dependent_resources
                 .composited_tex
-                .get_image()
-                .get_desc()
-                .extent,
-            None,
-        );
-    }
-
-    fn record_taa_pass(&self, cmdbuf: &CommandBuffer) {
-        self.resources
-            .extent_dependent_resources
-            .taa_tex
-            .get_image()
-            .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
-        self.resources
-            .extent_dependent_resources
-            .taa_tex_prev
-            .get_image()
-            .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
-
-        self.compute_pipelines.taa_ppl.record(
-            cmdbuf,
-            self.resources
-                .extent_dependent_resources
-                .taa_tex
                 .get_image()
                 .get_desc()
                 .extent,

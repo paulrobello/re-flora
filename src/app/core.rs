@@ -1829,12 +1829,6 @@ impl App {
                                             });
                                         });
 
-                                        ui.collapsing("Anti-Aliasing", |ui| {
-                                            ui.add(egui::Checkbox::new(
-                                                &mut self.gui_adjustables.is_taa_enabled.value,
-                                                "Enable Temporal Anti-Aliasing",
-                                            ));
-                                        });
 
                                         ui.collapsing("Grass Settings", |ui| {
                                             ui.horizontal(|ui| {
@@ -2359,7 +2353,6 @@ impl App {
                         self.gui_adjustables.is_changing_lum_phi.value,
                         self.gui_adjustables.is_spatial_denoising_enabled.value,
                         self.gui_adjustables.a_trous_iteration_count.value,
-                        self.gui_adjustables.is_taa_enabled.value,
                         self.gui_adjustables.god_ray_max_depth.value,
                         self.gui_adjustables.god_ray_max_checks.value,
                         self.gui_adjustables.god_ray_weight.value,
