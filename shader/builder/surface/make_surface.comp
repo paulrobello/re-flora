@@ -168,6 +168,76 @@ float hash(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
+// Calculate density-based placement allowance
+void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
+                                 out bool o_allow_grass) {
+    float rng_placement = hash(vec2(world_pos.x, world_pos.z));
+
+    fnl_state density_noise_state  = fnlCreateState(42);
+    density_noise_state.noise_type = FNL_NOISE_PERLIN;
+    density_noise_state.frequency  = 5.0;
+    float density_noise            = fnlGetNoise2D(density_noise_state, world_pos.x, world_pos.z);
+
+    float placement_threshold = (density_noise + 1.0) / 2.0;
+    placement_threshold *= 0.2;
+
+    float grass_placement_threshold = clamp(placement_threshold, 0.0, 1.0);
+
+    o_allow_any_flora = rng_placement < placement_threshold;
+    o_allow_grass     = rng_placement < grass_placement_threshold;
+}
+
+// Check if surface is suitable for planting with probabilistic stiffness
+bool check_surface_plantability(ivec3 uvi, ivec3 world_pos, uint voxel_type, vec3 normal,
+                                bool is_normal_valid) {
+    if (!is_surface_top(uvi) || !is_normal_valid || !is_surface_plantable(voxel_type)) {
+        return false;
+    }
+
+    vec3 up                = vec3(0.0, 1.0, 0.0);
+    float surface_flatness = dot(normal, up);
+    float spawn_chance     = smoothstep(0.5, 1.0, surface_flatness);
+    float rng_stiffness    = hash(vec2(world_pos.x + 123.0, world_pos.z + 456.0));
+
+    return rng_stiffness <= spawn_chance;
+}
+
+// Select flora species based on biome
+bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
+    fnl_state biome_state  = fnlCreateState(1337);
+    biome_state.noise_type = FNL_NOISE_PERLIN;
+    biome_state.frequency  = 0.02;
+    float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
+
+    float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
+
+    const float lavender_sparsity        = 0.1;
+    const float ember_bloom_sparsity     = 0.04;
+    const float grass_decreased_sparsity = 0.45;
+
+    o_flora_type = FLORA_SPECIES_GRASS;
+
+    if (biome_val > 0.3) {
+        if (species_rng < lavender_sparsity) {
+            o_flora_type = FLORA_SPECIES_LAVENDER;
+        } else if (species_rng < grass_decreased_sparsity) {
+            o_flora_type = FLORA_SPECIES_GRASS;
+        } else {
+            return false;
+        }
+    } else if (biome_val < -0.3) {
+        if (species_rng < ember_bloom_sparsity) {
+            o_flora_type = FLORA_SPECIES_EMBER_BLOOM;
+        } else if (species_rng < grass_decreased_sparsity) {
+            o_flora_type = FLORA_SPECIES_GRASS;
+        } else {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 void main() {
     preload();
     barrier();
@@ -198,94 +268,26 @@ void main() {
 
     // --- FLORA GENERATION ---
 
-    // 1. Randomize Placement (Anti-Grid)
-    float rng_placement = hash(vec2(world_pos.x, world_pos.z));
-
-    // 2. Density Noise (Clumping vs Clearings)
-    fnl_state density_noise_state  = fnlCreateState(42);
-    density_noise_state.noise_type = FNL_NOISE_PERLIN;
-    density_noise_state.frequency  = 5.0;
-    float density_noise            = fnlGetNoise2D(density_noise_state, world_pos.x, world_pos.z);
-
-    // Threshold for ANY plant to appear
-    // float placement_threshold = smoothstep(-0.2, 0.8, density_noise);
-    float placement_threshold = (density_noise + 1.0) / 2.0;
-    placement_threshold *= 0.2;
-
-    // Give grass extra placement allowance without touching other flora densities
-    float grass_placement_threshold = clamp(placement_threshold, 0.0, 1.0);
-
-    bool allow_any_flora = rng_placement < placement_threshold;
-    bool allow_grass     = rng_placement < grass_placement_threshold;
+    bool allow_any_flora, allow_grass;
+    calculate_density_placement(world_pos, allow_any_flora, allow_grass);
 
     if (!(allow_any_flora || allow_grass)) {
         return;
     }
 
-    // Basic surface checks (no normal steepness check yet)
-    if (!is_surface_top(uvi) || !is_normal_valid || !is_surface_plantable(voxel_type)) {
+    if (!check_surface_plantability(uvi, world_pos, voxel_type, normal, is_normal_valid)) {
         return;
     }
 
-    // Calculate spawn chance based on surface flatness (stiffness)
-    // dot product with up: 1.0 = flat, 0.0 = vertical wall
-    vec3 up                = vec3(0.0, 1.0, 0.0);
-    float surface_flatness = dot(normal, up);
-
-    // Map flatness to spawn chance: only surfaces above 0.5 flatness can spawn
-    // spawn_chance smoothly ramps from 0 at 0.5 flatness to 1.0 at 1.0 flatness
-    float spawn_chance = smoothstep(0.5, 1.0, surface_flatness);
-
-    // Generate random value for stiffness-based spawning
-    float rng_stiffness = hash(vec2(world_pos.x + 123.0, world_pos.z + 456.0));
-
-    // Probabilistic spawn based on surface flatness
-    if (rng_stiffness > spawn_chance) {
-        return;
-    }
-
-    // If this spot only passes the grass-only threshold, skip biome selection and place grass.
+    // Grass-only placement
     if (!allow_any_flora && allow_grass) {
         add_flora_instance(world_pos, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
         return;
     }
 
-    // 3. Biome Selection
-    fnl_state biome_state  = fnlCreateState(1337);
-    biome_state.noise_type = FNL_NOISE_PERLIN;
-    biome_state.frequency  = 0.02;
-    float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
-
-    float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
-
-    // Default to Grass
-    uint flora_type = FLORA_SPECIES_GRASS;
-
-    // 4. Flower Sparsity Logic
-    float lavender_sparsity        = 0.1;
-    float ember_bloom_sparsity     = 0.04;
-    float grass_decreased_sparsity = 0.45;
-
-    // Lavender Region
-    if (biome_val > 0.3) {
-        // Calculate how "strong" the biome is here
-        float biome_strength = (biome_val - 0.3) * 1.5;
-
-        if (species_rng < lavender_sparsity) {
-            flora_type = FLORA_SPECIES_LAVENDER;
-        } else if (species_rng < grass_decreased_sparsity) {
-            flora_type = FLORA_SPECIES_GRASS;
-        } else {
-            return;
-        }
-    } else if (biome_val < -0.3) {
-        if (species_rng < ember_bloom_sparsity) {
-            flora_type = FLORA_SPECIES_EMBER_BLOOM;
-        } else if (species_rng < grass_decreased_sparsity) {
-            flora_type = FLORA_SPECIES_GRASS;
-        } else {
-            return;
-        }
+    // Biome-based species selection
+    uint flora_type;
+    if (select_flora_biome(world_pos, flora_type)) {
+        add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
     }
-    add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
 }
