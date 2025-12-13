@@ -4,6 +4,7 @@
 
 #include "../foliage/unpacker.glsl"
 #include "../include/core/color.glsl"
+#include "../include/depth_offset.glsl"
 
 layout(location = 0) in uint in_packed_data;
 layout(location = 1) in uvec3 in_instance_pos;
@@ -77,7 +78,9 @@ void main() {
 
     vec3 vertex_pos = instance_pos + vertex_offset;
 
-    gl_Position = camera_info.view_proj_mat * vec4(vertex_pos, 1.0);
+    // Apply depth offset to prevent z-fighting between instances
+    gl_Position =
+        apply_depth_offset(vertex_pos, in_instance_pos, camera_info.view_mat, camera_info.proj_mat);
 
     float shadow_weight =
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(vertex_pos, 1.0));
