@@ -1940,18 +1940,38 @@ impl App {
                                             }
 
                                             ui.separator();
+                                            let mut bottom_color_changed = false;
+                                            let mut tip_color_changed = false;
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
-                                                ui.color_edit_button_srgba(
+                                                bottom_color_changed = ui.color_edit_button_srgba(
                                                     &mut self.gui_adjustables.leaves_bottom_color.value,
-                                                );
+                                                ).changed();
                                             });
                                         ui.horizontal(|ui| {
                                             ui.label("Tip Color:");
-                                            ui.color_edit_button_srgba(
+                                            tip_color_changed = ui.color_edit_button_srgba(
                                                 &mut self.gui_adjustables.leaves_tip_color.value,
-                                            );
+                                            ).changed();
                                         });
+
+                                        // Update leaf emitter colors when foliage colors change
+                                        if bottom_color_changed || tip_color_changed {
+                                            let color_to_vec4 = |color: Color32| -> Vec4 {
+                                                Vec4::new(
+                                                    color.r() as f32 / 255.0,
+                                                    color.g() as f32 / 255.0,
+                                                    color.b() as f32 / 255.0,
+                                                    1.0,
+                                                )
+                                            };
+                                            self.leaf_emitter_desc.color_low = color_to_vec4(self.gui_adjustables.leaves_bottom_color.value);
+                                            self.leaf_emitter_desc.color_high = color_to_vec4(self.gui_adjustables.leaves_tip_color.value);
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.color_low = self.leaf_emitter_desc.color_low;
+                                                tree_emitter.emitter.color_high = self.leaf_emitter_desc.color_high;
+                                            }
+                                        }
                                     });
 
                                     ui.collapsing("Particle Emitters", |ui| {
