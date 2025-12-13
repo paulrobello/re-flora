@@ -51,7 +51,7 @@ pub struct LeafEmitterDesc {
 impl Default for LeafEmitterDesc {
     fn default() -> Self {
         Self {
-            spawn_rate: 2.0,
+            spawn_rate: 0.5,
             size: 1.0 / 256.0,
             lifetime_min: 120.0,
             lifetime_max: 240.0,
