@@ -7,14 +7,8 @@
 vec3 _voxel_color_by_type_srgb(uint voxel_type) {
     if (voxel_type == VOXEL_TYPE_EMPTY) {
         return vec3(0.0);
-    } else if (voxel_type == VOXEL_TYPE_SAND) {
-        return voxel_colors.sand_color;
     } else if (voxel_type == VOXEL_TYPE_DIRT) {
         return voxel_colors.dirt_color;
-    } else if (voxel_type == VOXEL_TYPE_LEAF) {
-        return voxel_colors.leaf_color;
-    } else if (voxel_type == VOXEL_TYPE_ROCK) {
-        return voxel_colors.rock_color;
     } else if (voxel_type == VOXEL_TYPE_TRUNK) {
         return voxel_colors.trunk_color;
     }

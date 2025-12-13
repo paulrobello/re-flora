@@ -2175,28 +2175,10 @@ impl App {
                                     });
 
                                     ui.collapsing("Voxel Colors", |ui| {
-                                        ui.horizontal(|ui| {
-                                            ui.label("Sand Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_sand_color.value,
-                                                );
-                                            });
                                             ui.horizontal(|ui| {
                                                 ui.label("Dirt Color:");
                                                 ui.color_edit_button_srgba(
                                                     &mut self.gui_adjustables.voxel_dirt_color.value,
-                                                );
-                                            });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Rock Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_rock_color.value,
-                                                );
-                                            });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Leaf Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_leaf_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
@@ -2378,24 +2360,9 @@ impl App {
                         self.gui_adjustables.starlight_distfading.value,
                         self.gui_adjustables.starlight_saturation.value,
                         Vec3::new(
-                            self.gui_adjustables.voxel_sand_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_sand_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_sand_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
                             self.gui_adjustables.voxel_dirt_color.value.r() as f32 / 255.0,
                             self.gui_adjustables.voxel_dirt_color.value.g() as f32 / 255.0,
                             self.gui_adjustables.voxel_dirt_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.voxel_rock_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_rock_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_rock_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.voxel_leaf_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_leaf_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_leaf_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
                             self.gui_adjustables.voxel_trunk_color.value.r() as f32 / 255.0,

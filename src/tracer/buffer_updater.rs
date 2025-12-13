@@ -230,28 +230,13 @@ impl BufferUpdater {
 
     pub fn update_voxel_colors(
         resources: &TracerResources,
-        sand_color: Vec3,
         dirt_color: Vec3,
-        rock_color: Vec3,
-        leaf_color: Vec3,
         trunk_color: Vec3,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.voxel_colors)
             .set_field(
-                "sand_color",
-                PlainMemberTypeWithData::Vec3(sand_color.to_array()),
-            )
-            .set_field(
                 "dirt_color",
                 PlainMemberTypeWithData::Vec3(dirt_color.to_array()),
-            )
-            .set_field(
-                "rock_color",
-                PlainMemberTypeWithData::Vec3(rock_color.to_array()),
-            )
-            .set_field(
-                "leaf_color",
-                PlainMemberTypeWithData::Vec3(leaf_color.to_array()),
             )
             .set_field(
                 "trunk_color",

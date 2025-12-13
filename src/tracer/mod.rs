@@ -446,10 +446,7 @@ impl Tracer {
         starlight_darkmatter: f32,
         starlight_distfading: f32,
         starlight_saturation: f32,
-        voxel_sand_color: Vec3,
         voxel_dirt_color: Vec3,
-        voxel_rock_color: Vec3,
-        voxel_leaf_color: Vec3,
         voxel_trunk_color: Vec3,
     ) -> Result<()> {
         // camera info
@@ -494,14 +491,7 @@ impl Tracer {
             self.camera.front(),
         )?;
 
-        BufferUpdater::update_voxel_colors(
-            &self.resources,
-            voxel_sand_color,
-            voxel_dirt_color,
-            voxel_rock_color,
-            voxel_leaf_color,
-            voxel_trunk_color,
-        )?;
+        BufferUpdater::update_voxel_colors(&self.resources, voxel_dirt_color, voxel_trunk_color)?;
 
         BufferUpdater::update_gui_input(&self.resources, debug_float, debug_bool, debug_uint)?;
 
