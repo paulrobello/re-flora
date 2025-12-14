@@ -1,3 +1,6 @@
+#ifndef DEPTH_OFFSET_GLSL
+#define DEPTH_OFFSET_GLSL
+
 // Common depth offset utilities for preventing z-fighting in instanced geometry
 
 // Compute hash from instance position for consistent per-instance offset
@@ -16,3 +19,5 @@ vec4 apply_depth_offset(vec3 world_pos, uvec3 instance_pos, mat4 view_mat, mat4 
     view_pos.z -= depth_offset; // Push away from camera in view space
     return proj_mat * view_pos;
 }
+
+#endif // DEPTH_OFFSET_GLSL
