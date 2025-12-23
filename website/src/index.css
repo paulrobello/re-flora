@@ -49,13 +49,16 @@ body {
   /* Stamp Edge Effect */
   --mask-size: 20px;
   --mask-inset: 8px;
-  
-  -webkit-mask: 
-    linear-gradient(#000 0 0) center / calc(100% - 2 * var(--mask-inset)) calc(100% - 2 * var(--mask-inset)) no-repeat,
-    radial-gradient(circle closest-side, #000 99%, transparent 100%) 0 0 / var(--mask-size) var(--mask-size) round;
-  mask: 
-    linear-gradient(#000 0 0) center / calc(100% - 2 * var(--mask-inset)) calc(100% - 2 * var(--mask-inset)) no-repeat,
-    radial-gradient(circle closest-side, #000 99%, transparent 100%) 0 0 / var(--mask-size) var(--mask-size) round;
+
+  -webkit-mask: linear-gradient(#000 0 0) center /
+      calc(100% - 2 * var(--mask-inset)) calc(100% - 2 * var(--mask-inset))
+      no-repeat,
+    radial-gradient(circle closest-side, #000 99%, transparent 100%) 0 0 /
+      var(--mask-size) var(--mask-size) round;
+  mask: linear-gradient(#000 0 0) center / calc(100% - 2 * var(--mask-inset))
+      calc(100% - 2 * var(--mask-inset)) no-repeat,
+    radial-gradient(circle closest-side, #000 99%, transparent 100%) 0 0 /
+      var(--mask-size) var(--mask-size) round;
 
   /* Replace box-shadow with drop-shadow to follow the shape */
   box-shadow: none;
