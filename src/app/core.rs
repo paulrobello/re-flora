@@ -1416,15 +1416,22 @@ impl App {
                                 ..Default::default()
                             };
 
+                            let content_rect = ctx.content_rect();
+                            let panel_pos =
+                                egui::pos2(content_rect.left(), content_rect.top());
+                            let panel_size = egui::Vec2::new(
+                                content_rect.width() * 0.24,
+                                content_rect.height() * 0.6,
+                            );
+
                             egui::Window::new("Configuration")
                                 .id(egui::Id::new("config_panel"))
                                 .open(&mut config_panel_open)
                                 .frame(config_frame)
                                 .resizable(true)
                                 .movable(true)
-                                .default_pos(egui::pos2(24.0, 24.0))
-                                .default_width(380.0)
-                                .min_width(280.0)
+                                .default_pos(panel_pos)
+                                .default_size(panel_size)
                                 .show(ctx, |ui| {
                                     ui.horizontal(|ui| {
                                         ui.heading(
