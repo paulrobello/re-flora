@@ -65,7 +65,7 @@ declare_gui_adjustables! {
     },
 
     [Grass] {
-        grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(7, 137, 59), color, "Bottom Color",
+        grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(88, 165, 0), color, "Bottom Color",
         grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(164, 197, 0), color, "Tip Color",
     },
 
