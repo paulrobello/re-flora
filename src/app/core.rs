@@ -288,9 +288,6 @@ const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 
 impl App {
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
-        let sum = fora_audio::add(1, 2);
-        log::info!("sum: {}", sum);
-
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
         let window_state = Self::create_window_state(_event_loop);
         let vulkan_ctx = Self::create_vulkan_context(&window_state);
@@ -929,7 +926,7 @@ impl App {
         };
         let window_descriptor = WindowStateDesc {
             title: using_mode.to_owned(),
-            window_mode: WindowMode::Windowed(false),
+            window_mode: WindowMode::BorderlessFullscreen,
             cursor_locked: true,
             cursor_visible: false,
             ..Default::default()
@@ -1781,10 +1778,6 @@ impl App {
                                                 )
                                                 .text("Weight"),
                                             );
-                                            ui.horizontal(|ui| {
-                                                ui.label("Color:");
-                                                ui.color_edit_button_srgba(&mut self.gui_adjustables.god_ray_color.value);
-                                            });
                                         });
 
                                         ui.collapsing("Spatial Settings", |ui| {
@@ -1836,12 +1829,6 @@ impl App {
                                             });
                                         });
 
-                                        ui.collapsing("Anti-Aliasing", |ui| {
-                                            ui.add(egui::Checkbox::new(
-                                                &mut self.gui_adjustables.is_taa_enabled.value,
-                                                "Enable Temporal Anti-Aliasing",
-                                            ));
-                                        });
 
                                         ui.collapsing("Grass Settings", |ui| {
                                             ui.horizontal(|ui| {
@@ -1947,18 +1934,38 @@ impl App {
                                             }
 
                                             ui.separator();
+                                            let mut bottom_color_changed = false;
+                                            let mut tip_color_changed = false;
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
-                                                ui.color_edit_button_srgba(
+                                                bottom_color_changed = ui.color_edit_button_srgba(
                                                     &mut self.gui_adjustables.leaves_bottom_color.value,
-                                                );
+                                                ).changed();
                                             });
                                         ui.horizontal(|ui| {
                                             ui.label("Tip Color:");
-                                            ui.color_edit_button_srgba(
+                                            tip_color_changed = ui.color_edit_button_srgba(
                                                 &mut self.gui_adjustables.leaves_tip_color.value,
-                                            );
+                                            ).changed();
                                         });
+
+                                        // Update leaf emitter colors when foliage colors change
+                                        if bottom_color_changed || tip_color_changed {
+                                            let color_to_vec4 = |color: Color32| -> Vec4 {
+                                                Vec4::new(
+                                                    color.r() as f32 / 255.0,
+                                                    color.g() as f32 / 255.0,
+                                                    color.b() as f32 / 255.0,
+                                                    1.0,
+                                                )
+                                            };
+                                            self.leaf_emitter_desc.color_low = color_to_vec4(self.gui_adjustables.leaves_bottom_color.value);
+                                            self.leaf_emitter_desc.color_high = color_to_vec4(self.gui_adjustables.leaves_tip_color.value);
+                                            for tree_emitter in &mut self.leaf_emitters {
+                                                tree_emitter.emitter.color_low = self.leaf_emitter_desc.color_low;
+                                                tree_emitter.emitter.color_high = self.leaf_emitter_desc.color_high;
+                                            }
+                                        }
                                     });
 
                                     ui.collapsing("Particle Emitters", |ui| {
@@ -2182,28 +2189,10 @@ impl App {
                                     });
 
                                     ui.collapsing("Voxel Colors", |ui| {
-                                        ui.horizontal(|ui| {
-                                            ui.label("Sand Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_sand_color.value,
-                                                );
-                                            });
                                             ui.horizontal(|ui| {
                                                 ui.label("Dirt Color:");
                                                 ui.color_edit_button_srgba(
                                                     &mut self.gui_adjustables.voxel_dirt_color.value,
-                                                );
-                                            });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Rock Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_rock_color.value,
-                                                );
-                                            });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Leaf Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_leaf_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
@@ -2364,14 +2353,13 @@ impl App {
                         self.gui_adjustables.is_changing_lum_phi.value,
                         self.gui_adjustables.is_spatial_denoising_enabled.value,
                         self.gui_adjustables.a_trous_iteration_count.value,
-                        self.gui_adjustables.is_taa_enabled.value,
                         self.gui_adjustables.god_ray_max_depth.value,
                         self.gui_adjustables.god_ray_max_checks.value,
                         self.gui_adjustables.god_ray_weight.value,
                         Vec3::new(
-                            self.gui_adjustables.god_ray_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.god_ray_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.god_ray_color.value.b() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.sun_color.value.b() as f32 / 255.0,
                         ),
                         self.gui_adjustables.starlight_iterations.value,
                         self.gui_adjustables.starlight_formuparam.value,
@@ -2385,24 +2373,9 @@ impl App {
                         self.gui_adjustables.starlight_distfading.value,
                         self.gui_adjustables.starlight_saturation.value,
                         Vec3::new(
-                            self.gui_adjustables.voxel_sand_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_sand_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_sand_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
                             self.gui_adjustables.voxel_dirt_color.value.r() as f32 / 255.0,
                             self.gui_adjustables.voxel_dirt_color.value.g() as f32 / 255.0,
                             self.gui_adjustables.voxel_dirt_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.voxel_rock_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_rock_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_rock_color.value.b() as f32 / 255.0,
-                        ),
-                        Vec3::new(
-                            self.gui_adjustables.voxel_leaf_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_leaf_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_leaf_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
                             self.gui_adjustables.voxel_trunk_color.value.r() as f32 / 255.0,

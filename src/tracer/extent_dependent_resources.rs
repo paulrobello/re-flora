@@ -14,8 +14,6 @@ pub struct ExtentDependentResources {
     pub god_ray_output_tex: Resource<Texture>,
     pub screen_output_tex: Resource<Texture>,
     pub composited_tex: Resource<Texture>,
-    pub taa_tex: Resource<Texture>,
-    pub taa_tex_prev: Resource<Texture>,
 }
 
 impl ExtentDependentResources {
@@ -37,10 +35,7 @@ impl ExtentDependentResources {
             Self::create_god_ray_output_tex(device.clone(), allocator.clone(), rendering_extent);
         let screen_output_tex =
             Self::create_screen_output_tex(device.clone(), allocator.clone(), screen_extent);
-        let composited_tex =
-            Self::create_composited_tex(device.clone(), allocator.clone(), rendering_extent);
-        let taa_tex = Self::create_taa_tex(device.clone(), allocator.clone(), rendering_extent);
-        let taa_tex_prev = Self::create_taa_tex(device, allocator, rendering_extent);
+        let composited_tex = Self::create_composited_tex(device, allocator, rendering_extent);
 
         Self {
             gfx_depth_tex: Resource::new(gfx_depth_tex),
@@ -50,8 +45,6 @@ impl ExtentDependentResources {
             god_ray_output_tex: Resource::new(god_ray_output_tex),
             screen_output_tex: Resource::new(screen_output_tex),
             composited_tex: Resource::new(composited_tex),
-            taa_tex: Resource::new(taa_tex),
-            taa_tex_prev: Resource::new(taa_tex_prev),
         }
     }
 
@@ -163,21 +156,6 @@ impl ExtentDependentResources {
             usage: vk::ImageUsageFlags::STORAGE
                 | vk::ImageUsageFlags::TRANSFER_SRC
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
-            initial_layout: vk::ImageLayout::UNDEFINED,
-            aspect: vk::ImageAspectFlags::COLOR,
-            ..Default::default()
-        };
-        Texture::new(device, allocator, &tex_desc, &Default::default())
-    }
-
-    fn create_taa_tex(device: Device, allocator: Allocator, rendering_extent: Extent2D) -> Texture {
-        let tex_desc = ImageDesc {
-            extent: rendering_extent.into(),
-            format: vk::Format::R16G16B16A16_SFLOAT,
-            usage: vk::ImageUsageFlags::STORAGE
-                | vk::ImageUsageFlags::SAMPLED
-                | vk::ImageUsageFlags::TRANSFER_SRC
-                | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()

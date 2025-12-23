@@ -88,14 +88,6 @@ impl PipelineBuilder {
         )
         .unwrap();
 
-        let taa_sm = ShaderModule::from_glsl(
-            vulkan_ctx.device(),
-            shader_compiler,
-            "shader/tracer/taa.comp",
-            "main",
-        )
-        .unwrap();
-
         let post_processing_sm = ShaderModule::from_glsl(
             vulkan_ctx.device(),
             shader_compiler,
@@ -194,7 +186,6 @@ impl PipelineBuilder {
             temporal_sm,
             spatial_sm,
             composition_sm,
-            taa_sm,
             post_processing_sm,
             player_collider_sm,
             terrain_query_sm,
@@ -261,7 +252,6 @@ impl PipelineBuilder {
             ComputePipeline::new(device, &shader_modules.spatial_sm, pool, &[resources]);
         let composition_ppl =
             ComputePipeline::new(device, &shader_modules.composition_sm, pool, &[resources]);
-        let taa_ppl = ComputePipeline::new(device, &shader_modules.taa_sm, pool, &[resources]);
 
         let post_processing_ppl = ComputePipeline::new(
             device,
@@ -280,7 +270,6 @@ impl PipelineBuilder {
             temporal_ppl,
             spatial_ppl,
             composition_ppl,
-            taa_ppl,
             player_collider_ppl,
             terrain_query_ppl,
             post_processing_ppl,
@@ -438,7 +427,6 @@ pub struct ShaderModules {
     pub temporal_sm: ShaderModule,
     pub spatial_sm: ShaderModule,
     pub composition_sm: ShaderModule,
-    pub taa_sm: ShaderModule,
     pub post_processing_sm: ShaderModule,
     pub player_collider_sm: ShaderModule,
     pub terrain_query_sm: ShaderModule,
@@ -462,7 +450,6 @@ pub struct ComputePipelines {
     pub temporal_ppl: ComputePipeline,
     pub spatial_ppl: ComputePipeline,
     pub composition_ppl: ComputePipeline,
-    pub taa_ppl: ComputePipeline,
     pub player_collider_ppl: ComputePipeline,
     pub terrain_query_ppl: ComputePipeline,
     pub post_processing_ppl: ComputePipeline,

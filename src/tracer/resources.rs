@@ -224,7 +224,6 @@ pub struct TracerResources {
     pub env_info: Resource<Buffer>,
     pub starlight_info: Resource<Buffer>,
     pub voxel_colors: Resource<Buffer>,
-    pub taa_info: Resource<Buffer>,
     pub god_ray_info: Resource<Buffer>,
     pub post_processing_info: Resource<Buffer>,
     pub player_collider_info: Resource<Buffer>,
@@ -266,7 +265,6 @@ impl TracerResources {
         composition_sm: &ShaderModule,
         temporal_sm: &ShaderModule,
         spatial_sm: &ShaderModule,
-        taa_sm: &ShaderModule,
         god_ray_sm: &ShaderModule,
         post_processing_sm: &ShaderModule,
         player_collider_sm: &ShaderModule,
@@ -359,15 +357,6 @@ impl TracerResources {
             device.clone(),
             allocator.clone(),
             voxel_colors_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
-        let taa_info_layout = taa_sm.get_buffer_layout("U_TaaInfo").unwrap();
-        let taa_info = Buffer::from_buffer_layout(
-            device.clone(),
-            allocator.clone(),
-            taa_info_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
@@ -541,7 +530,6 @@ impl TracerResources {
             env_info: Resource::new(env_info),
             starlight_info: Resource::new(starlight_info),
             voxel_colors: Resource::new(voxel_colors),
-            taa_info: Resource::new(taa_info),
             god_ray_info: Resource::new(god_ray_info),
             post_processing_info: Resource::new(post_processing_info),
             player_collider_info: Resource::new(player_collider_info),

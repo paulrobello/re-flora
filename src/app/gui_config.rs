@@ -17,9 +17,9 @@ declare_gui_adjustables! {
         sun_altitude: crate::gui_adjustables::FloatParam = 0.25, float(-1.0..=1.0), "Altitude (normalized)",
         sun_azimuth: crate::gui_adjustables::FloatParam = 0.8, float(0.0..=1.0), "Azimuth (normalized)",
         sun_size: crate::gui_adjustables::FloatParam = 0.1, float(0.0..=1.0), "Size (relative)",
-        sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 233, 144), color, "Sun Color",
+        sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
         sun_luminance: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=10.0), "Sun Luminance",
-        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(100, 48, 3), color, "Ambient Light",
+        ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(79, 56, 0), color, "Ambient Light",
         auto_daynight_cycle: crate::gui_adjustables::BoolParam = true, bool, "Auto Day/Night Cycle",
         time_of_day: crate::gui_adjustables::FloatParam = 0.65, float(0.0..=1.0), "Time of Day",
         latitude: crate::gui_adjustables::FloatParam = 0.5, float(-1.0..=1.0), "Latitude",
@@ -47,10 +47,9 @@ declare_gui_adjustables! {
     },
 
     [GodRay] {
-        god_ray_max_depth: crate::gui_adjustables::FloatParam = 2.0, float(0.1..=10.0), "Max Depth",
+        god_ray_max_depth: crate::gui_adjustables::FloatParam = 1.0, float(0.1..=10.0), "Max Depth",
         god_ray_max_checks: crate::gui_adjustables::UintParam = 32, uint(1..=64), "Max Checks",
-        god_ray_weight: crate::gui_adjustables::FloatParam = 0.4, float(0.0..=2.0), "Weight",
-        god_ray_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 240, 178), color, "Color",
+        god_ray_weight: crate::gui_adjustables::FloatParam = 0.2, float(0.0..=2.0), "Weight",
     },
 
     [Spatial] {
@@ -65,18 +64,14 @@ declare_gui_adjustables! {
         a_trous_iteration_count: crate::gui_adjustables::UintParam = 3, uint(1..=5), "A-Trous Iterations",
     },
 
-    [AntiAliasing] {
-        is_taa_enabled: crate::gui_adjustables::BoolParam = false, bool, "Enable Temporal Anti-Aliasing",
-    },
-
     [Grass] {
-        grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(61, 163, 59), color, "Bottom Color",
-        grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(168, 227, 0), color, "Tip Color",
+        grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(7, 137, 59), color, "Bottom Color",
+        grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(164, 197, 0), color, "Tip Color",
     },
 
     [Lavender] {
         lavender_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(74, 165, 0), color, "Bottom Color",
-        lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(85, 0, 207), color, "Tip Color",
+        lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(170, 74, 0), color, "Tip Color",
     },
 
     [EmberBloom] {
@@ -89,15 +84,12 @@ declare_gui_adjustables! {
         leaves_outer_density: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Outer Density",
         leaves_inner_radius: crate::gui_adjustables::FloatParam = 12.0, float(1.0..=64.0), "Inner Radius",
         leaves_outer_radius: crate::gui_adjustables::FloatParam = 17.0, float(1.0..=64.0), "Outer Radius",
-        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(187, 0, 0), color, "Bottom Color",
-        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 205, 0), color, "Tip Color",
+        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(117, 187, 0), color, "Bottom Color",
+        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(217, 242, 0), color, "Tip Color",
     },
 
     [Voxel] {
-        voxel_sand_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(245, 222, 179), color, "Sand Color",
-        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(68, 192, 0), color, "Dirt Color",
-        voxel_rock_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(235, 92, 0), color, "Rock Color",
-        voxel_leaf_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 199, 36), color, "Leaf Color",
-        voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(215, 194, 168), color, "Trunk Color",
+        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(169, 169, 169), color, "Dirt Color",
+        voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(169, 136, 86), color, "Trunk Color",
     },
 }

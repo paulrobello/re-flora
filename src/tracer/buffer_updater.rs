@@ -230,28 +230,13 @@ impl BufferUpdater {
 
     pub fn update_voxel_colors(
         resources: &TracerResources,
-        sand_color: Vec3,
         dirt_color: Vec3,
-        rock_color: Vec3,
-        leaf_color: Vec3,
         trunk_color: Vec3,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.voxel_colors)
             .set_field(
-                "sand_color",
-                PlainMemberTypeWithData::Vec3(sand_color.to_array()),
-            )
-            .set_field(
                 "dirt_color",
                 PlainMemberTypeWithData::Vec3(dirt_color.to_array()),
-            )
-            .set_field(
-                "rock_color",
-                PlainMemberTypeWithData::Vec3(rock_color.to_array()),
-            )
-            .set_field(
-                "leaf_color",
-                PlainMemberTypeWithData::Vec3(leaf_color.to_array()),
             )
             .set_field(
                 "trunk_color",
@@ -259,17 +244,6 @@ impl BufferUpdater {
             )
             .build()?;
         resources.voxel_colors.fill_with_raw_u8(&data)?;
-        Ok(())
-    }
-
-    pub fn update_taa_info(resources: &TracerResources, is_taa_enabled: bool) -> Result<()> {
-        let data = StructMemberDataBuilder::from_buffer(&resources.taa_info)
-            .set_field(
-                "is_taa_enabled",
-                PlainMemberTypeWithData::UInt(is_taa_enabled as u32),
-            )
-            .build()?;
-        resources.taa_info.fill_with_raw_u8(&data)?;
         Ok(())
     }
 

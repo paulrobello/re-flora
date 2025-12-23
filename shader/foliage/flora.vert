@@ -65,6 +65,7 @@ shadow_camera_info;
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/core/color.glsl"
+#include "../include/depth_offset.glsl"
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
 #include "./unpacker.glsl"
@@ -82,7 +83,10 @@ float get_shadow_weight(ivec3 vox_local_pos) {
 }
 
 vec3 clamp_to_grid(vec3 position) {
-    return round(position / scaling_factor) * scaling_factor;
+    // lower the grid size here to reduce chunky feeling, but maintain a good impression of pixel
+    // vibe
+    const float clamp_fac = scaling_factor * 0.5;
+    return round(position / clamp_fac) * clamp_fac;
 }
 
 void main() {
@@ -105,7 +109,9 @@ void main() {
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(voxel_pos, 1.0));
     shadow_weight *= get_shadow_weight(vox_local_pos);
 
-    gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
+    // Apply depth offset to prevent z-fighting between instances
+    gl_Position =
+        apply_depth_offset(vert_pos, in_instance_pos, camera_info.view_mat, camera_info.proj_mat);
 
     vec3 interpolated_color =
         mix(srgb_to_linear(pc.bottom_color), srgb_to_linear(pc.tip_color), color_gradient);

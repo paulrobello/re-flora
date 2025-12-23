@@ -3,13 +3,8 @@ name = "re-flora"
 version = "0.2.0"
 edition = "2021"
 
-[workspace]
-members = ["fora_audio"]
-resolver = "3"
-
 [dependencies]
 resource_container_derive = { path = "./resource_container_derive" }
-fora_audio = { path = "fora_audio" }
 ash = { version = "0.38", default-features = false, features = [
     "debug",
     "linked",
