@@ -13,7 +13,7 @@ This project aims to give players:
 
 ## ✨ Features
 
-### Core Gamepay
+### Core Gameplay
 
 - **Intuitive Planting System**: Easily select, place, and nurture various plant species.
 
