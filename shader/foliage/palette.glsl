@@ -7,9 +7,16 @@
 
 const uint FLORA_PALETTE_LEAVES = 3u;
 
-const uint LAVENDER_PALETTE_LEN = 2u;
-const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
-    vec3[](vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+const uint LAVENDER_PALETTE_LEN                       = 4u;
+const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] = vec3[](
+    // Golden Bloom
+    vec3(0.984, 0.749, 0.141),
+    // Rose Petal
+    vec3(0.984, 0.443, 0.522),
+    // Soft Peony
+    vec3(0.984, 0.812, 0.910),
+    // Deep Rose
+    vec3(0.882, 0.114, 0.282));
 
 const uint LEAF_PALETTE_LEN = 3u;
 const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] =
