@@ -69,11 +69,6 @@ declare_gui_adjustables! {
         grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(164, 197, 0), color, "Tip Color",
     },
 
-    [Lavender] {
-        lavender_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(74, 165, 0), color, "Bottom Color",
-        lavender_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(170, 74, 0), color, "Tip Color",
-    },
-
     [EmberBloom] {
         ember_bloom_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(88, 0, 50), color, "Bottom Color",
         ember_bloom_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 181, 255), color, "Tip Color",

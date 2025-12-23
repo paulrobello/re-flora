@@ -17,6 +17,10 @@ layout(location = 0) in uint in_packed_data;
 // these are instance-rate attributes
 layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in uint in_instance_ty;
+layout(location = 3) in uint in_bottom_color_seed;
+layout(location = 4) in uint in_tip_color_seed;
+layout(location = 5) in uint in_padding0;
+layout(location = 6) in uint in_padding1;
 
 layout(location = 0) out vec3 vert_color;
 
@@ -68,6 +72,7 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
 #include "./billboard.glsl"
+#include "./palette.glsl"
 #include "./unpacker.glsl"
 
 const float scaling_factor = 1.0 / 256.0;
@@ -112,8 +117,11 @@ void main() {
 
     gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    vec3 interpolated_color =
-        mix(srgb_to_linear(pc.bottom_color), srgb_to_linear(pc.tip_color), color_gradient);
+    uint palette_seed =
+        combine_color_seeds(in_tip_color_seed, in_bottom_color_seed, in_padding0, in_padding1);
+    vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
+    vec3 tip_color_linear    = sample_tip_palette(in_instance_ty, palette_seed, pc.tip_color);
+    vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
 
     vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
     vert_color     = interpolated_color * (sun_light * shadow_weight + shading_info.ambient_light);

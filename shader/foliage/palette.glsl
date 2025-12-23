@@ -1,0 +1,42 @@
+#ifndef FLORA_PALETTE_GLSL
+#define FLORA_PALETTE_GLSL
+
+#include "../include/core/color.glsl"
+#include "../include/core/hash.glsl"
+#include "../include/flora_registry.glsl"
+
+const uint FLORA_PALETTE_LEAVES = 3u;
+
+const uint LAVENDER_PALETTE_LEN = 2u;
+const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
+    vec3[](vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+
+const uint LEAF_PALETTE_LEN = 3u;
+const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] =
+    vec3[](vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), vec3(0.0, 0.0, 1.0));
+
+uint combine_color_seeds(uint tip_seed, uint bottom_seed, uint padding0, uint padding1) {
+    return tip_seed ^ (bottom_seed * 1664525u) ^ (padding0 * 1013904223u) ^ (padding1 * 747796405u);
+}
+
+// Uniformly map a seed to a palette bucket in [0, palette_len)
+uint sample_palette_bucket(uint seed, uint palette_len) {
+    float r = construct_float_01(seed);
+    return uint(r * float(palette_len));
+}
+
+vec3 sample_tip_palette(uint palette_id, uint seed, vec3 fallback_tip_color) {
+    if (palette_id == FLORA_SPECIES_LAVENDER) {
+        uint idx = sample_palette_bucket(seed, LAVENDER_PALETTE_LEN);
+        return srgb_to_linear(LAVENDER_TIP_PALETTE[idx]);
+    }
+
+    if (palette_id == FLORA_PALETTE_LEAVES) {
+        uint idx = sample_palette_bucket(seed, LEAF_PALETTE_LEN);
+        return srgb_to_linear(LEAF_TIP_PALETTE[idx]);
+    }
+
+    return srgb_to_linear(fallback_tip_color);
+}
+
+#endif // FLORA_PALETTE_GLSL

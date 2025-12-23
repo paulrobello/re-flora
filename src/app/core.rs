@@ -1845,21 +1845,6 @@ impl App {
                                             });
                                         });
 
-                                        ui.collapsing("Lavender Settings", |ui| {
-                                            ui.horizontal(|ui| {
-                                                ui.label("Bottom Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.lavender_bottom_color.value,
-                                                );
-                                            });
-                                            ui.horizontal(|ui| {
-                                                ui.label("Tip Color:");
-                                                ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.lavender_tip_color.value,
-                                                );
-                                            });
-                                        });
-
                                         ui.collapsing("Ember Bloom Settings", |ui| {
                                             ui.horizontal(|ui| {
                                                 ui.label("Bottom Color:");
@@ -2399,10 +2384,6 @@ impl App {
                         "grass" => (
                             color_to_vec3(self.gui_adjustables.grass_bottom_color.value),
                             color_to_vec3(self.gui_adjustables.grass_tip_color.value),
-                        ),
-                        "lavender" => (
-                            color_to_vec3(self.gui_adjustables.lavender_bottom_color.value),
-                            color_to_vec3(self.gui_adjustables.lavender_tip_color.value),
                         ),
                         "ember_bloom" => (
                             color_to_vec3(self.gui_adjustables.ember_bloom_bottom_color.value),

@@ -40,19 +40,28 @@ void unpack_surface_data(uint packed, out uint o_voxel_type, out vec3 o_normal,
     o_normal          = unpack_normal_v2(normal_bits);
 }
 
-void add_flora_instance(ivec3 world_pos, uint species_idx, uint flora_type) {
-    uint write_idx = atomicAdd(place_flora_result.flora_instance_len[species_idx], 1);
-    Instance instance;
-    instance.pos                                        = uvec3(world_pos) + uvec3(0, 1, 0);
-    instance.ty                                         = flora_type;
-    manual_flora_instances[species_idx].data[write_idx] = instance;
-}
-
 // Hash function for random placement
 float hash(vec2 p) {
     vec3 p3 = fract(vec3(p.xyx) * .1031);
     p3 += dot(p3, p3.yzx + 33.33);
     return fract((p3.x + p3.y) * p3.z);
+}
+
+uint make_seed(ivec3 world_pos, float salt) {
+    float h = hash(vec2(world_pos.x + salt, world_pos.z + float(world_pos.y) * 0.37 + salt * 0.5));
+    return uint(h * 4294967295.0);
+}
+
+void add_flora_instance(ivec3 world_pos, uint species_idx) {
+    uint write_idx = atomicAdd(place_flora_result.flora_instance_len[species_idx], 1);
+    Instance instance;
+    instance.pos                                        = uvec3(world_pos) + uvec3(0, 1, 0);
+    instance.ty                                         = species_idx;
+    instance.bottom_color_seed                          = make_seed(world_pos, 11.0);
+    instance.tip_color_seed                             = make_seed(world_pos, 53.0);
+    instance.padding0                                   = 0;
+    instance.padding1                                   = 0;
+    manual_flora_instances[species_idx].data[write_idx] = instance;
 }
 
 // Calculate density-based placement allowance
@@ -161,13 +170,13 @@ void main() {
 
     // Grass-only placement
     if (!allow_any_flora && allow_grass) {
-        add_flora_instance(world_pos, FLORA_SPECIES_GRASS, GRASS_TYPE_NORMAL);
+        add_flora_instance(world_pos, FLORA_SPECIES_GRASS);
         return;
     }
 
     // Biome-based species selection
     uint flora_type;
     if (select_flora_biome(world_pos, flora_type)) {
-        add_flora_instance(world_pos, flora_type, GRASS_TYPE_NORMAL);
+        add_flora_instance(world_pos, flora_type);
     }
 }

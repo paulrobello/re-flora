@@ -15,6 +15,10 @@ use std::collections::HashMap;
 pub struct Instance {
     pub pos: [u32; 3],
     pub ty: u32,
+    pub bottom_color_seed: u32,
+    pub tip_color_seed: u32,
+    pub _padding0: u32,
+    pub _padding1: u32,
 }
 
 pub struct InstanceResource {

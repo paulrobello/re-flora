@@ -1544,6 +1544,14 @@ impl Tracer {
         use crate::builder::TreeLeavesInstance;
 
         let mut instances_data = Vec::new();
+        const LEAF_INSTANCE_TYPE: u32 = 3;
+        let leaf_seed = |pos: UVec3, salt: u32| -> u32 {
+            let mut seed = pos.x.wrapping_mul(73856093);
+            seed ^= pos.y.wrapping_mul(19349663);
+            seed ^= pos.z.wrapping_mul(83492791);
+            seed ^= tree_id.wrapping_mul(0x9E3779B9);
+            seed ^ salt.wrapping_mul(0x85EBCA6B)
+        };
 
         for leaf_pos in leaf_positions.iter() {
             let voxel_pos = *leaf_pos;
@@ -1551,7 +1559,11 @@ impl Tracer {
             // create instance data matching GrassInstance structure
             let instance = Instance {
                 pos: [voxel_pos.x, voxel_pos.y, voxel_pos.z],
-                ty: 0, // not in use for now
+                ty: LEAF_INSTANCE_TYPE,
+                bottom_color_seed: leaf_seed(voxel_pos, 0),
+                tip_color_seed: leaf_seed(voxel_pos, 1),
+                _padding0: 0,
+                _padding1: 0,
             };
 
             instances_data.push(instance);
