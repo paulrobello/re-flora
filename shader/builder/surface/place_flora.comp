@@ -109,7 +109,7 @@ bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
 
     float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
 
-    const float lavender_sparsity        = 0.1;
+    const float lavender_sparsity        = 0.15;
     const float ember_bloom_sparsity     = 0.01;
     const float grass_decreased_sparsity = 0.45;
 
