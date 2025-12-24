@@ -14,8 +14,8 @@ use std::collections::HashMap;
 #[derive(Copy, Clone)]
 pub struct Instance {
     pub pos: [u32; 3],
-    pub ty: u32,
-    pub seed: u32,
+    /// Lower 12 bits: type, upper 20 bits: seed
+    pub ty_seed: u32,
 }
 
 pub struct InstanceResource {

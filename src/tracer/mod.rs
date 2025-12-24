@@ -1557,10 +1557,11 @@ impl Tracer {
             let voxel_pos = *leaf_pos;
 
             // create instance data matching GrassInstance structure
+            let seed = leaf_seed(voxel_pos, 0) & 0xFFFFF;
+            let ty_seed = (LEAF_INSTANCE_TYPE & 0x0FFF) | (seed << 12);
             let instance = Instance {
                 pos: [voxel_pos.x, voxel_pos.y, voxel_pos.z],
-                ty: LEAF_INSTANCE_TYPE,
-                seed: leaf_seed(voxel_pos, 0),
+                ty_seed,
             };
 
             instances_data.push(instance);

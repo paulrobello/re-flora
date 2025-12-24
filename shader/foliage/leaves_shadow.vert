@@ -16,8 +16,7 @@ layout(location = 0) in uint in_packed_data;
 
 // these are instance-rate attributes (reusing grass instance buffer)
 layout(location = 1) in uvec3 in_instance_pos;
-layout(location = 2) in uint in_instance_ty;
-layout(location = 3) in uint in_instance_seed;
+layout(location = 2) in uint in_instance_ty_seed;
 
 layout(set = 0, binding = 0) uniform U_GuiInput {
     float debug_float;
@@ -52,6 +51,7 @@ shadow_camera_info;
 
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
+#include "../include/instance.glsl"
 #include "../include/wind.glsl"
 #include "./billboard.glsl"
 #include "./palette.glsl"
@@ -78,6 +78,6 @@ void main() {
 
     gl_Position = shadow_camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    uint palette_seed = combine_color_seed(in_instance_seed);
+    uint palette_seed = combine_color_seed(decode_instance_seed(in_instance_ty_seed));
     gl_Position.z += float(palette_seed & 1u) * 1e-8;
 }

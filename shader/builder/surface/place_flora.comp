@@ -55,9 +55,9 @@ uint make_seed(ivec3 world_pos, float salt) {
 void add_flora_instance(ivec3 world_pos, uint species_idx) {
     uint write_idx = atomicAdd(place_flora_result.flora_instance_len[species_idx], 1);
     Instance instance;
-    instance.pos               = uvec3(world_pos) + uvec3(0, 1, 0);
-    instance.ty                = species_idx;
-    instance.seed              = make_seed(world_pos, 11.0);
+    instance.pos     = uvec3(world_pos) + uvec3(0, 1, 0);
+    uint seed        = make_seed(world_pos, 11.0);
+    instance.ty_seed = pack_instance_ty_seed(species_idx, seed);
     manual_flora_instances[species_idx].data[write_idx] = instance;
 }
 

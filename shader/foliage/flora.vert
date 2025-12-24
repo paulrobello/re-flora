@@ -16,8 +16,7 @@ layout(location = 0) in uint in_packed_data;
 
 // these are instance-rate attributes
 layout(location = 1) in uvec3 in_instance_pos;
-layout(location = 2) in uint in_instance_ty;
-layout(location = 3) in uint in_instance_seed;
+layout(location = 2) in uint in_instance_ty_seed;
 
 layout(location = 0) out vec3 vert_color;
 
@@ -66,8 +65,10 @@ shadow_camera_info;
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/core/color.glsl"
+#include "../include/core/hash.glsl"
 #include "../include/depth_offset.glsl"
 #include "../include/flora_registry.glsl"
+#include "../include/instance.glsl"
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
 #include "./palette.glsl"
@@ -114,9 +115,11 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
                        in_packed_data);
 
-    bool is_grass = in_instance_ty == FLORA_SPECIES_GRASS;
+    uint instance_ty   = decode_instance_ty(in_instance_ty_seed);
+    uint instance_seed = decode_instance_seed(in_instance_ty_seed);
+    bool is_grass      = instance_ty == FLORA_SPECIES_GRASS;
     float grass_height_voxels =
-        is_grass ? sample_grass_height(in_instance_seed) : grass_max_height_voxels;
+        is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
     bool should_trim_voxel = false;
 
     if (is_grass) {
@@ -148,9 +151,9 @@ void main() {
     gl_Position =
         apply_depth_offset(vert_pos, in_instance_pos, camera_info.view_mat, camera_info.proj_mat);
 
-    uint palette_seed        = combine_color_seed(in_instance_seed);
+    uint palette_seed        = combine_color_seed(instance_seed);
     vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
-    vec3 tip_color_linear    = sample_tip_palette(in_instance_ty, palette_seed, pc.tip_color);
+    vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed, pc.tip_color);
     vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
 
     vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
