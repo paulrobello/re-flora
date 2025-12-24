@@ -6,7 +6,7 @@ struct Instance {
     uint ty;
     uint bottom_color_seed;
     uint tip_color_seed;
-    uint padding0;
+    uint height;
     uint padding1;
 };
 

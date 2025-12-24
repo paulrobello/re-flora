@@ -19,7 +19,7 @@ layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in uint in_instance_ty;
 layout(location = 3) in uint in_bottom_color_seed;
 layout(location = 4) in uint in_tip_color_seed;
-layout(location = 5) in uint in_padding0;
+layout(location = 5) in uint in_instance_height;
 layout(location = 6) in uint in_padding1;
 
 layout(location = 0) out vec3 vert_color;
@@ -69,13 +69,27 @@ shadow_camera_info;
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/core/color.glsl"
+#include "../include/flora_registry.glsl"
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
 #include "./billboard.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
-const float scaling_factor = 1.0 / 256.0;
+const float scaling_factor          = 1.0 / 256.0;
+const float grass_min_height_voxels = 3.0;
+const float grass_max_height_voxels = 8.0;
+
+float decode_grass_height(uint encoded_height) {
+    if (encoded_height == 0u) {
+        return grass_max_height_voxels;
+    }
+    return clamp(float(encoded_height), grass_min_height_voxels, grass_max_height_voxels);
+}
+
+float renormalize_gradient(float gradient, float visible_span) {
+    return clamp(gradient / visible_span, 0.0, 1.0);
+}
 
 float get_shadow_weight(ivec3 vox_local_pos) {
     vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
@@ -102,6 +116,17 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
                        in_packed_data);
 
+    bool is_grass = in_instance_ty == FLORA_SPECIES_GRASS;
+    float grass_height_voxels =
+        is_grass ? decode_grass_height(in_instance_height) : grass_max_height_voxels;
+    float visible_gradient_span =
+        max((grass_height_voxels - 1.0) / (grass_max_height_voxels - 1.0), 1e-3);
+    if (is_grass) {
+        color_gradient = renormalize_gradient(color_gradient, visible_gradient_span);
+        wind_gradient  = renormalize_gradient(wind_gradient, visible_gradient_span);
+    }
+    bool should_trim_voxel = is_grass && (float(vox_local_pos.y) >= grass_height_voxels);
+
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
     vec3 wind_vec    = get_wind(instance_pos, pc.time);
@@ -111,14 +136,19 @@ void main() {
     vec3 vert_pos = get_vert_pos_with_billboard(camera_info.view_mat, voxel_pos, vert_offset_in_vox,
                                                 scaling_factor);
 
+    if (should_trim_voxel) {
+        voxel_pos = anchor_pos;
+        vert_pos  = anchor_pos;
+    }
+
     float shadow_weight =
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(voxel_pos, 1.0));
     shadow_weight *= get_shadow_weight(vox_local_pos);
 
     gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    uint palette_seed =
-        combine_color_seeds(in_tip_color_seed, in_bottom_color_seed, in_padding0, in_padding1);
+    uint palette_seed        = combine_color_seeds(in_tip_color_seed, in_bottom_color_seed,
+                                                   in_instance_height, in_padding1);
     vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
     vec3 tip_color_linear    = sample_tip_palette(in_instance_ty, palette_seed, pc.tip_color);
     vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);

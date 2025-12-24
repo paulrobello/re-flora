@@ -1562,8 +1562,8 @@ impl Tracer {
                 ty: LEAF_INSTANCE_TYPE,
                 bottom_color_seed: leaf_seed(voxel_pos, 0),
                 tip_color_seed: leaf_seed(voxel_pos, 1),
-                _padding0: 0,
-                _padding1: 0,
+                height: 0,
+                padding1: 0,
             };
 
             instances_data.push(instance);

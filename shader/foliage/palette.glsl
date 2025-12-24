@@ -17,12 +17,11 @@ const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
            vec3(0.545, 0.462, 0.973)  // Deep Violet
     );
 
-const uint LEAF_PALETTE_LEN = 1u;
-const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] =
-    vec3[](vec3(217, 242, 0) / 255.0);
+const uint LEAF_PALETTE_LEN                   = 1u;
+const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] = vec3[](vec3(217, 242, 0) / 255.0);
 
-uint combine_color_seeds(uint tip_seed, uint bottom_seed, uint padding0, uint padding1) {
-    return tip_seed ^ (bottom_seed * 1664525u) ^ (padding0 * 1013904223u) ^ (padding1 * 747796405u);
+uint combine_color_seeds(uint tip_seed, uint bottom_seed, uint extra0, uint extra1) {
+    return tip_seed ^ (bottom_seed * 1664525u) ^ (extra0 * 1013904223u) ^ (extra1 * 747796405u);
 }
 
 // Uniformly map a seed to a palette bucket in [0, palette_len)

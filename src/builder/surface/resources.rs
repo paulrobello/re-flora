@@ -17,8 +17,8 @@ pub struct Instance {
     pub ty: u32,
     pub bottom_color_seed: u32,
     pub tip_color_seed: u32,
-    pub _padding0: u32,
-    pub _padding1: u32,
+    pub height: u32,
+    pub padding1: u32,
 }
 
 pub struct InstanceResource {

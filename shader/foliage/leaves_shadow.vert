@@ -19,7 +19,7 @@ layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in uint in_instance_ty;
 layout(location = 3) in uint in_bottom_color_seed;
 layout(location = 4) in uint in_tip_color_seed;
-layout(location = 5) in uint in_padding0;
+layout(location = 5) in uint in_instance_height;
 layout(location = 6) in uint in_padding1;
 
 layout(set = 0, binding = 0) uniform U_GuiInput {
@@ -81,7 +81,7 @@ void main() {
 
     gl_Position = shadow_camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    uint palette_seed =
-        combine_color_seeds(in_tip_color_seed, in_bottom_color_seed, in_padding0, in_padding1);
+    uint palette_seed = combine_color_seeds(in_tip_color_seed, in_bottom_color_seed,
+                                            in_instance_height, in_padding1);
     gl_Position.z += float(palette_seed & 1u) * 1e-8;
 }
