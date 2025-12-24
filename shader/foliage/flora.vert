@@ -74,20 +74,22 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
-const float scaling_factor           = 1.0 / 256.0;
-const float grass_min_height_voxels  = 3.0;
-const float grass_max_height_voxels  = 8.0;
-const float grass_bucket_count       = grass_max_height_voxels - grass_min_height_voxels + 1.0;
+const float scaling_factor          = 1.0 / 256.0;
+const float grass_min_height_voxels = 3.0;
+const float grass_max_height_voxels = 8.0;
+const float grass_bucket_count      = grass_max_height_voxels - grass_min_height_voxels + 1.0;
 
 float renormalize_gradient(float gradient, float visible_span) {
     return clamp(gradient / visible_span, 0.0, 1.0);
 }
 
 float sample_grass_height(uint seed) {
-    // map seed to discrete voxel height in [min, max], uniformly
-    float r      = construct_float_01(wellons_hash(seed));
-    float bucket = floor(r * grass_bucket_count);
-    return clamp(grass_min_height_voxels + bucket, grass_min_height_voxels, grass_max_height_voxels);
+    // uint h      = wellons_hash(seed);
+    uint bucket = seed % uint(grass_bucket_count);
+    return grass_min_height_voxels + float(bucket);
+    
+    // float rand = construct_float_01(seed);
+    // return ceil(mix(grass_min_height_voxels, grass_max_height_voxels, rand));
 }
 
 float get_shadow_weight(ivec3 vox_local_pos) {
@@ -125,8 +127,8 @@ void main() {
     if (is_grass) {
         float visible_gradient_span =
             max((grass_height_voxels - 1.0) / (grass_max_height_voxels - 1.0), 1e-3);
-        color_gradient = renormalize_gradient(color_gradient, visible_gradient_span);
-        wind_gradient  = renormalize_gradient(wind_gradient, visible_gradient_span);
+        color_gradient    = renormalize_gradient(color_gradient, visible_gradient_span);
+        wind_gradient     = renormalize_gradient(wind_gradient, visible_gradient_span);
         should_trim_voxel = float(vox_local_pos.y) >= grass_height_voxels;
     }
 
