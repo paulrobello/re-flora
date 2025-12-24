@@ -17,10 +17,7 @@ layout(location = 0) in uint in_packed_data;
 // these are instance-rate attributes
 layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in uint in_instance_ty;
-layout(location = 3) in uint in_bottom_color_seed;
-layout(location = 4) in uint in_tip_color_seed;
-layout(location = 5) in uint in_instance_height;
-layout(location = 6) in uint in_padding1;
+layout(location = 3) in uint in_instance_seed;
 
 layout(location = 0) out vec3 vert_color;
 
@@ -76,11 +73,20 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
-const float scaling_factor          = 1.0 / 256.0;
-const float grass_max_height_voxels = 8.0;
+const float scaling_factor           = 1.0 / 256.0;
+const float grass_min_height_voxels  = 3.0;
+const float grass_max_height_voxels  = 8.0;
+const float grass_bucket_count       = grass_max_height_voxels - grass_min_height_voxels + 1.0;
 
 float renormalize_gradient(float gradient, float visible_span) {
     return clamp(gradient / visible_span, 0.0, 1.0);
+}
+
+float sample_grass_height(uint seed) {
+    // map seed to discrete voxel height in [min, max], uniformly
+    float r      = construct_float_01(wellons_hash(seed));
+    float bucket = floor(r * grass_bucket_count);
+    return clamp(grass_min_height_voxels + bucket, grass_min_height_voxels, grass_max_height_voxels);
 }
 
 float get_shadow_weight(ivec3 vox_local_pos) {
@@ -108,8 +114,9 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
                        in_packed_data);
 
-    bool is_grass             = in_instance_ty == FLORA_SPECIES_GRASS;
-    float grass_height_voxels = is_grass ? float(in_instance_height) : grass_max_height_voxels;
+    bool is_grass = in_instance_ty == FLORA_SPECIES_GRASS;
+    float grass_height_voxels =
+        is_grass ? sample_grass_height(in_instance_seed) : grass_max_height_voxels;
     bool should_trim_voxel = false;
 
     if (is_grass) {
@@ -141,8 +148,7 @@ void main() {
     gl_Position =
         apply_depth_offset(vert_pos, in_instance_pos, camera_info.view_mat, camera_info.proj_mat);
 
-    uint palette_seed        = combine_color_seeds(in_tip_color_seed, in_bottom_color_seed,
-                                                   in_instance_height, in_padding1);
+    uint palette_seed        = combine_color_seed(in_instance_seed);
     vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
     vec3 tip_color_linear    = sample_tip_palette(in_instance_ty, palette_seed, pc.tip_color);
     vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);

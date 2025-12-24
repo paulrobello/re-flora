@@ -20,8 +20,9 @@ const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
 const uint LEAF_PALETTE_LEN                   = 1u;
 const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] = vec3[](vec3(217, 242, 0) / 255.0);
 
-uint combine_color_seeds(uint tip_seed, uint bottom_seed, uint extra0, uint extra1) {
-    return tip_seed ^ (bottom_seed * 1664525u) ^ (extra0 * 1013904223u) ^ (extra1 * 747796405u);
+uint combine_color_seed(uint seed) {
+    // lightweight scramble to decorrelate neighboring instances
+    return wellons_hash(seed);
 }
 
 // Uniformly map a seed to a palette bucket in [0, palette_len)

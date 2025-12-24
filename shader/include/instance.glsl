@@ -4,10 +4,7 @@
 struct Instance {
     uvec3 pos;
     uint ty;
-    uint bottom_color_seed;
-    uint tip_color_seed;
-    uint height;
-    uint padding1;
+    uint seed;
 };
 
 #endif // INSTANCE_GLSL

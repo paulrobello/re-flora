@@ -31,9 +31,6 @@ manual_flora_instances[MAX_FLORA_SPECIES];
 #include "../../include/grass_type.glsl"
 #include "../../include/voxel_types.glsl"
 
-const uint GRASS_MIN_HEIGHT_VOXELS = 3u;
-const uint GRASS_MAX_HEIGHT_VOXELS = 8u;
-
 // Unpack voxel type and normal from surface data
 void unpack_surface_data(uint packed, out uint o_voxel_type, out vec3 o_normal,
                          out bool o_is_normal_valid) {
@@ -55,24 +52,12 @@ uint make_seed(ivec3 world_pos, float salt) {
     return uint(h * 4294967295.0);
 }
 
-uint pick_grass_height(ivec3 world_pos) {
-    float height_rng = hash(vec2(world_pos.x - 73.0, world_pos.z + 19.0));
-    float height_f =
-        mix(float(GRASS_MIN_HEIGHT_VOXELS), float(GRASS_MAX_HEIGHT_VOXELS), height_rng);
-    height_f =
-        clamp(round(height_f), float(GRASS_MIN_HEIGHT_VOXELS), float(GRASS_MAX_HEIGHT_VOXELS));
-    return uint(height_f);
-}
-
 void add_flora_instance(ivec3 world_pos, uint species_idx) {
     uint write_idx = atomicAdd(place_flora_result.flora_instance_len[species_idx], 1);
     Instance instance;
     instance.pos               = uvec3(world_pos) + uvec3(0, 1, 0);
     instance.ty                = species_idx;
-    instance.bottom_color_seed = make_seed(world_pos, 11.0);
-    instance.tip_color_seed    = make_seed(world_pos, 53.0);
-    instance.height   = (species_idx == FLORA_SPECIES_GRASS) ? pick_grass_height(world_pos) : 0u;
-    instance.padding1 = 0;
+    instance.seed              = make_seed(world_pos, 11.0);
     manual_flora_instances[species_idx].data[write_idx] = instance;
 }
 

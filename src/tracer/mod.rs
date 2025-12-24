@@ -1560,10 +1560,7 @@ impl Tracer {
             let instance = Instance {
                 pos: [voxel_pos.x, voxel_pos.y, voxel_pos.z],
                 ty: LEAF_INSTANCE_TYPE,
-                bottom_color_seed: leaf_seed(voxel_pos, 0),
-                tip_color_seed: leaf_seed(voxel_pos, 1),
-                height: 0,
-                padding1: 0,
+                seed: leaf_seed(voxel_pos, 0),
             };
 
             instances_data.push(instance);
