@@ -2,8 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "../../include/flora_registry.glsl"
 #include "../../include/core/hash.glsl"
+#include "../../include/flora_registry.glsl"
 
 #define GROUP_SIZE 8
 layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = GROUP_SIZE) in;
@@ -52,7 +52,7 @@ void add_flora_instance(ivec3 world_pos, uint species_idx) {
     uint write_idx = atomicAdd(place_flora_result.flora_instance_len[species_idx], 1);
     Instance instance;
     instance.pos                                        = uvec3(world_pos) + uvec3(0, 1, 0);
-    uint seed = murmur_hash_13(uvec3(world_pos));
+    uint seed                                           = murmur_hash_13(uvec3(world_pos));
     instance.ty_seed                                    = pack_instance_ty_seed(species_idx, seed);
     manual_flora_instances[species_idx].data[write_idx] = instance;
 }
