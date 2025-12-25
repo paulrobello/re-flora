@@ -134,6 +134,7 @@ impl BufferUpdater {
         debug_float: f32,
         debug_bool: bool,
         debug_uint: u32,
+        flora_instance_hsv_offset_max: Vec3,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -142,6 +143,10 @@ impl BufferUpdater {
                 PlainMemberTypeWithData::UInt(debug_bool as u32),
             )
             .set_field("debug_uint", PlainMemberTypeWithData::UInt(debug_uint))
+            .set_field(
+                "flora_instance_hsv_offset_max",
+                PlainMemberTypeWithData::Vec3(flora_instance_hsv_offset_max.to_array()),
+            )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;
         Ok(())

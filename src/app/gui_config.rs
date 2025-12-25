@@ -74,6 +74,12 @@ declare_gui_adjustables! {
         ember_bloom_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 181, 255), color, "Tip Color",
     },
 
+    [FloraVariation] {
+        flora_instance_hue_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Hue Offset Max",
+        flora_instance_saturation_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Saturation Offset Max",
+        flora_instance_value_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Value Offset Max",
+    },
+
     [Leaves] {
         leaves_inner_density: crate::gui_adjustables::FloatParam = 0.38, float(0.0..=1.0), "Inner Density",
         leaves_outer_density: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Outer Density",

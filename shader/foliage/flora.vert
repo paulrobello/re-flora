@@ -24,6 +24,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     float debug_float;
     uint debug_bool;
     uint debug_uint;
+    vec3 flora_instance_hsv_offset_max;
 }
 gui_input;
 
@@ -71,6 +72,7 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "../include/instance.glsl"
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
+#include "./color_variation.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
@@ -150,7 +152,10 @@ void main() {
     vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
     vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed, pc.tip_color);
     vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
+    vec3 instance_color_variation =
+        signed_unit_noise(float(instance_seed)) * gui_input.flora_instance_hsv_offset_max;
+    vec3 varied_color = apply_hsv_offset(interpolated_color, instance_color_variation);
 
     vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
-    vert_color     = interpolated_color * (sun_light * shadow_weight + shading_info.ambient_light);
+    vert_color     = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
 }

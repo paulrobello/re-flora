@@ -8,6 +8,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     float debug_float;
     uint debug_bool;
     uint debug_uint;
+    vec3 flora_instance_hsv_offset_max;
 }
 gui_input;
 layout(set = 0, binding = 1) uniform U_PostProcessingInfo { float scaling_factor; }

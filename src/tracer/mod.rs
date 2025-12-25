@@ -410,6 +410,7 @@ impl Tracer {
         debug_float: f32,
         debug_bool: bool,
         debug_uint: u32,
+        flora_instance_hsv_offset_max: Vec3,
         sun_dir: Vec3,
         sun_size: f32,
         sun_color: Vec3,
@@ -488,7 +489,13 @@ impl Tracer {
 
         BufferUpdater::update_voxel_colors(&self.resources, voxel_dirt_color, voxel_trunk_color)?;
 
-        BufferUpdater::update_gui_input(&self.resources, debug_float, debug_bool, debug_uint)?;
+        BufferUpdater::update_gui_input(
+            &self.resources,
+            debug_float,
+            debug_bool,
+            debug_uint,
+            flora_instance_hsv_offset_max,
+        )?;
 
         BufferUpdater::update_sun_info(
             &self.resources,
