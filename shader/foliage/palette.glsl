@@ -17,9 +17,14 @@ const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
            vec3(0.545, 0.462, 0.973)  // Deep Violet
     );
 
-const uint LEAF_PALETTE_LEN                   = 1u;
-const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] = vec3[](vec3(217, 242, 0) / 255.0);
-
+const uint LEAF_PALETTE_LEN = 4u;
+const vec3 LEAF_TIP_PALETTE[LEAF_PALETTE_LEN] = 
+    vec3[](vec3(1.000, 0.980, 0.941), // Pearly White (Apple/Pear Blossom)
+           vec3(1.000, 0.922, 0.933), // Sakura Blush (Cherry Blossom)
+           vec3(0.961, 0.961, 0.863), // Magnolia Cream
+           vec3(0.937, 0.804, 0.855)  // Budding Rose
+    );
+    
 uint combine_color_seed(uint seed) {
     // lightweight scramble to decorrelate neighboring instances
     return wellons_hash(seed);
