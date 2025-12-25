@@ -49,7 +49,7 @@ declare_gui_adjustables! {
     [GodRay] {
         god_ray_max_depth: crate::gui_adjustables::FloatParam = 1.0, float(0.1..=10.0), "Max Depth",
         god_ray_max_checks: crate::gui_adjustables::UintParam = 32, uint(1..=64), "Max Checks",
-        god_ray_weight: crate::gui_adjustables::FloatParam = 0.2, float(0.0..=2.0), "Weight",
+        god_ray_weight: crate::gui_adjustables::FloatParam = 0.3, float(0.0..=1.0), "Weight",
     },
 
     [Spatial] {
