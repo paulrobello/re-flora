@@ -411,6 +411,7 @@ impl Tracer {
         debug_bool: bool,
         debug_uint: u32,
         flora_instance_hsv_offset_max: Vec3,
+        flora_voxel_hsv_offset_max: Vec3,
         sun_dir: Vec3,
         sun_size: f32,
         sun_color: Vec3,
@@ -495,6 +496,7 @@ impl Tracer {
             debug_bool,
             debug_uint,
             flora_instance_hsv_offset_max,
+            flora_voxel_hsv_offset_max,
         )?;
 
         BufferUpdater::update_sun_info(

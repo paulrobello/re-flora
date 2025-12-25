@@ -1890,6 +1890,29 @@ impl App {
                                                 )
                                                 .text("Value Offset Max"),
                                             );
+                                            ui.separator();
+                                            ui.label("Per-voxel HSV offset range (± value)");
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut self.gui_adjustables.flora_voxel_hue_offset.value,
+                                                    0.0..=1.0,
+                                                )
+                                                .text("Hue Offset Max"),
+                                            );
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut self.gui_adjustables.flora_voxel_saturation_offset.value,
+                                                    0.0..=1.0,
+                                                )
+                                                .text("Saturation Offset Max"),
+                                            );
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut self.gui_adjustables.flora_voxel_value_offset.value,
+                                                    0.0..=1.0,
+                                                )
+                                                .text("Value Offset Max"),
+                                            );
                                         });
 
                                         ui.collapsing("Leaves Settings", |ui| {
@@ -2345,6 +2368,11 @@ impl App {
                             self.gui_adjustables.flora_instance_hue_offset.value,
                             self.gui_adjustables.flora_instance_saturation_offset.value,
                             self.gui_adjustables.flora_instance_value_offset.value,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.flora_voxel_hue_offset.value,
+                            self.gui_adjustables.flora_voxel_saturation_offset.value,
+                            self.gui_adjustables.flora_voxel_value_offset.value,
                         ),
                         get_sun_dir(
                             self.gui_adjustables.sun_altitude.value.asin().to_degrees(),

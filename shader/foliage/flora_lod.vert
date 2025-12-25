@@ -25,6 +25,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     uint debug_bool;
     uint debug_uint;
     vec3 flora_instance_hsv_offset_max;
+    vec3 flora_voxel_hsv_offset_max;
 }
 gui_input;
 
@@ -149,7 +150,11 @@ void main() {
     vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
     vec3 instance_color_variation =
         signed_unit_noise(float(instance_seed)) * gui_input.flora_instance_hsv_offset_max;
-    vec3 varied_color = apply_hsv_offset(interpolated_color, instance_color_variation);
+    vec3 voxel_color_variation =
+        signed_unit_noise(vec4(vec3(vox_local_pos), float(instance_seed))) *
+        gui_input.flora_voxel_hsv_offset_max;
+    vec3 total_color_variation = instance_color_variation + voxel_color_variation;
+    vec3 varied_color          = apply_hsv_offset(interpolated_color, total_color_variation);
 
     vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
     vert_color     = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
