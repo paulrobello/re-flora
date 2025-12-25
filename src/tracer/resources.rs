@@ -96,7 +96,7 @@ impl LeavesResources {
 
         // guard against empty data - create minimal buffers to avoid Vulkan validation errors
         if vertices_data.is_empty() {
-            vertices_data.push(Vertex { packed_data: 0 }); // Dummy vertex
+            vertices_data.push(Vertex { packed_data: [0; 2] }); // Dummy vertex
         }
         if indices_data.is_empty() {
             indices_data.push(0); // Dummy index
@@ -185,8 +185,8 @@ impl ParticleRendererResources {
             &mut indices_data,
             IVec3::ZERO,
             0,
-            0.0,
-            0.0,
+            IVec3::ZERO,
+            1,
             false,
         )
         .unwrap();

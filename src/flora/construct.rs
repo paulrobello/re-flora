@@ -5,6 +5,8 @@ use glam::IVec3;
 
 pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
     const VOXEL_COUNT: u32 = 8;
+    const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
+    const MAX_LENGTH: u32 = VOXEL_COUNT - 1;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -13,20 +15,13 @@ pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
         let vertex_offset = vertices.len() as u32;
         let base_pos = IVec3::new(0, i as i32, 0);
 
-        // calculate color gradient: 0.0 for bottom (i=0), 1.0 for tip (i=voxel_count-1)
-        let gradient = if VOXEL_COUNT > 1 {
-            i as f32 / (VOXEL_COUNT - 1) as f32
-        } else {
-            0.0
-        };
-
         append_indexed_cube_data(
             &mut vertices,
             &mut indices,
             base_pos,
             vertex_offset,
-            gradient,
-            gradient,
+            ORIGIN,
+            MAX_LENGTH,
             is_lod_used,
         )?;
     }
@@ -38,7 +33,13 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
     const STEM_VOXEL_COUNT: u32 = 8;
     const LEAF_BALL_RADIUS: f32 = 1.5;
     const LEAF_BALL_BOUNDARY: i32 = LEAF_BALL_RADIUS as i32;
-    const TOTAL_HEIGHT: u32 = STEM_VOXEL_COUNT + (LEAF_BALL_BOUNDARY * 2 + 1) as u32;
+    const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
+
+    let max_vertical = (STEM_VOXEL_COUNT + LEAF_BALL_BOUNDARY as u32) as f32;
+    let max_horizontal = LEAF_BALL_BOUNDARY as f32;
+    let max_length = ((max_vertical * max_vertical + 2.0 * max_horizontal * max_horizontal).sqrt())
+        .ceil()
+        .max(1.0) as u32;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -49,19 +50,13 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
         let vertex_offset = vertices.len() as u32;
         let base_pos = IVec3::new(0, i as i32, 0);
 
-        // it never reaches 1, because 1 means the leaf ball, and we only need the shadow underneath it
-        let mut color_gradient = i as f32 / total_stem_voxel_count as f32;
-        color_gradient = color_gradient.powf(5.0);
-
-        let wind_gradient = base_pos.y as f32 / TOTAL_HEIGHT as f32;
-
         append_indexed_cube_data(
             &mut vertices,
             &mut indices,
             base_pos,
             vertex_offset,
-            color_gradient,
-            wind_gradient,
+            ORIGIN,
+            max_length,
             is_lod_used,
         )?;
     }
@@ -77,15 +72,13 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
                 let vertex_offset = vertices.len() as u32;
                 let base_pos = IVec3::new(i, j, k) + IVec3::new(0, STEM_VOXEL_COUNT as i32, 0);
 
-                const COLOR_GRADIENT: f32 = 1.0;
-                let wind_gradient = base_pos.y as f32 / TOTAL_HEIGHT as f32;
                 append_indexed_cube_data(
                     &mut vertices,
                     &mut indices,
                     base_pos,
                     vertex_offset,
-                    COLOR_GRADIENT,
-                    wind_gradient,
+                    ORIGIN,
+                    max_length,
                     is_lod_used,
                 )?;
             }
@@ -101,6 +94,14 @@ pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
     const HEIGHT: i32 = 15;
     // Width Configuration: How wide the plant swells
     const MAX_RADIUS: f32 = 2.5;
+    const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
+
+    let max_vertical = (HEIGHT - 1) as f32;
+    let max_horizontal = (MAX_RADIUS + 2.0).ceil(); // includes search padding
+    let max_length =
+        ((max_vertical * max_vertical + 2.0 * max_horizontal * max_horizontal).sqrt())
+            .ceil()
+            .max(1.0) as u32;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -141,33 +142,23 @@ pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
                 // We fill everything inside the calculated radius.
                 // This guarantees the shape is symmetrical and has no holes.
                 if dist <= radius_limit {
-                    let vertex_offset = vertices.len() as u32;
+                let vertex_offset = vertices.len() as u32;
 
-                    // No stem sway, just straight up for symmetry
-                    let pos = IVec3::new(x, y, z);
+                // No stem sway, just straight up for symmetry
+                let pos = IVec3::new(x, y, z);
 
-                    // Color Logic:
-                    // 0.0 at bottom -> 1.0 at top.
-                    // We add a slight highlight to the "ridges" of the waves to give it depth.
-                    let ridge_highlight = wave_modifier * 0.1;
-                    let color_gradient = (t + ridge_highlight).clamp(0.0, 1.0);
-
-                    // Wind Logic:
-                    // The top moves more than the bottom.
-                    let wind_gradient = pos.y as f32 / HEIGHT as f32;
-
-                    append_indexed_cube_data(
-                        &mut vertices,
-                        &mut indices,
-                        pos,
-                        vertex_offset,
-                        color_gradient,
-                        wind_gradient,
-                        is_lod_used,
-                    )?;
-                }
+                append_indexed_cube_data(
+                    &mut vertices,
+                    &mut indices,
+                    pos,
+                    vertex_offset,
+                    ORIGIN,
+                    max_length,
+                    is_lod_used,
+                )?;
             }
         }
+    }
     }
 
     Ok((vertices, indices))

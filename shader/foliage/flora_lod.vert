@@ -12,7 +12,7 @@ layout(push_constant) uniform PC {
 pc;
 
 // these are vertex-rate attributes
-layout(location = 0) in uint in_packed_data;
+layout(location = 0) in uvec2 in_packed_data;
 
 // these are instance-rate attributes
 layout(location = 1) in uvec3 in_instance_pos;
@@ -79,12 +79,9 @@ const uint grass_min_height_voxels = 3u;
 const uint grass_max_height_voxels = 8u;
 const uint grass_bucket_count      = grass_max_height_voxels - grass_min_height_voxels + 1u;
 
-float renormalize_gradient(float gradient, float visible_span) {
-    return clamp(gradient / visible_span, 0.0, 1.0);
-}
-
 uint sample_grass_height(uint seed) {
-    uint bucket = seed % grass_bucket_count;
+    uint h      = wellons_hash(seed);
+    uint bucket = h % grass_bucket_count;
     return grass_min_height_voxels + bucket;
 }
 
@@ -108,25 +105,22 @@ vec3 clamp_to_grid(vec3 position) {
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
-    float color_gradient;
-    float wind_gradient;
-    unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
+    ivec3 gradient_origin;
+    uint max_length;
+    unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
+
+    float base_gradient = compute_gradient(vox_local_pos, gradient_origin, max_length);
+    float color_gradient = base_gradient;
+    float wind_gradient  = base_gradient;
 
     uint instance_ty   = decode_instance_ty(in_instance_ty_seed);
     uint instance_seed = decode_instance_seed(in_instance_ty_seed);
     bool is_grass      = instance_ty == FLORA_SPECIES_GRASS;
     uint grass_height_voxels =
         is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
-    float grass_height_voxels_f     = float(grass_height_voxels);
-    float grass_max_height_voxels_f = float(grass_max_height_voxels);
-    float visible_gradient_span =
-        max((grass_height_voxels_f - 1.0) / (grass_max_height_voxels_f - 1.0), 1e-3);
-    if (is_grass) {
-        color_gradient = renormalize_gradient(color_gradient, visible_gradient_span);
-        wind_gradient  = renormalize_gradient(wind_gradient, visible_gradient_span);
-    }
-    bool should_trim_voxel = is_grass && (float(vox_local_pos.y) >= grass_height_voxels_f);
+    float grass_height_voxels_f = float(grass_height_voxels);
+    bool should_trim_voxel      = is_grass && (float(vox_local_pos.y) >= grass_height_voxels_f);
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 

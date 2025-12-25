@@ -12,7 +12,7 @@ layout(push_constant) uniform PC {
 pc;
 
 // these are vertex-rate attributes
-layout(location = 0) in uint in_packed_data;
+layout(location = 0) in uvec2 in_packed_data;
 
 // these are instance-rate attributes (reusing grass instance buffer)
 layout(location = 1) in uvec3 in_instance_pos;
@@ -62,10 +62,12 @@ const float scaling_factor = 1.0 / 256.0;
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
-    float color_gradient;
-    float wind_gradient;
-    unpack_vertex_data(vox_local_pos, vert_offset_in_vox, color_gradient, wind_gradient,
+    ivec3 gradient_origin;
+    uint max_length;
+    unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
+
+    float wind_gradient = compute_gradient(vox_local_pos, gradient_origin, max_length);
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 

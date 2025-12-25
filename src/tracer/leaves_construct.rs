@@ -36,6 +36,8 @@ pub fn generate_indexed_voxel_leaves(
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
+    let origin = IVec3::ZERO;
+    let max_length = outer_radius.ceil().max(1.0) as u32;
 
     let noise = Perlin::new(42); // Fixed seed for consistent results
     let outer_radius_i = outer_radius as i32;
@@ -90,8 +92,8 @@ pub fn generate_indexed_voxel_leaves(
                         &mut indices,
                         pos,
                         vertex_offset,
-                        color_gradient,
-                        wind_gradient,
+                        origin,
+                        max_length,
                         is_lod_used,
                     )?;
                 }
