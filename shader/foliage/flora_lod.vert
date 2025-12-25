@@ -80,8 +80,7 @@ const uint grass_max_height_voxels = 8u;
 const uint grass_bucket_count      = grass_max_height_voxels - grass_min_height_voxels + 1u;
 
 uint sample_grass_height(uint seed) {
-    uint h      = wellons_hash(seed);
-    uint bucket = h % grass_bucket_count;
+    uint bucket = seed % grass_bucket_count;
     return grass_min_height_voxels + bucket;
 }
 
