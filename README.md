@@ -134,8 +134,6 @@ Ensure you are using the latest stable version of Rust.
 
 ### Main Objectives
 
-- [ ] More Flowers
-- [ ] Fallen Leaves
 - [ ] Ponds
 - [ ] Dynamic Terrain Edit
 
