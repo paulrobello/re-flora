@@ -125,8 +125,12 @@ pub fn append_indexed_cube_data(
 
     for voxel_vert in voxel_verts {
         let encoded_offset = encode_voxel_offset(voxel_vert)?;
-        let packed_data =
-            make_value_from_parts(encoded_pos, encoded_offset, encoded_origin, encoded_max_length);
+        let packed_data = make_value_from_parts(
+            encoded_pos,
+            encoded_offset,
+            encoded_origin,
+            encoded_max_length,
+        );
         vertices.push(Vertex { packed_data });
     }
     for index in base_indices {

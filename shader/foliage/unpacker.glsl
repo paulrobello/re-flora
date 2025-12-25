@@ -17,8 +17,8 @@ const uint MAX_LENGTH_MASK = (1u << MAX_LENGTH_BITS) - 1u;
 
 void unpack_vertex_data(out ivec3 o_vox_local_pos, out uvec3 o_vert_offset_in_vox,
                         out ivec3 o_origin, out uint o_max_length, uvec2 packed_data) {
-    uint packed_pos_offset     = packed_data.x;
-    uint packed_origin_length  = packed_data.y;
+    uint packed_pos_offset    = packed_data.x;
+    uint packed_origin_length = packed_data.y;
 
     uint pos_x = packed_pos_offset & POS_MASK;
     uint pos_y = (packed_pos_offset >> BIT_PER_POS) & POS_MASK;
@@ -43,8 +43,8 @@ void unpack_vertex_data(out ivec3 o_vox_local_pos, out uvec3 o_vert_offset_in_vo
 }
 
 float compute_gradient(ivec3 vox_local_pos, ivec3 origin, uint max_length) {
-    float denom   = max(float(max_length), 1.0);
-    float dist    = length(vec3(vox_local_pos - origin));
+    float denom = max(float(max_length), 1.0);
+    float dist  = length(vec3(vox_local_pos - origin));
     return clamp(dist / denom, 0.0, 1.0);
 }
 

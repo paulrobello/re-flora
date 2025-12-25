@@ -109,7 +109,7 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
 
-    float base_gradient = compute_gradient(vox_local_pos, gradient_origin, max_length);
+    float base_gradient  = compute_gradient(vox_local_pos, gradient_origin, max_length);
     float color_gradient = base_gradient;
     float wind_gradient  = base_gradient;
 

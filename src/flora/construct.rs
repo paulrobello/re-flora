@@ -98,10 +98,9 @@ pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 
     let max_vertical = (HEIGHT - 1) as f32;
     let max_horizontal = (MAX_RADIUS + 2.0).ceil(); // includes search padding
-    let max_length =
-        ((max_vertical * max_vertical + 2.0 * max_horizontal * max_horizontal).sqrt())
-            .ceil()
-            .max(1.0) as u32;
+    let max_length = ((max_vertical * max_vertical + 2.0 * max_horizontal * max_horizontal).sqrt())
+        .ceil()
+        .max(1.0) as u32;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
@@ -142,23 +141,23 @@ pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
                 // We fill everything inside the calculated radius.
                 // This guarantees the shape is symmetrical and has no holes.
                 if dist <= radius_limit {
-                let vertex_offset = vertices.len() as u32;
+                    let vertex_offset = vertices.len() as u32;
 
-                // No stem sway, just straight up for symmetry
-                let pos = IVec3::new(x, y, z);
+                    // No stem sway, just straight up for symmetry
+                    let pos = IVec3::new(x, y, z);
 
-                append_indexed_cube_data(
-                    &mut vertices,
-                    &mut indices,
-                    pos,
-                    vertex_offset,
-                    ORIGIN,
-                    max_length,
-                    is_lod_used,
-                )?;
+                    append_indexed_cube_data(
+                        &mut vertices,
+                        &mut indices,
+                        pos,
+                        vertex_offset,
+                        ORIGIN,
+                        max_length,
+                        is_lod_used,
+                    )?;
+                }
             }
         }
-    }
     }
 
     Ok((vertices, indices))
