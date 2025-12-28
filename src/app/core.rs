@@ -288,6 +288,13 @@ pub struct App {
     tree_audio_manager: TreeAudioManager,
 }
 
+impl Drop for App {
+    fn drop(&mut self) {
+        // Ensure GPU work is done before resources begin destructing
+        self.vulkan_ctx.device().wait_idle();
+    }
+}
+
 const VOXEL_DIM_PER_CHUNK: UVec3 = UVec3::new(256, 256, 256);
 const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
