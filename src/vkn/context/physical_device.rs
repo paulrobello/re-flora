@@ -406,12 +406,15 @@ pub fn create_physical_device(
                 .sum();
             let total_memory_mb = (total_vram as f64) / (1024.0 * 1024.0);
 
+            // Heavily bias discrete GPUs so CPUs or fallback drivers cannot win on memory alone.
             let gpu_type_score = match device_type {
-                vk::PhysicalDeviceType::DISCRETE_GPU => 100,
-                vk::PhysicalDeviceType::INTEGRATED_GPU => 50,
-                _ => 10,
+                vk::PhysicalDeviceType::DISCRETE_GPU => 10_000,
+                vk::PhysicalDeviceType::INTEGRATED_GPU => 1_000,
+                vk::PhysicalDeviceType::VIRTUAL_GPU => 500,
+                vk::PhysicalDeviceType::CPU => 100,
+                _ => 50,
             };
-            let mem_score = (total_memory_mb / 256.0).floor() as i32;
+            let mem_score = ((total_memory_mb / 256.0).floor() as i32).min(500);
             let score = gpu_type_score + mem_score;
 
             let missing_extensions = get_missing_required_extensions(instance, dev);

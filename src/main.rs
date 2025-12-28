@@ -29,7 +29,7 @@ fn backtrace_on() {
 fn init_env_logger() {
     env_logger::Builder::from_env(
         Env::default().default_filter_or(
-            "debug,symphonia_core=warn,symphonia_format_riff=warn,petalsonic=info",
+            "info,winit=warn,sctk=warn,wayland_client=warn,x11rb=warn"
         ),
     )
     .format(|buf, record| {
