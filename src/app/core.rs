@@ -1390,6 +1390,8 @@ impl App {
                     self.on_resize();
                 }
 
+                self.window_state.maintain_cursor_grab();
+
                 self.time_info.update();
                 let frame_delta_time = self.time_info.delta_time();
                 let time_since_start = self.time_info.time_since_start();
