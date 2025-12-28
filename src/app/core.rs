@@ -15,7 +15,7 @@ use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
 use crate::util::{cluster_positions, ClusterResult, TimeInfo, BENCH};
 use crate::util::{get_sun_dir, ShaderCompiler};
-use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
+use crate::vkn::{Allocator, CommandBuffer, Device, Fence, Semaphore, SwapchainDesc};
 use crate::{
     egui_renderer::EguiRenderer,
     vkn::{Swapchain, VulkanContext, VulkanContextDesc},
@@ -229,15 +229,21 @@ impl ParticleEmitter for TreeLeafEmitter {
     }
 }
 
+struct FrameSync {
+    image_available: Semaphore,
+    fence: Fence,
+    command_buffer: CommandBuffer,
+}
+
 pub struct App {
     egui_renderer: EguiRenderer,
-    cmdbuf: CommandBuffer,
     window_state: WindowState,
     is_resize_pending: bool,
     swapchain: Swapchain,
-    image_available_semaphore: Semaphore,
-    render_finished_semaphore: Semaphore,
-    fence: Fence,
+    frames_in_flight: Vec<FrameSync>,
+    current_frame: usize,
+    image_render_finished_semaphores: Vec<Semaphore>,
+    images_in_flight: Vec<vk::Fence>,
     time_info: TimeInfo,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
@@ -285,6 +291,7 @@ pub struct App {
 const VOXEL_DIM_PER_CHUNK: UVec3 = UVec3::new(256, 256, 256);
 const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
+const MAX_FRAMES_IN_FLIGHT: usize = 1;
 
 impl App {
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
@@ -319,12 +326,17 @@ impl App {
             },
         );
 
-        let image_available_semaphore = Semaphore::new(device);
-        let render_finished_semaphore = Semaphore::new(device);
-
-        let fence = Fence::new(device, true);
-
-        let cmdbuf = CommandBuffer::new(device, vulkan_ctx.command_pool());
+        let frames_in_flight = (0..MAX_FRAMES_IN_FLIGHT)
+            .map(|_| FrameSync {
+                image_available: Semaphore::new(device),
+                fence: Fence::new(device, true),
+                command_buffer: CommandBuffer::new(device, vulkan_ctx.command_pool()),
+            })
+            .collect::<Vec<_>>();
+        let current_frame = 0;
+        let swapchain_image_count = swapchain.image_count();
+        let (image_render_finished_semaphores, images_in_flight) =
+            Self::create_swapchain_image_syncs(device, swapchain_image_count);
 
         let renderer = EguiRenderer::new(
             vulkan_ctx.clone(),
@@ -428,11 +440,11 @@ impl App {
             accumulated_mouse_delta: Vec2::ZERO,
             smoothed_mouse_delta: Vec2::ZERO,
 
-            cmdbuf,
             swapchain,
-            image_available_semaphore,
-            render_finished_semaphore,
-            fence,
+            frames_in_flight,
+            current_frame,
+            image_render_finished_semaphores,
+            images_in_flight,
 
             tracer,
 
@@ -2290,8 +2302,14 @@ impl App {
                 self.update_particle_simulation(frame_delta_time);
 
                 let device = self.vulkan_ctx.device();
+                let sync = &self.frames_in_flight[self.current_frame];
+                let cmdbuf = &sync.command_buffer;
 
-                let image_idx = match self.swapchain.acquire_next(&self.image_available_semaphore) {
+                self.vulkan_ctx
+                    .wait_for_fences(&[sync.fence.as_raw()])
+                    .unwrap();
+
+                let image_idx = match self.swapchain.acquire_next(&sync.image_available) {
                     Ok((image_index, _)) => image_index,
                     Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                         self.is_resize_pending = true;
@@ -2300,14 +2318,22 @@ impl App {
                     Err(error) => panic!("Error while acquiring next image. Cause: {}", error),
                 };
 
+                let image_index_usize = image_idx as usize;
+                let image_in_flight_fence = self.images_in_flight[image_index_usize];
+                if image_in_flight_fence != vk::Fence::null() {
+                    self.vulkan_ctx
+                        .wait_for_fences(&[image_in_flight_fence])
+                        .unwrap();
+                }
+                self.images_in_flight[image_index_usize] = sync.fence.as_raw();
+
                 unsafe {
                     device
                         .as_raw()
-                        .reset_fences(&[self.fence.as_raw()])
+                        .reset_fences(&[sync.fence.as_raw()])
                         .expect("Failed to reset fences")
                 };
 
-                let cmdbuf = &self.cmdbuf;
                 cmdbuf.begin(false);
 
                 self.tracer
@@ -2448,9 +2474,10 @@ impl App {
                 cmdbuf.end();
 
                 let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-                let wait_semaphores = [self.image_available_semaphore.as_raw()];
-                let signal_semaphores = [self.render_finished_semaphore.as_raw()];
-                let command_buffers = [self.cmdbuf.as_raw()];
+                let wait_semaphores = [sync.image_available.as_raw()];
+                let render_finished = &self.image_render_finished_semaphores[image_index_usize];
+                let signal_semaphores = [render_finished.as_raw()];
+                let command_buffers = [cmdbuf.as_raw()];
                 let submit_info = [vk::SubmitInfo::default()
                     .wait_semaphores(&wait_semaphores)
                     .wait_dst_stage_mask(&wait_stages)
@@ -2464,7 +2491,7 @@ impl App {
                         .queue_submit(
                             self.vulkan_ctx.get_general_queue().as_raw(),
                             &submit_info,
-                            self.fence.as_raw(),
+                            sync.fence.as_raw(),
                         )
                         .expect("Failed to submit work to gpu.")
                 };
@@ -2482,9 +2509,7 @@ impl App {
                     _ => {}
                 }
 
-                self.vulkan_ctx
-                    .wait_for_fences(&[self.fence.as_raw()])
-                    .unwrap();
+                self.current_frame = (self.current_frame + 1) % self.frames_in_flight.len();
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
@@ -2518,6 +2543,7 @@ impl App {
         let window_extent = self.window_state.window_extent();
 
         self.swapchain.on_resize(window_extent);
+        self.rebuild_swapchain_image_syncs();
         self.tracer.on_resize(
             window_extent,
             self.contree_builder.get_resources(),
@@ -2529,5 +2555,23 @@ impl App {
             .set_render_pass(self.swapchain.get_render_pass());
 
         self.is_resize_pending = false;
+    }
+
+    fn rebuild_swapchain_image_syncs(&mut self) {
+        let device = self.vulkan_ctx.device();
+        let image_count = self.swapchain.image_count();
+        let (present_semaphores, images_in_flight) =
+            Self::create_swapchain_image_syncs(device, image_count);
+        self.image_render_finished_semaphores = present_semaphores;
+        self.images_in_flight = images_in_flight;
+    }
+
+    fn create_swapchain_image_syncs(
+        device: &Device,
+        image_count: usize,
+    ) -> (Vec<Semaphore>, Vec<vk::Fence>) {
+        let semaphores = (0..image_count).map(|_| Semaphore::new(device)).collect();
+        let images_in_flight = vec![vk::Fence::null(); image_count];
+        (semaphores, images_in_flight)
     }
 }

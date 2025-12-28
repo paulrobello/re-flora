@@ -86,6 +86,10 @@ impl Swapchain {
         }
     }
 
+    pub fn image_count(&self) -> usize {
+        self.image_views.len()
+    }
+
     fn clean_up(&mut self) {
         let device = &self.vulkan_context.device();
         unsafe {
