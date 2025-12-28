@@ -11,7 +11,6 @@ const BIT_PER_OFFSET: u32 = 1;
 const BIT_PER_ORIGIN: u32 = 7;
 
 const POS_BITS: u32 = BIT_PER_POS * 3;
-const OFFSET_BITS: u32 = BIT_PER_OFFSET * 3;
 const ORIGIN_BITS: u32 = BIT_PER_ORIGIN * 3;
 const MAX_LENGTH_BITS: u32 = 32 - ORIGIN_BITS;
 
