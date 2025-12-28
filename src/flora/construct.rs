@@ -30,7 +30,7 @@ pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 }
 
 pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
-    const STEM_VOXEL_COUNT: u32 = 8;
+    const STEM_VOXEL_COUNT: u32 = 4;
     const LEAF_BALL_RADIUS: f32 = 1.5;
     const LEAF_BALL_BOUNDARY: i32 = LEAF_BALL_RADIUS as i32;
     const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
@@ -91,9 +91,9 @@ pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 use std::f32::consts::PI;
 
 pub fn gen_ember_bloom(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
-    const HEIGHT: i32 = 15;
+    const HEIGHT: i32 = 12;
     // Width Configuration: How wide the plant swells
-    const MAX_RADIUS: f32 = 2.5;
+    const MAX_RADIUS: f32 = 2.0;
     const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
 
     let max_vertical = (HEIGHT - 1) as f32;
