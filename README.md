@@ -9,6 +9,7 @@
 ![Re: Flora](demo/img/title.png)
 
 This project aims to give players:
+
 > A meditative voxel-based gardening experience where players cultivate their own island ecosystem.
 
 ## ✨ Features
@@ -58,11 +59,11 @@ Ensure you are using the latest stable version of Rust.
 
 ### Recommended VSCode Extensions
 
-| Name | Usage |
-| :--- | :--- |
-| `shader-lint` | For GLSL/HLSL shader linting. |
-| `rust-analyzer` | Provides language support for Rust (linting, formatting, etc.). |
-| _to be continued..._ | _..._ |
+| Name                 | Usage                                                           |
+| :------------------- | :-------------------------------------------------------------- |
+| `shader-lint`        | For GLSL/HLSL shader linting.                                   |
+| `rust-analyzer`      | Provides language support for Rust (linting, formatting, etc.). |
+| _to be continued..._ | _..._                                                           |
 
 > **Note:** Do not use `glslx` for Vulkan-style shaders.
 
