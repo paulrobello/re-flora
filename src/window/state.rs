@@ -73,6 +73,7 @@ impl Default for WindowStateDesc {
 pub struct WindowState {
     window: Arc<Window>,
     desc: WindowStateDesc,
+    cursor_grab_pending: bool,
 }
 
 impl WindowState {
@@ -111,21 +112,19 @@ impl WindowState {
         let winit_window_attributes = winit_window_attributes.with_title(&desc.title);
         let window = event_loop.create_window(winit_window_attributes).unwrap();
 
-        let res = window.set_cursor_grab(Self::get_cursor_grab_mode(desc.cursor_locked));
-        if let Err(e) = res {
-            eprintln!("Failed to grab cursor: {:?}", e);
-        }
-
-        window.set_cursor_visible(desc.cursor_visible);
-
         // set the window to visible
         // after it has been created
         window.set_visible(true);
 
-        Self {
+        window.set_cursor_visible(desc.cursor_visible);
+
+        let mut state = Self {
             window: Arc::new(window),
             desc: desc.clone(),
-        }
+            cursor_grab_pending: desc.cursor_locked,
+        };
+        state.apply_cursor_grab();
+        state
     }
 
     pub fn window(&self) -> Arc<Window> {
@@ -176,11 +175,15 @@ impl WindowState {
     /// Sets the cursor grab, this is the only way to change the cursor grab, do not change it directly, otherwise the internal state will be out of sync.
     pub fn set_cursor_grab(&mut self, cursor_locked: bool) {
         self.desc.cursor_locked = cursor_locked;
-        let res = self
-            .window
-            .set_cursor_grab(Self::get_cursor_grab_mode(cursor_locked));
-        if let Err(e) = res {
-            eprintln!("Failed to grab cursor: {:?}", e);
+        if !cursor_locked {
+            self.cursor_grab_pending = false;
+        }
+        self.apply_cursor_grab();
+    }
+
+    pub fn maintain_cursor_grab(&mut self) {
+        if self.cursor_grab_pending {
+            self.apply_cursor_grab();
         }
     }
 
@@ -211,5 +214,24 @@ impl WindowState {
             return CursorGrabMode::None;
         }
         CursorGrabMode::Confined
+    }
+
+    fn apply_cursor_grab(&mut self) {
+        let mode = Self::get_cursor_grab_mode(self.desc.cursor_locked);
+        match self.window.set_cursor_grab(mode) {
+            Ok(_) => self.cursor_grab_pending = false,
+            Err(e) => {
+                if self.desc.cursor_locked {
+                    if !self.cursor_grab_pending {
+                        log::warn!("Failed to grab cursor (will retry): {:?}", e);
+                    } else {
+                        log::debug!("Retrying cursor grab failed: {:?}", e);
+                    }
+                    self.cursor_grab_pending = true;
+                } else {
+                    log::warn!("Failed to release cursor grab: {:?}", e);
+                }
+            }
+        }
     }
 }
