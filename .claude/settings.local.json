@@ -21,7 +21,9 @@
       "Bash(awk:*)",
       "Bash(cargo metadata:*)",
       "Bash(rustc:*)",
-      "Bash(cargo build:*)"
+      "Bash(cargo build:*)",
+      "Bash(source:*)",
+      "Bash(echo:*)"
     ],
     "deny": []
   }
