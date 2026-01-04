@@ -194,7 +194,7 @@ impl WindowState {
     }
 
     pub fn is_minimized(&self) -> bool {
-        self.window.is_minimized().unwrap()
+        self.window.is_minimized().unwrap_or(false)
     }
 
     /// Return scale factor accounted window size.
