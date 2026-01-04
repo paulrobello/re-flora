@@ -27,7 +27,7 @@ time = "0.3.37"
 egui = "0.33.2"
 thiserror = "2.0.11"
 egui-winit = "0.33.2"
-shaderc = "0.8.3"
+shaderc = "0.10.1"
 noise = "0.9.0"
 fastnoise-lite = "1.1.1"
 rand = "0.9.0"
@@ -44,9 +44,6 @@ petalsonic = { path = "../petalsonic/petalsonic" }
 [features]
 default = []
 no_validation_layer = []
-
-[build-dependencies]
-shaderc = "0.8.3"
 
 [profile.test]
 # uncomment this line to use release build for tests

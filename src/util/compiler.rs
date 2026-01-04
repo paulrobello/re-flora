@@ -48,9 +48,9 @@ fn custom_include_callback(
 #[allow(unused)]
 impl<'a> ShaderCompiler<'a> {
     pub fn new() -> Result<Self, String> {
-        let compiler = Compiler::new().ok_or("Failed to create shader compiler")?;
+        let compiler = Compiler::new().map_err(|e| format!("Failed to create shader compiler: {}", e))?;
         let mut default_options =
-            CompileOptions::new().ok_or("Failed to create compile options")?;
+            CompileOptions::new().map_err(|e| format!("Failed to create compile options: {}", e))?;
         default_options.set_target_env(
             shaderc::TargetEnv::Vulkan,
             shaderc::EnvVersion::Vulkan1_3 as u32,
@@ -73,7 +73,7 @@ impl<'a> ShaderCompiler<'a> {
         full_path_to_shader_file: &str,
         optimization_level: OptimizationLevel,
     ) -> Result<Vec<u8>, String> {
-        let mut compile_options = self.default_options.clone().unwrap();
+        let mut compile_options = self.default_options.clone();
         compile_options.set_optimization_level(optimization_level);
 
         let compilation_artifact = self
