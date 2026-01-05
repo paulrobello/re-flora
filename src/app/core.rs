@@ -7,8 +7,8 @@ use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBui
 use crate::flora::species;
 use crate::geom::{build_bvh, UAabb3};
 use crate::particles::{
-    FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter, ParticleForces, ParticleSnapshot,
-    ParticleSystem, PARTICLE_CAPACITY,
+    ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter,
+    ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{Tracer, TracerDesc};
@@ -229,6 +229,27 @@ impl ParticleEmitter for TreeLeafEmitter {
     }
 }
 
+struct TreeButterflyEmitter {
+    tree_id: u32,
+    emitter: ButterflyEmitter,
+}
+
+impl TreeButterflyEmitter {
+    fn new(tree_id: u32, emitter: ButterflyEmitter) -> Self {
+        Self { tree_id, emitter }
+    }
+
+    fn tree_id(&self) -> u32 {
+        self.tree_id
+    }
+}
+
+impl ParticleEmitter for TreeButterflyEmitter {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
+        self.emitter.update(system, dt, time);
+    }
+}
+
 struct FrameSync {
     image_available: Semaphore,
     fence: Fence,
@@ -276,6 +297,9 @@ pub struct App {
     leaf_emitters: Vec<TreeLeafEmitter>,
     tree_leaf_emitter_indices: HashMap<u32, Vec<usize>>,
     leaf_emitter_desc: LeafEmitterDesc,
+    butterfly_emitters: Vec<TreeButterflyEmitter>,
+    tree_butterfly_emitter_indices: HashMap<u32, Vec<usize>>,
+    butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
@@ -433,6 +457,9 @@ impl App {
             color_high: color_to_vec4(gui_adjustables.leaves_tip_color.value),
             ..LeafEmitterDesc::default()
         };
+        let butterfly_emitters = Vec::new();
+        let tree_butterfly_emitter_indices = HashMap::new();
+        let butterfly_emitter_desc = ButterflyEmitterDesc::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             linear_damping: 0.08,
@@ -481,6 +508,9 @@ impl App {
             leaf_emitters,
             tree_leaf_emitter_indices,
             leaf_emitter_desc,
+            butterfly_emitters,
+            tree_butterfly_emitter_indices,
+            butterfly_emitter_desc,
             particle_snapshots,
             particle_forces,
 
@@ -1118,6 +1148,7 @@ impl App {
         );
 
         self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound, &leaf_clusters);
+        self.upsert_tree_butterfly_emitter(tree_id, tree_pos, &this_bound);
 
         Ok(())
     }
@@ -1168,6 +1199,28 @@ impl App {
             .insert(tree_id, emitter_indices);
     }
 
+    fn upsert_tree_butterfly_emitter(&mut self, tree_id: u32, tree_pos: Vec3, bound: &UAabb3) {
+        self.remove_butterfly_emitters(tree_id);
+
+        if !self.butterfly_emitter_desc.enabled {
+            return;
+        }
+
+        let (center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
+        let emitter = ButterflyEmitter::new(
+            center,
+            extent,
+            tree_id as u64 + 9_173,
+            &self.butterfly_emitter_desc,
+        );
+
+        let idx = self.butterfly_emitters.len();
+        self.butterfly_emitters
+            .push(TreeButterflyEmitter::new(tree_id, emitter));
+        self.tree_butterfly_emitter_indices
+            .insert(tree_id, vec![idx]);
+    }
+
     fn compute_leaf_emitter_region(tree_pos: Vec3, bound: &UAabb3) -> (Vec3, Vec3) {
         if bound.min() == bound.max() {
             return (
@@ -1215,12 +1268,42 @@ impl App {
         }
     }
 
+    fn remove_butterfly_emitters(&mut self, tree_id: u32) {
+        if let Some(indices) = self.tree_butterfly_emitter_indices.remove(&tree_id) {
+            let mut sorted_indices = indices;
+            sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
+
+            for index in sorted_indices {
+                self.butterfly_emitters.swap_remove(index);
+                if let Some(swapped) = self.butterfly_emitters.get(index) {
+                    if let Some(tree_indices) = self
+                        .tree_butterfly_emitter_indices
+                        .get_mut(&swapped.tree_id())
+                    {
+                        if let Some(pos) = tree_indices
+                            .iter()
+                            .position(|&i| i == self.butterfly_emitters.len())
+                        {
+                            tree_indices[pos] = index;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn update_particle_simulation(&mut self, dt: f32) {
         if dt <= 0.0 {
             return;
         }
 
         let wind_time = self.time_info.time_since_start();
+        Self::drive_emitters(
+            &mut self.butterfly_emitters,
+            &mut self.particle_system,
+            dt,
+            wind_time,
+        );
         Self::drive_emitters(
             &mut self.leaf_emitters,
             &mut self.particle_system,
@@ -2244,7 +2327,289 @@ impl App {
                                             }
                                         }
 
-                                        if self.leaf_emitters.is_empty() {
+                                        ui.separator();
+                                        ui.label("Butterflies");
+
+                                        let mut butterflies_changed = false;
+
+                                        let mut butterflies_enabled =
+                                            self.butterfly_emitter_desc.enabled;
+                                        butterflies_changed |= ui
+                                            .checkbox(&mut butterflies_enabled, "Enable Butterflies")
+                                            .changed();
+                                        self.butterfly_emitter_desc.enabled = butterflies_enabled;
+
+                                        let mut butterfly_spawn_rate =
+                                            self.butterfly_emitter_desc.spawn_rate;
+                                        let spawn_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut butterfly_spawn_rate,
+                                                    0.0..=40.0,
+                                                )
+                                                .text("Spawn Rate (per s)"),
+                                            )
+                                            .changed();
+                                        if spawn_changed {
+                                            self.butterfly_emitter_desc.spawn_rate = butterfly_spawn_rate;
+                                        }
+                                        butterflies_changed |= spawn_changed;
+
+                                        let mut max_butterflies =
+                                            self.butterfly_emitter_desc.max_butterflies;
+                                        let max_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut max_butterflies,
+                                                    0..=32,
+                                                )
+                                                .text("Max Butterflies / tree"),
+                                            )
+                                            .changed();
+                                        if max_changed {
+                                            self.butterfly_emitter_desc.max_butterflies =
+                                                max_butterflies;
+                                        }
+                                        butterflies_changed |= max_changed;
+
+                                        let mut wander_radius =
+                                            self.butterfly_emitter_desc.wander_radius;
+                                        let wander_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut wander_radius,
+                                                    0.5..=8.0,
+                                                )
+                                                .text("Wander Radius"),
+                                            )
+                                            .changed();
+                                        if wander_changed {
+                                            self.butterfly_emitter_desc.wander_radius = wander_radius;
+                                        }
+                                        butterflies_changed |= wander_changed;
+
+                                        let mut height_min =
+                                            self.butterfly_emitter_desc.height_offset_min;
+                                        let mut height_max =
+                                            self.butterfly_emitter_desc.height_offset_max;
+                                        let mut height_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut height_min,
+                                                    -1.0..=4.0,
+                                                )
+                                                .text("Height Offset Min"),
+                                            )
+                                            .changed();
+                                        height_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut height_max,
+                                                    -1.0..=4.0,
+                                                )
+                                                .text("Height Offset Max"),
+                                            )
+                                            .changed();
+                                        if height_changed {
+                                            if height_min > height_max {
+                                                std::mem::swap(&mut height_min, &mut height_max);
+                                            }
+                                            self.butterfly_emitter_desc.height_offset_min =
+                                                height_min;
+                                            self.butterfly_emitter_desc.height_offset_max =
+                                                height_max;
+                                        }
+                                        butterflies_changed |= height_changed;
+
+                                        let mut butterfly_lifetime_min =
+                                            self.butterfly_emitter_desc.lifetime_min;
+                                        let mut butterfly_lifetime_max =
+                                            self.butterfly_emitter_desc.lifetime_max;
+                                        let mut lifetime_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut butterfly_lifetime_min,
+                                                    1.0..=60.0,
+                                                )
+                                                .text("Lifetime Min (s)"),
+                                            )
+                                            .changed();
+                                        lifetime_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut butterfly_lifetime_max,
+                                                    1.0..=60.0,
+                                                )
+                                                .text("Lifetime Max (s)"),
+                                            )
+                                            .changed();
+                                        if lifetime_changed {
+                                            if butterfly_lifetime_min > butterfly_lifetime_max {
+                                                std::mem::swap(
+                                                    &mut butterfly_lifetime_min,
+                                                    &mut butterfly_lifetime_max,
+                                                );
+                                            }
+                                            self.butterfly_emitter_desc.lifetime_min =
+                                                butterfly_lifetime_min;
+                                            self.butterfly_emitter_desc.lifetime_max =
+                                                butterfly_lifetime_max;
+                                        }
+                                        butterflies_changed |= lifetime_changed;
+
+                                        let mut size_min = self.butterfly_emitter_desc.size_min;
+                                        let mut size_max = self.butterfly_emitter_desc.size_max;
+                                        let mut size_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut size_min,
+                                                    0.001..=0.02,
+                                                )
+                                                .text("Size Min"),
+                                            )
+                                            .changed();
+                                        size_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut size_max,
+                                                    0.001..=0.02,
+                                                )
+                                                .text("Size Max"),
+                                            )
+                                            .changed();
+                                        if size_changed {
+                                            if size_min > size_max {
+                                                std::mem::swap(&mut size_min, &mut size_max);
+                                            }
+                                            self.butterfly_emitter_desc.size_min = size_min;
+                                            self.butterfly_emitter_desc.size_max = size_max;
+                                        }
+                                        butterflies_changed |= size_changed;
+
+                                        let mut drift_strength_min =
+                                            self.butterfly_emitter_desc.drift_strength_min;
+                                        let mut drift_strength_max =
+                                            self.butterfly_emitter_desc.drift_strength_max;
+                                        let mut drift_strength_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut drift_strength_min,
+                                                    0.0..=3.0,
+                                                )
+                                                .text("Flutter Strength Min"),
+                                            )
+                                            .changed();
+                                        drift_strength_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut drift_strength_max,
+                                                    0.0..=3.0,
+                                                )
+                                                .text("Flutter Strength Max"),
+                                            )
+                                            .changed();
+                                        if drift_strength_changed {
+                                            if drift_strength_min > drift_strength_max {
+                                                std::mem::swap(
+                                                    &mut drift_strength_min,
+                                                    &mut drift_strength_max,
+                                                );
+                                            }
+                                            self.butterfly_emitter_desc.drift_strength_min =
+                                                drift_strength_min;
+                                            self.butterfly_emitter_desc.drift_strength_max =
+                                                drift_strength_max;
+                                        }
+                                        butterflies_changed |= drift_strength_changed;
+
+                                        let mut drift_freq_min =
+                                            self.butterfly_emitter_desc.drift_frequency_min;
+                                        let mut drift_freq_max =
+                                            self.butterfly_emitter_desc.drift_frequency_max;
+                                        let mut drift_freq_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut drift_freq_min,
+                                                    0.5..=6.0,
+                                                )
+                                                .text("Flutter Speed Min"),
+                                            )
+                                            .changed();
+                                        drift_freq_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut drift_freq_max,
+                                                    0.5..=6.0,
+                                                )
+                                                .text("Flutter Speed Max"),
+                                            )
+                                            .changed();
+                                        if drift_freq_changed {
+                                            if drift_freq_min > drift_freq_max {
+                                                std::mem::swap(&mut drift_freq_min, &mut drift_freq_max);
+                                            }
+                                            self.butterfly_emitter_desc.drift_frequency_min =
+                                                drift_freq_min;
+                                            self.butterfly_emitter_desc.drift_frequency_max =
+                                                drift_freq_max;
+                                        }
+                                        butterflies_changed |= drift_freq_changed;
+
+                                        let mut steering_strength =
+                                            self.butterfly_emitter_desc.steering_strength;
+                                        let steering_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut steering_strength,
+                                                    0.0..=3.0,
+                                                )
+                                                .text("Home Pull Strength"),
+                                            )
+                                            .changed();
+                                        if steering_changed {
+                                            self.butterfly_emitter_desc.steering_strength =
+                                                steering_strength;
+                                        }
+                                        butterflies_changed |= steering_changed;
+
+                                        let mut butterfly_color_low =
+                                            vec4_to_color32(self.butterfly_emitter_desc.color_low);
+                                        let mut butterfly_color_high =
+                                            vec4_to_color32(self.butterfly_emitter_desc.color_high);
+                                        let mut butterfly_color_changed = false;
+
+                                        ui.horizontal(|ui| {
+                                            ui.label("Wing Color Low:");
+                                            butterfly_color_changed |= ui
+                                                .color_edit_button_srgba(&mut butterfly_color_low)
+                                                .changed();
+                                        });
+                                        ui.horizontal(|ui| {
+                                            ui.label("Wing Color High:");
+                                            butterfly_color_changed |= ui
+                                                .color_edit_button_srgba(&mut butterfly_color_high)
+                                                .changed();
+                                        });
+
+                                        if butterfly_color_changed {
+                                            self.butterfly_emitter_desc.color_low =
+                                                color32_to_vec4(butterfly_color_low);
+                                            self.butterfly_emitter_desc.color_high =
+                                                color32_to_vec4(butterfly_color_high);
+                                        }
+                                        butterflies_changed |= butterfly_color_changed;
+
+                                        if butterflies_changed {
+                                            for emitter in &mut self.butterfly_emitters {
+                                                emitter
+                                                    .emitter
+                                                    .apply_desc(&self.butterfly_emitter_desc);
+                                            }
+                                        }
+
+                                        if self.leaf_emitters.is_empty()
+                                            && self.butterfly_emitters.is_empty()
+                                        {
                                             ui.label("No active emitters");
                                         }
                                     });

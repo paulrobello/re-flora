@@ -48,9 +48,10 @@ fn custom_include_callback(
 #[allow(unused)]
 impl<'a> ShaderCompiler<'a> {
     pub fn new() -> Result<Self, String> {
-        let compiler = Compiler::new().map_err(|e| format!("Failed to create shader compiler: {}", e))?;
-        let mut default_options =
-            CompileOptions::new().map_err(|e| format!("Failed to create compile options: {}", e))?;
+        let compiler =
+            Compiler::new().map_err(|e| format!("Failed to create shader compiler: {}", e))?;
+        let mut default_options = CompileOptions::new()
+            .map_err(|e| format!("Failed to create compile options: {}", e))?;
         default_options.set_target_env(
             shaderc::TargetEnv::Vulkan,
             shaderc::EnvVersion::Vulkan1_3 as u32,

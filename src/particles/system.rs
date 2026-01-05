@@ -24,6 +24,14 @@ impl ParticleHandle {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MotionMode {
+    /// Default falling behaviour driven by noise and gravity.
+    Falling,
+    /// Free-flight particles that keep their velocity, only damped over time.
+    Free,
+}
+
 /// Parameters used when spawning a new particle.
 #[derive(Clone, Copy, Debug)]
 pub struct ParticleSpawn {
@@ -42,6 +50,8 @@ pub struct ParticleSpawn {
     pub drift_frequency: f32,
     /// Per-particle offset for the Perlin speed sampling to decorrelate leaves
     pub speed_noise_offset: f32,
+    /// Motion integration mode for this particle.
+    pub motion_mode: MotionMode,
 }
 
 impl Default for ParticleSpawn {
@@ -58,6 +68,7 @@ impl Default for ParticleSpawn {
             drift_strength: 0.0,
             drift_frequency: 1.0,
             speed_noise_offset: 0.0,
+            motion_mode: MotionMode::Falling,
         }
     }
 }
@@ -122,6 +133,7 @@ pub struct ParticleSystem {
     lifetimes: Vec<f32>,
     ages: Vec<f32>,
     generations: Vec<u32>,
+    motion_modes: Vec<MotionMode>,
     is_alive: Vec<bool>,
     alive_indices: Vec<usize>,
     free_list: Vec<usize>,
@@ -157,6 +169,7 @@ impl ParticleSystem {
             lifetimes: vec![0.0; max_particles],
             ages: vec![0.0; max_particles],
             generations: vec![0; max_particles],
+            motion_modes: vec![MotionMode::Falling; max_particles],
             is_alive: vec![false; max_particles],
             alive_indices: Vec::with_capacity(max_particles),
             free_list,
@@ -217,6 +230,7 @@ impl ParticleSystem {
         self.drift_directions[slot] = spawn.drift_direction.normalize_or_zero();
         self.drift_strengths[slot] = spawn.drift_strength.max(0.0);
         self.drift_frequencies[slot] = spawn.drift_frequency.max(0.001);
+        self.motion_modes[slot] = spawn.motion_mode;
         self.lifetimes[slot] = spawn.lifetime.max(0.001);
         self.ages[slot] = 0.0;
         self.is_alive[slot] = true;
@@ -266,7 +280,7 @@ impl ParticleSystem {
     }
 
     /// Advances the simulation by `dt` seconds and applies forces/damping.
-    /// Applies randomized turbulent motion to simulate realistic leaf movement.
+    /// Supports both falling particles and free-flight motion with the same drift model.
     pub fn update(&mut self, dt: f32, forces: ParticleForces) {
         if dt <= 0.0 || self.alive_indices.is_empty() {
             return;
@@ -280,7 +294,7 @@ impl ParticleSystem {
             let slot = self.alive_indices[alive_cursor];
 
             let vel = &mut self.velocities[slot];
-            let gravity_scale = self.gravity_factors[slot];
+            let mode = self.motion_modes[slot];
 
             // Apply randomized turbulent drift
             let age = self.ages[slot];
@@ -294,23 +308,37 @@ impl ParticleSystem {
                 (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
             *vel += drift_force * dt;
 
-            // Clamp and order the speed range
-            let (min_speed, max_speed) =
-                if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
-                    (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
-                } else {
-                    (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
-                };
+            match mode {
+                MotionMode::Falling => {
+                    let gravity_scale = self.gravity_factors[slot];
+                    // Clamp and order the speed range
+                    let (min_speed, max_speed) =
+                        if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
+                            (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
+                        } else {
+                            (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
+                        };
 
-            let noise_t = age + self.speed_noise_offsets[slot];
-            let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
-            let normalized = noise_val * 0.5 + 0.5; // 0..1
-            let target_speed = (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
+                    let noise_t = age + self.speed_noise_offsets[slot];
+                    let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
+                    let normalized = noise_val * 0.5 + 0.5; // 0..1
+                    let target_speed =
+                        (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
 
-            // Keep horizontal motion damped; vertical comes purely from noise.
-            vel.x *= damping;
-            vel.z *= damping;
-            vel.y = -target_speed;
+                    // Keep horizontal motion damped; vertical comes purely from noise.
+                    vel.x *= damping;
+                    vel.z *= damping;
+                    vel.y = -target_speed;
+                }
+                MotionMode::Free => {
+                    *vel *= damping;
+                    let max_speed = 3.0;
+                    let speed = vel.length();
+                    if speed > max_speed {
+                        *vel *= max_speed / speed;
+                    }
+                }
+            }
 
             self.positions[slot] += *vel * dt;
             self.ages[slot] += dt;
