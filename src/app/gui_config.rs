@@ -75,12 +75,12 @@ declare_gui_adjustables! {
     },
 
     [FloraVariation] {
-        flora_instance_hue_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Hue Offset Max",
-        flora_instance_saturation_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Saturation Offset Max",
-        flora_instance_value_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Value Offset Max",
-        flora_voxel_hue_offset: crate::gui_adjustables::FloatParam = 0.02, float(0.0..=1.0), "Voxel Hue Offset Max",
-        flora_voxel_saturation_offset: crate::gui_adjustables::FloatParam = 0.02, float(0.0..=1.0), "Voxel Saturation Offset Max",
-        flora_voxel_value_offset: crate::gui_adjustables::FloatParam = 0.02, float(0.0..=1.0), "Voxel Value Offset Max",
+        flora_instance_hue_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Hue Offset Max",
+        flora_instance_saturation_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Saturation Offset Max",
+        flora_instance_value_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Value Offset Max",
+        flora_voxel_hue_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Hue Offset Max",
+        flora_voxel_saturation_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Saturation Offset Max",
+        flora_voxel_value_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Value Offset Max",
     },
 
     [Leaves] {
@@ -88,8 +88,8 @@ declare_gui_adjustables! {
         leaves_outer_density: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Outer Density",
         leaves_inner_radius: crate::gui_adjustables::FloatParam = 12.0, float(1.0..=64.0), "Inner Radius",
         leaves_outer_radius: crate::gui_adjustables::FloatParam = 17.0, float(1.0..=64.0), "Outer Radius",
-        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(117, 187, 0), color, "Bottom Color",
-        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(217, 242, 0), color, "Tip Color",
+        leaves_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(239, 239, 239), color, "Bottom Color",
+        leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 137, 241), color, "Tip Color",
     },
 
     [Voxel] {
