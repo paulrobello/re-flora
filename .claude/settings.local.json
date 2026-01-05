@@ -23,7 +23,10 @@
       "Bash(rustc:*)",
       "Bash(cargo build:*)",
       "Bash(source:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(rust-gdb:*)",
+      "Bash(coredumpctl list:*)",
+      "Bash(coredumpctl gdb:*)"
     ],
     "deny": []
   }
