@@ -237,9 +237,9 @@ struct FrameSync {
 
 pub struct App {
     egui_renderer: EguiRenderer,
-    window_state: WindowState,
     is_resize_pending: bool,
     swapchain: Swapchain,
+    window_state: WindowState,
     frames_in_flight: Vec<FrameSync>,
     current_frame: usize,
     image_render_finished_semaphores: Vec<Semaphore>,
