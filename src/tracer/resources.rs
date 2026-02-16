@@ -691,7 +691,11 @@ impl TracerResources {
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
         };
-        let sam_desc = Default::default();
+        let sam_desc = crate::vkn::SamplerDesc {
+            mag_filter: vk::Filter::NEAREST,
+            min_filter: vk::Filter::NEAREST,
+            ..Default::default()
+        };
         let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
         tex.get_image()
