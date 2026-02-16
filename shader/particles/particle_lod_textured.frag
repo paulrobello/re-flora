@@ -10,6 +10,12 @@ layout(set = 0, binding = 6) uniform sampler2D particle_lod_tex;
 void main() {
     vec4 texel = texture(particle_lod_tex, vert_uv);
     float alpha = vert_color.a * texel.a;
-    vec3 rgb = vert_color.rgb * texel.rgb * alpha;
-    out_color = vec4(rgb, alpha);
+    float alpha_mask = step(0.5, alpha);
+
+    // Discard-free alpha test: transparent pixels output no color and are pushed to far depth.
+    // This avoids SPIR-V demote/discard capability requirements on unsupported devices.
+    float masked_alpha = alpha * alpha_mask;
+    vec3 rgb = vert_color.rgb * texel.rgb * masked_alpha;
+    out_color = vec4(rgb, masked_alpha);
+    gl_FragDepth = mix(1.0, gl_FragCoord.z, alpha_mask);
 }
