@@ -136,14 +136,6 @@ impl PipelineBuilder {
         )
         .unwrap();
 
-        let flora_lod_frag_sm = ShaderModule::from_glsl(
-            vulkan_ctx.device(),
-            shader_compiler,
-            "shader/foliage/flora_lod.frag",
-            "main",
-        )
-        .unwrap();
-
         let leaves_shadow_vert_sm = ShaderModule::from_glsl(
             vulkan_ctx.device(),
             shader_compiler,
@@ -182,14 +174,6 @@ impl PipelineBuilder {
             "main",
         )
         .unwrap();
-        let particle_lod_frag_sm = ShaderModule::from_glsl(
-            vulkan_ctx.device(),
-            shader_compiler,
-            "shader/particles/particle_lod.frag",
-            "main",
-        )
-        .unwrap();
-
         Ok(ShaderModules {
             tracer_sm,
             tracer_shadow_sm,
@@ -206,13 +190,11 @@ impl PipelineBuilder {
             flora_vert_sm,
             flora_frag_sm,
             flora_lod_vert_sm,
-            flora_lod_frag_sm,
             leaves_shadow_vert_sm,
             leaves_shadow_frag_sm,
             particle_vert_sm,
             particle_frag_sm,
             particle_lod_vert_sm,
-            particle_lod_frag_sm,
         })
     }
 
@@ -330,7 +312,7 @@ impl PipelineBuilder {
         let flora_lod_ppl = Self::create_gfx_pipeline(
             vulkan_ctx,
             &shader_modules.flora_lod_vert_sm,
-            &shader_modules.flora_lod_frag_sm,
+            &shader_modules.flora_frag_sm,
             &render_passes.render_pass_color_and_depth,
             Some(1),
             pool,
@@ -359,7 +341,7 @@ impl PipelineBuilder {
         let particle_lod_ppl = Self::create_gfx_pipeline(
             vulkan_ctx,
             &shader_modules.particle_lod_vert_sm,
-            &shader_modules.particle_lod_frag_sm,
+            &shader_modules.particle_frag_sm,
             &render_passes.render_pass_color_and_depth,
             Some(1),
             pool,
@@ -459,13 +441,11 @@ pub struct ShaderModules {
     pub flora_vert_sm: ShaderModule,
     pub flora_frag_sm: ShaderModule,
     pub flora_lod_vert_sm: ShaderModule,
-    pub flora_lod_frag_sm: ShaderModule,
     pub leaves_shadow_vert_sm: ShaderModule,
     pub leaves_shadow_frag_sm: ShaderModule,
     pub particle_vert_sm: ShaderModule,
     pub particle_frag_sm: ShaderModule,
     pub particle_lod_vert_sm: ShaderModule,
-    pub particle_lod_frag_sm: ShaderModule,
 }
 
 pub struct ComputePipelines {
