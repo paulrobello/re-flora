@@ -150,17 +150,31 @@ pub struct ParticleRendererResources {
     pub vertices: Resource<Buffer>,
     pub indices: Resource<Buffer>,
     pub indices_len: u32,
+    pub vertices_lod: Resource<Buffer>,
+    pub indices_lod: Resource<Buffer>,
+    pub indices_len_lod: u32,
     pub instance_buffer: Resource<Buffer>,
     pub instance_count: u32,
+    pub instance_buffer_lod: Resource<Buffer>,
+    pub instance_count_lod: u32,
 }
 
 impl ParticleRendererResources {
     pub fn new(device: Device, allocator: Allocator) -> Self {
         let instance_capacity = PARTICLE_CAPACITY as u32;
         let (vertices, indices, indices_len) =
-            Self::create_cube_mesh(device.clone(), allocator.clone());
+            Self::create_particle_mesh(device.clone(), allocator.clone(), false);
+        let (vertices_lod, indices_lod, indices_len_lod) =
+            Self::create_particle_mesh(device.clone(), allocator.clone(), true);
 
         let instance_buffer = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            (std::mem::size_of::<ParticleInstanceGpu>() as u64) * instance_capacity as u64,
+        );
+        let instance_buffer_lod = Buffer::new_sized(
             device.clone(),
             allocator.clone(),
             BufferUsage::from_flags(vk::BufferUsageFlags::VERTEX_BUFFER),
@@ -172,12 +186,21 @@ impl ParticleRendererResources {
             vertices: Resource::new(vertices),
             indices: Resource::new(indices),
             indices_len,
+            vertices_lod: Resource::new(vertices_lod),
+            indices_lod: Resource::new(indices_lod),
+            indices_len_lod,
             instance_buffer: Resource::new(instance_buffer),
             instance_count: 0,
+            instance_buffer_lod: Resource::new(instance_buffer_lod),
+            instance_count_lod: 0,
         }
     }
 
-    fn create_cube_mesh(device: Device, allocator: Allocator) -> (Buffer, Buffer, u32) {
+    fn create_particle_mesh(
+        device: Device,
+        allocator: Allocator,
+        is_lod_used: bool,
+    ) -> (Buffer, Buffer, u32) {
         use crate::tracer::voxel_encoding::append_indexed_cube_data;
 
         let mut vertices_data = Vec::new();
@@ -189,7 +212,7 @@ impl ParticleRendererResources {
             0,
             IVec3::ZERO,
             1,
-            false,
+            is_lod_used,
         )
         .unwrap();
 

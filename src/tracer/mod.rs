@@ -388,6 +388,8 @@ impl Tracer {
             &self.graphics_pipelines.leaves_shadow_lod_ppl,
             tracer_resources,
         );
+        update_graphics_fn(&self.graphics_pipelines.particle_ppl, tracer_resources);
+        update_graphics_fn(&self.graphics_pipelines.particle_lod_ppl, tracer_resources);
     }
 
     // create a lower resolution texture for rendering, for better performance,
@@ -721,7 +723,7 @@ impl Tracer {
             leaf_tip_color,
             time,
         );
-        self.record_particle_pass(cmdbuf);
+        self.record_particle_passes(cmdbuf);
         frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
@@ -961,16 +963,13 @@ impl Tracer {
             .set_layout(0, desc.attachments[1].final_layout);
     }
 
-    fn record_particle_pass(&self, cmdbuf: &CommandBuffer) {
+    fn record_particle_passes(&self, cmdbuf: &CommandBuffer) {
         let particle_resources = &self.particle_resources;
-        if particle_resources.instance_count == 0 {
+        if particle_resources.instance_count == 0 && particle_resources.instance_count_lod == 0 {
             return;
         }
 
-        let pipeline = &self.graphics_pipelines.particle_ppl;
         let render_target = &self.render_target_color_and_depth;
-
-        pipeline.record_bind(cmdbuf);
 
         let clear_values = [
             vk::ClearValue {
@@ -1002,35 +1001,53 @@ impl Tracer {
                 height: render_extent.height,
             },
         };
-        pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
+        let draw_particles = |pipeline: &GraphicsPipeline,
+                              vertices: &Buffer,
+                              indices: &Buffer,
+                              indices_len: u32,
+                              instance_buffer: &Buffer,
+                              count: u32| {
+            if count == 0 {
+                return;
+            }
 
-        unsafe {
-            self.vulkan_ctx.device().cmd_bind_index_buffer(
-                cmdbuf.as_raw(),
-                particle_resources.indices.as_raw(),
-                0,
-                vk::IndexType::UINT32,
-            );
+            pipeline.record_bind(cmdbuf);
+            pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
 
-            self.vulkan_ctx.device().cmd_bind_vertex_buffers(
-                cmdbuf.as_raw(),
-                0,
-                &[
-                    particle_resources.vertices.as_raw(),
-                    particle_resources.instance_buffer.as_raw(),
-                ],
-                &[0, 0],
-            );
-        }
+            unsafe {
+                self.vulkan_ctx.device().cmd_bind_index_buffer(
+                    cmdbuf.as_raw(),
+                    indices.as_raw(),
+                    0,
+                    vk::IndexType::UINT32,
+                );
 
-        pipeline.record_indexed(
-            cmdbuf,
+                self.vulkan_ctx.device().cmd_bind_vertex_buffers(
+                    cmdbuf.as_raw(),
+                    0,
+                    &[vertices.as_raw(), instance_buffer.as_raw()],
+                    &[0, 0],
+                );
+            }
+
+            pipeline.record_indexed(cmdbuf, indices_len, count, 0, 0, 0, None);
+        };
+
+        draw_particles(
+            &self.graphics_pipelines.particle_ppl,
+            &particle_resources.vertices,
+            &particle_resources.indices,
             particle_resources.indices_len,
+            &particle_resources.instance_buffer,
             particle_resources.instance_count,
-            0,
-            0,
-            0,
-            None,
+        );
+        draw_particles(
+            &self.graphics_pipelines.particle_lod_ppl,
+            &particle_resources.vertices_lod,
+            &particle_resources.indices_lod,
+            particle_resources.indices_len_lod,
+            &particle_resources.instance_buffer_lod,
+            particle_resources.instance_count_lod,
         );
 
         render_target.record_end(cmdbuf);
@@ -1477,6 +1494,10 @@ impl Tracer {
         self.camera.vectors()
     }
 
+    pub fn camera_position(&self) -> Vec3 {
+        self.camera.position()
+    }
+
     pub fn update_camera(&mut self, frame_delta_time: f32, is_fly_mode: bool) {
         if is_fly_mode {
             self.camera.update_transform_fly_mode(frame_delta_time);
@@ -1522,12 +1543,18 @@ impl Tracer {
         }
     }
 
-    pub fn upload_particles(&mut self, snapshots: &[ParticleSnapshot]) -> Result<()> {
+    pub fn upload_particles_lod(
+        &mut self,
+        near_snapshots: &[ParticleSnapshot],
+        far_snapshots: &[ParticleSnapshot],
+    ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
-        let count = snapshots.len().min(capacity);
+        let near_count = near_snapshots.len().min(capacity);
+        let far_count = far_snapshots.len().min(capacity);
+
         self.particle_instance_scratch.clear();
-        self.particle_instance_scratch.reserve(count);
-        for snap in snapshots.iter().take(capacity) {
+        self.particle_instance_scratch.reserve(near_count);
+        for snap in near_snapshots.iter().take(capacity) {
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position.to_array(),
                 size: snap.size,
@@ -1535,12 +1562,29 @@ impl Tracer {
             });
         }
 
-        if count > 0 {
+        if near_count > 0 {
             self.particle_resources
                 .instance_buffer
                 .fill(&self.particle_instance_scratch)?;
         }
-        self.particle_resources.instance_count = count as u32;
+        self.particle_resources.instance_count = near_count as u32;
+
+        self.particle_instance_scratch.clear();
+        self.particle_instance_scratch.reserve(far_count);
+        for snap in far_snapshots.iter().take(capacity) {
+            self.particle_instance_scratch.push(ParticleInstanceGpu {
+                position: snap.position.to_array(),
+                size: snap.size,
+                color: snap.color.to_array(),
+            });
+        }
+
+        if far_count > 0 {
+            self.particle_resources
+                .instance_buffer_lod
+                .fill(&self.particle_instance_scratch)?;
+        }
+        self.particle_resources.instance_count_lod = far_count as u32;
         Ok(())
     }
 
