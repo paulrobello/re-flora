@@ -269,7 +269,7 @@ pub struct TracerResources {
     pub shadow_map_tex_for_vsm_ping: Resource<Texture>,
     pub shadow_map_tex_for_vsm_pong: Resource<Texture>,
 
-    pub star_noise_tex: Resource<Texture>,
+    pub sun_sprite_tex: Resource<Texture>,
     pub particle_lod_tex_lut: Resource<Texture>,
 
     pub scalar_bn: Resource<Texture>,
@@ -475,8 +475,7 @@ impl TracerResources {
             shadow_map_extent.into(),
         );
 
-        let star_noise_tex =
-            Self::create_star_noise_tex(vulkan_ctx, allocator.clone(), Extent2D::new(128, 128));
+        let sun_sprite_tex = Self::create_sun_sprite_tex(vulkan_ctx, allocator.clone());
         let particle_lod_tex_lut = Self::create_particle_lod_tex_lut(vulkan_ctx, allocator.clone());
 
         let extent_dependent_resources = ExtentDependentResources::new(
@@ -574,7 +573,7 @@ impl TracerResources {
             shadow_map_tex: Resource::new(shadow_map_tex),
             shadow_map_tex_for_vsm_ping: Resource::new(shadow_map_tex_for_vsm_ping),
             shadow_map_tex_for_vsm_pong: Resource::new(shadow_map_tex_for_vsm_pong),
-            star_noise_tex: Resource::new(star_noise_tex),
+            sun_sprite_tex: Resource::new(sun_sprite_tex),
             particle_lod_tex_lut: Resource::new(particle_lod_tex_lut),
             scalar_bn: Resource::new(scalar_bn),
             unit_vec2_bn: Resource::new(unit_vec2_bn),
@@ -644,30 +643,43 @@ impl TracerResources {
         self.denoiser_resources.on_resize(rendering_extent);
     }
 
-    fn create_star_noise_tex(
-        vulkan_ctx: &VulkanContext,
-        allocator: Allocator,
-        extent: Extent2D,
-    ) -> Texture {
+    fn create_sun_sprite_tex(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
+        const SUN_SPRITE_REL_PATH: &str = "assets/texture/Planet_Pack_bycancer/sun.png";
+
+        let path = get_project_root() + "/" + SUN_SPRITE_REL_PATH;
+        if !Path::new(&path).exists() {
+            panic!("Sun sprite texture missing at '{}'", path);
+        }
+        let image = image::open(&path).unwrap_or_else(|e| {
+            panic!("Failed to open sun sprite texture '{}': {}", path, e);
+        });
+        let rgba = image.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        let extent = Extent2D::new(w, h);
+        let texels_rgba = rgba.into_raw();
+
         let img_desc = ImageDesc {
             extent: extent.into(),
             array_len: 1,
-            format: vk::Format::R8_UNORM,
-            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
+            format: vk::Format::R8G8B8A8_UNORM,
+            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
         };
-        let sam_desc = Default::default();
+        let sam_desc = crate::vkn::SamplerDesc {
+            mag_filter: vk::Filter::NEAREST,
+            min_filter: vk::Filter::NEAREST,
+            ..Default::default()
+        };
         let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
-        let base_path = get_project_root() + "/texture/";
-        let path = format!("{}{}.png", base_path, "out_u8");
         tex.get_image()
-            .load_and_fill(
+            .fill_with_raw_u8(
                 &vulkan_ctx.get_general_queue(),
                 vulkan_ctx.command_pool(),
-                &path,
+                TextureRegion::from_image(tex.get_image()),
+                &texels_rgba,
                 0,
                 Some(vk::ImageLayout::GENERAL),
             )
