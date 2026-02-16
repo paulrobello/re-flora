@@ -9,7 +9,7 @@ use crate::{
     util::get_project_root,
     vkn::{
         Allocator, Buffer, BufferUsage, Device, Extent2D, Extent3D, ImageDesc, ShaderModule,
-        Texture, VulkanContext,
+        Texture, TextureRegion, VulkanContext,
     },
 };
 use ash::vk;
@@ -17,6 +17,7 @@ use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
 use image::GenericImageView;
 use resource_container_derive::ResourceContainer;
+use std::path::Path;
 
 type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
 
@@ -675,7 +676,38 @@ impl TracerResources {
     }
 
     fn create_particle_lod_tex(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
-        let path = get_project_root() + "/assets/texture/butterfly/Australian Lurcher.png";
+        const PARTICLE_LOD_TEXTURE_REL_PATH: Option<&str> =
+            Some("assets/texture/butterfly/Australian Lurcher.png");
+        let sam_desc = crate::vkn::SamplerDesc {
+            mag_filter: vk::Filter::NEAREST,
+            min_filter: vk::Filter::NEAREST,
+            ..Default::default()
+        };
+
+        let Some(relative_path) = PARTICLE_LOD_TEXTURE_REL_PATH else {
+            return Self::create_solid_color_tex(
+                vulkan_ctx,
+                allocator,
+                sam_desc,
+                [255, 255, 255, 255],
+                "Particle LOD texture not configured; using blocky fallback",
+            );
+        };
+
+        let path = get_project_root() + "/" + relative_path;
+        if !Path::new(&path).exists() {
+            return Self::create_solid_color_tex(
+                vulkan_ctx,
+                allocator,
+                sam_desc,
+                [255, 255, 255, 255],
+                &format!(
+                    "Particle LOD texture missing at '{}'; using blocky fallback",
+                    path
+                ),
+            );
+        }
+
         let image = image::open(&path).unwrap_or_else(|e| {
             panic!("Failed to open particle LOD texture '{}': {}", path, e);
         });
@@ -691,11 +723,6 @@ impl TracerResources {
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
         };
-        let sam_desc = crate::vkn::SamplerDesc {
-            mag_filter: vk::Filter::NEAREST,
-            min_filter: vk::Filter::NEAREST,
-            ..Default::default()
-        };
         let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
         tex.get_image()
@@ -703,6 +730,42 @@ impl TracerResources {
                 &vulkan_ctx.get_general_queue(),
                 vulkan_ctx.command_pool(),
                 &path,
+                0,
+                Some(vk::ImageLayout::GENERAL),
+            )
+            .unwrap();
+        tex
+    }
+
+    fn create_solid_color_tex(
+        vulkan_ctx: &VulkanContext,
+        allocator: Allocator,
+        sampler_desc: crate::vkn::SamplerDesc,
+        rgba: [u8; 4],
+        reason: &str,
+    ) -> Texture {
+        log::warn!("{}", reason);
+        let img_desc = ImageDesc {
+            extent: Extent3D::new(1, 1, 1),
+            array_len: 1,
+            format: vk::Format::R8G8B8A8_UNORM,
+            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        let tex = Texture::new(
+            vulkan_ctx.device().clone(),
+            allocator,
+            &img_desc,
+            &sampler_desc,
+        );
+        tex.get_image()
+            .fill_with_raw_u8(
+                &vulkan_ctx.get_general_queue(),
+                vulkan_ctx.command_pool(),
+                TextureRegion::from_image(tex.get_image()),
+                &rgba,
                 0,
                 Some(vk::ImageLayout::GENERAL),
             )
