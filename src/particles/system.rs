@@ -52,6 +52,10 @@ pub struct ParticleSpawn {
     pub speed_noise_offset: f32,
     /// Motion integration mode for this particle.
     pub motion_mode: MotionMode,
+    /// If true, particle transitions to a sinking phase when lifetime elapses.
+    pub sink_on_lifetime: bool,
+    /// Downward speed used during the sinking phase.
+    pub sink_speed: f32,
 }
 
 impl Default for ParticleSpawn {
@@ -69,6 +73,8 @@ impl Default for ParticleSpawn {
             drift_frequency: 1.0,
             speed_noise_offset: 0.0,
             motion_mode: MotionMode::Falling,
+            sink_on_lifetime: false,
+            sink_speed: 0.1,
         }
     }
 }
@@ -134,6 +140,9 @@ pub struct ParticleSystem {
     ages: Vec<f32>,
     generations: Vec<u32>,
     motion_modes: Vec<MotionMode>,
+    sink_on_lifetime: Vec<bool>,
+    sink_speeds: Vec<f32>,
+    is_sinking: Vec<bool>,
     is_alive: Vec<bool>,
     alive_indices: Vec<usize>,
     free_list: Vec<usize>,
@@ -170,6 +179,9 @@ impl ParticleSystem {
             ages: vec![0.0; max_particles],
             generations: vec![0; max_particles],
             motion_modes: vec![MotionMode::Falling; max_particles],
+            sink_on_lifetime: vec![false; max_particles],
+            sink_speeds: vec![0.1; max_particles],
+            is_sinking: vec![false; max_particles],
             is_alive: vec![false; max_particles],
             alive_indices: Vec::with_capacity(max_particles),
             free_list,
@@ -231,6 +243,9 @@ impl ParticleSystem {
         self.drift_strengths[slot] = spawn.drift_strength.max(0.0);
         self.drift_frequencies[slot] = spawn.drift_frequency.max(0.001);
         self.motion_modes[slot] = spawn.motion_mode;
+        self.sink_on_lifetime[slot] = spawn.sink_on_lifetime;
+        self.sink_speeds[slot] = spawn.sink_speed.max(0.01);
+        self.is_sinking[slot] = false;
         self.lifetimes[slot] = spawn.lifetime.max(0.001);
         self.ages[slot] = 0.0;
         self.is_alive[slot] = true;
@@ -295,6 +310,7 @@ impl ParticleSystem {
 
             let vel = &mut self.velocities[slot];
             let mode = self.motion_modes[slot];
+            let is_sinking = self.is_sinking[slot];
 
             // Apply randomized turbulent drift
             let age = self.ages[slot];
@@ -308,8 +324,13 @@ impl ParticleSystem {
                 (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
             *vel += drift_force * dt;
 
-            match mode {
-                MotionMode::Falling => {
+            if is_sinking {
+                vel.x *= damping * 0.96;
+                vel.z *= damping * 0.96;
+                vel.y = -self.sink_speeds[slot];
+            } else {
+                match mode {
+                    MotionMode::Falling => {
                     let gravity_scale = self.gravity_factors[slot];
                     // Clamp and order the speed range
                     let (min_speed, max_speed) =
@@ -329,13 +350,14 @@ impl ParticleSystem {
                     vel.x *= damping;
                     vel.z *= damping;
                     vel.y = -target_speed;
-                }
-                MotionMode::Free => {
-                    *vel *= damping;
-                    let max_speed = 3.0;
-                    let speed = vel.length();
-                    if speed > max_speed {
-                        *vel *= max_speed / speed;
+                    }
+                    MotionMode::Free => {
+                        *vel *= damping;
+                        let max_speed = 3.0;
+                        let speed = vel.length();
+                        if speed > max_speed {
+                            *vel *= max_speed / speed;
+                        }
                     }
                 }
             }
@@ -343,9 +365,19 @@ impl ParticleSystem {
             self.positions[slot] += *vel * dt;
             self.ages[slot] += dt;
 
-            // expire particles when lifetime ends or once they fall below the ground plane
-            let should_despawn =
-                self.ages[slot] >= self.lifetimes[slot] || self.positions[slot].y < 0.0;
+            if !self.is_sinking[slot]
+                && self.sink_on_lifetime[slot]
+                && self.ages[slot] >= self.lifetimes[slot]
+            {
+                self.is_sinking[slot] = true;
+            }
+
+            // Sink-enabled particles only despawn once they go below the ground plane.
+            let should_despawn = if self.is_sinking[slot] {
+                self.positions[slot].y < 0.0
+            } else {
+                self.ages[slot] >= self.lifetimes[slot] || self.positions[slot].y < 0.0
+            };
             if should_despawn {
                 self.kill_dead_particle(alive_cursor, slot);
                 continue;

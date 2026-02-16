@@ -2615,6 +2615,39 @@ impl App {
                                         }
                                         butterflies_changed |= steering_changed;
 
+                                        let mut bob_frequency_hz =
+                                            self.butterfly_emitter_desc.bob_frequency_hz;
+                                        let bob_frequency_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut bob_frequency_hz,
+                                                    0.0..=8.0,
+                                                )
+                                                .text("Vertical Bob Frequency (Hz)"),
+                                            )
+                                            .changed();
+                                        if bob_frequency_changed {
+                                            self.butterfly_emitter_desc.bob_frequency_hz =
+                                                bob_frequency_hz;
+                                        }
+                                        butterflies_changed |= bob_frequency_changed;
+
+                                        let mut bob_strength =
+                                            self.butterfly_emitter_desc.bob_strength;
+                                        let bob_strength_changed = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut bob_strength,
+                                                    0.0..=6.0,
+                                                )
+                                                .text("Vertical Bob Strength"),
+                                            )
+                                            .changed();
+                                        if bob_strength_changed {
+                                            self.butterfly_emitter_desc.bob_strength = bob_strength;
+                                        }
+                                        butterflies_changed |= bob_strength_changed;
+
                                         let mut butterfly_color_low =
                                             vec4_to_color32(self.butterfly_emitter_desc.color_low);
                                         let mut butterfly_color_high =

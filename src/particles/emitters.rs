@@ -142,6 +142,8 @@ impl FallenLeafEmitter {
             drift_frequency,
             speed_noise_offset: self.rng.random_range(0.0..10_000.0),
             motion_mode: MotionMode::Falling,
+            sink_on_lifetime: true,
+            sink_speed: self.rng.random_range(0.08..=0.18),
         };
         let _ = system.spawn(spawn);
     }
@@ -207,6 +209,8 @@ pub struct ButterflyEmitterDesc {
     pub drift_frequency_min: f32,
     pub drift_frequency_max: f32,
     pub steering_strength: f32,
+    pub bob_frequency_hz: f32,
+    pub bob_strength: f32,
     pub color_low: Vec4,
     pub color_high: Vec4,
 }
@@ -218,8 +222,8 @@ impl Default for ButterflyEmitterDesc {
             spawn_rate: 3.0,
             max_butterflies: 6,
             wander_radius: 2.5,
-            height_offset_min: 0.4,
-            height_offset_max: 2.0,
+            height_offset_min: 0.03,
+            height_offset_max: 0.07,
             lifetime_min: 8.0,
             lifetime_max: 14.0,
             size_min: 0.006,
@@ -229,8 +233,10 @@ impl Default for ButterflyEmitterDesc {
             drift_frequency_min: 1.5,
             drift_frequency_max: 3.5,
             steering_strength: 0.9,
-            color_low: Vec4::new(0.88, 0.68, 0.92, 1.0),
-            color_high: Vec4::new(0.98, 0.9, 0.78, 1.0),
+            bob_frequency_hz: 2.2,
+            bob_strength: 1.4,
+            color_low: Vec4::new(0.95, 0.9, 0.55, 1.0),
+            color_high: Vec4::new(1.0, 0.97, 0.72, 1.0),
         }
     }
 }
@@ -245,6 +251,8 @@ pub struct ButterflyEmitter {
     pub drift_strength: RangeInclusive<f32>,
     pub drift_frequency: RangeInclusive<f32>,
     pub steering_strength: f32,
+    pub bob_frequency_hz: f32,
+    pub bob_strength: f32,
     pub color_low: Vec4,
     pub color_high: Vec4,
     pub enabled: bool,
@@ -275,6 +283,8 @@ impl ButterflyEmitter {
             drift_frequency: desc.drift_frequency_min.min(desc.drift_frequency_max)
                 ..=desc.drift_frequency_max.max(desc.drift_frequency_min),
             steering_strength: desc.steering_strength.max(0.0),
+            bob_frequency_hz: desc.bob_frequency_hz.max(0.0),
+            bob_strength: desc.bob_strength.max(0.0),
             color_low: desc.color_low,
             color_high: desc.color_high,
             enabled: desc.enabled,
@@ -303,6 +313,8 @@ impl ButterflyEmitter {
         self.drift_frequency = desc.drift_frequency_min.min(desc.drift_frequency_max)
             ..=desc.drift_frequency_max.max(desc.drift_frequency_min);
         self.steering_strength = desc.steering_strength.max(0.0);
+        self.bob_frequency_hz = desc.bob_frequency_hz.max(0.0);
+        self.bob_strength = desc.bob_strength.max(0.0);
         self.color_low = desc.color_low;
         self.color_high = desc.color_high;
         self.clamp_height(self.center.y);
@@ -321,10 +333,13 @@ impl ButterflyEmitter {
             .retain(|handle| system.is_alive_handle(*handle));
     }
 
-    fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32) {
+    fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
         let max_height_offset = *self.height_offset.end();
         let min_height_offset = *self.height_offset.start();
         let steering = self.steering_strength * dt;
+        let vertical_span = (max_height_offset - min_height_offset).max(0.01);
+        let flutter_angular_speed = TAU * self.bob_frequency_hz.max(0.0);
+        let flutter_pull = self.bob_strength * dt;
         for handle in &self.active_handles {
             if let Some(pos) = system.position(*handle) {
                 let relative = pos - self.center;
@@ -334,6 +349,15 @@ impl ButterflyEmitter {
                     let _ = system.add_velocity(*handle, pull);
                 }
 
+                // Add a rapid flap-like vertical target so butterflies frequently bob up/down.
+                let phase_offset = pos.x * 2.7 + pos.z * 3.3;
+                let flutter = (time * flutter_angular_speed + phase_offset).sin();
+                let target_offset =
+                    min_height_offset + (0.5 + 0.5 * flutter) * vertical_span;
+                let y_error = target_offset - relative.y;
+                let _ = system.add_velocity(*handle, Vec3::new(0.0, y_error * flutter_pull, 0.0));
+
+                // Keep hard vertical bounds to avoid runaway drift.
                 if relative.y < min_height_offset {
                     let _ = system.add_velocity(*handle, Vec3::new(0.0, steering, 0.0));
                 } else if relative.y > max_height_offset {
@@ -374,6 +398,8 @@ impl ButterflyEmitter {
             drift_frequency,
             speed_noise_offset: self.rng.random_range(0.0..10_000.0),
             motion_mode: MotionMode::Free,
+            sink_on_lifetime: true,
+            sink_speed: self.rng.random_range(0.06..=0.12),
         };
 
         system.spawn(spawn)
@@ -413,7 +439,7 @@ impl ButterflyEmitter {
 }
 
 impl ParticleEmitter for ButterflyEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, _time: f32) {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
         self.prune_handles(system);
         if !self.enabled || self.spawn_rate <= 0.0 || self.max_butterflies == 0 {
             self.spawn_accumulator = 0.0;
@@ -429,6 +455,6 @@ impl ParticleEmitter for ButterflyEmitter {
             self.spawn_accumulator -= 1.0;
         }
 
-        self.steer_towards_home(system, dt);
+        self.steer_towards_home(system, dt, time);
     }
 }
