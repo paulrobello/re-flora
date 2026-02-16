@@ -9,11 +9,7 @@ layout(set = 0, binding = 6) uniform sampler2D particle_lod_tex;
 
 void main() {
     vec4 texel = texture(particle_lod_tex, vert_uv);
-    vec4 color = vec4(vert_color.rgb * texel.rgb, vert_color.a * texel.a);
-
-    if (color.a < 0.1) {
-        discard;
-    }
-
-    out_color = color;
+    float alpha = vert_color.a * texel.a;
+    vec3 rgb = vert_color.rgb * texel.rgb * alpha;
+    out_color = vec4(rgb, alpha);
 }
