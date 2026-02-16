@@ -1334,7 +1334,8 @@ impl App {
     fn split_particle_lod(&mut self, camera_pos: Vec3, lod_distance: f32) {
         self.particle_snapshots_lod.clear();
         if lod_distance <= 0.0 {
-            self.particle_snapshots_lod.append(&mut self.particle_snapshots);
+            self.particle_snapshots_lod
+                .append(&mut self.particle_snapshots);
             return;
         }
 
@@ -1379,7 +1380,7 @@ impl App {
                             emitter_index,
                             handle,
                         }
-                    })
+                    }),
             );
         }
 
@@ -1397,9 +1398,11 @@ impl App {
 
         for (target, ground_height) in query_targets.into_iter().zip(heights.into_iter()) {
             if let Some(emitter) = self.butterfly_emitters.get(target.emitter_index) {
-                emitter
-                    .emitter
-                    .constrain_to_ground(&mut self.particle_system, target.handle, ground_height);
+                emitter.emitter.constrain_to_ground(
+                    &mut self.particle_system,
+                    target.handle,
+                    ground_height,
+                );
             }
         }
     }

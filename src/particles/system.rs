@@ -331,25 +331,26 @@ impl ParticleSystem {
             } else {
                 match mode {
                     MotionMode::Falling => {
-                    let gravity_scale = self.gravity_factors[slot];
-                    // Clamp and order the speed range
-                    let (min_speed, max_speed) =
-                        if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
-                            (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
-                        } else {
-                            (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
-                        };
+                        let gravity_scale = self.gravity_factors[slot];
+                        // Clamp and order the speed range
+                        let (min_speed, max_speed) =
+                            if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
+                                (forces.speed_noise.min_speed, forces.speed_noise.max_speed)
+                            } else {
+                                (forces.speed_noise.max_speed, forces.speed_noise.min_speed)
+                            };
 
-                    let noise_t = age + self.speed_noise_offsets[slot];
-                    let noise_val = self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
-                    let normalized = noise_val * 0.5 + 0.5; // 0..1
-                    let target_speed =
-                        (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
+                        let noise_t = age + self.speed_noise_offsets[slot];
+                        let noise_val =
+                            self.speed_noise.get_noise_2d(noise_t, 0.0).clamp(-1.0, 1.0);
+                        let normalized = noise_val * 0.5 + 0.5; // 0..1
+                        let target_speed =
+                            (min_speed + (max_speed - min_speed) * normalized) * gravity_scale;
 
-                    // Keep horizontal motion damped; vertical comes purely from noise.
-                    vel.x *= damping;
-                    vel.z *= damping;
-                    vel.y = -target_speed;
+                        // Keep horizontal motion damped; vertical comes purely from noise.
+                        vel.x *= damping;
+                        vel.z *= damping;
+                        vel.y = -target_speed;
                     }
                     MotionMode::Free => {
                         *vel *= damping;

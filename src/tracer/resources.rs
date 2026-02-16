@@ -15,6 +15,7 @@ use crate::{
 use ash::vk;
 use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
+use image::GenericImageView;
 use resource_container_derive::ResourceContainer;
 
 type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
@@ -268,6 +269,7 @@ pub struct TracerResources {
     pub shadow_map_tex_for_vsm_pong: Resource<Texture>,
 
     pub star_noise_tex: Resource<Texture>,
+    pub particle_lod_tex: Resource<Texture>,
 
     pub scalar_bn: Resource<Texture>,
     pub unit_vec2_bn: Resource<Texture>,
@@ -474,6 +476,7 @@ impl TracerResources {
 
         let star_noise_tex =
             Self::create_star_noise_tex(vulkan_ctx, allocator.clone(), Extent2D::new(128, 128));
+        let particle_lod_tex = Self::create_particle_lod_tex(vulkan_ctx, allocator.clone());
 
         let extent_dependent_resources = ExtentDependentResources::new(
             device.clone(),
@@ -571,6 +574,7 @@ impl TracerResources {
             shadow_map_tex_for_vsm_ping: Resource::new(shadow_map_tex_for_vsm_ping),
             shadow_map_tex_for_vsm_pong: Resource::new(shadow_map_tex_for_vsm_pong),
             star_noise_tex: Resource::new(star_noise_tex),
+            particle_lod_tex: Resource::new(particle_lod_tex),
             scalar_bn: Resource::new(scalar_bn),
             unit_vec2_bn: Resource::new(unit_vec2_bn),
             unit_vec3_bn: Resource::new(unit_vec3_bn),
@@ -658,6 +662,38 @@ impl TracerResources {
 
         let base_path = get_project_root() + "/texture/";
         let path = format!("{}{}.png", base_path, "out_u8");
+        tex.get_image()
+            .load_and_fill(
+                &vulkan_ctx.get_general_queue(),
+                vulkan_ctx.command_pool(),
+                &path,
+                0,
+                Some(vk::ImageLayout::GENERAL),
+            )
+            .unwrap();
+        tex
+    }
+
+    fn create_particle_lod_tex(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
+        let path = get_project_root() + "/assets/texture/butterfly/Australian Lurcher.png";
+        let image = image::open(&path).unwrap_or_else(|e| {
+            panic!("Failed to open particle LOD texture '{}': {}", path, e);
+        });
+        let (width, height) = image.dimensions();
+        drop(image);
+
+        let img_desc = ImageDesc {
+            extent: Extent3D::new(width, height, 1),
+            array_len: 1,
+            format: vk::Format::R8G8B8A8_UNORM,
+            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        let sam_desc = Default::default();
+        let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
+
         tex.get_image()
             .load_and_fill(
                 &vulkan_ctx.get_general_queue(),

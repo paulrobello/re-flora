@@ -352,8 +352,7 @@ impl ButterflyEmitter {
                 // Add a rapid flap-like vertical target so butterflies frequently bob up/down.
                 let phase_offset = pos.x * 2.7 + pos.z * 3.3;
                 let flutter = (time * flutter_angular_speed + phase_offset).sin();
-                let target_offset =
-                    min_height_offset + (0.5 + 0.5 * flutter) * vertical_span;
+                let target_offset = min_height_offset + (0.5 + 0.5 * flutter) * vertical_span;
                 let y_error = target_offset - relative.y;
                 let _ = system.add_velocity(*handle, Vec3::new(0.0, y_error * flutter_pull, 0.0));
 
