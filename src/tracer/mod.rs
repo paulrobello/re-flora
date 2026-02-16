@@ -1559,6 +1559,10 @@ impl Tracer {
                 position: snap.position.to_array(),
                 size: snap.size,
                 color: snap.color.to_array(),
+                tex_index: match snap.kind {
+                    crate::particles::ParticleRenderKind::Leaf => 0,
+                    crate::particles::ParticleRenderKind::Butterfly => 1,
+                },
             });
         }
 
@@ -1576,6 +1580,10 @@ impl Tracer {
                 position: snap.position.to_array(),
                 size: snap.size,
                 color: snap.color.to_array(),
+                tex_index: match snap.kind {
+                    crate::particles::ParticleRenderKind::Leaf => 0,
+                    crate::particles::ParticleRenderKind::Butterfly => 1,
+                },
             });
         }
 

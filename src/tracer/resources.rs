@@ -15,7 +15,6 @@ use crate::{
 use ash::vk;
 use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
-use image::GenericImageView;
 use resource_container_derive::ResourceContainer;
 use std::path::Path;
 
@@ -146,6 +145,7 @@ pub struct ParticleInstanceGpu {
     pub position: [u32; 3],
     pub size: f32,
     pub color: [f32; 4],
+    pub tex_index: u32,
 }
 
 pub struct ParticleRendererResources {
@@ -270,7 +270,7 @@ pub struct TracerResources {
     pub shadow_map_tex_for_vsm_pong: Resource<Texture>,
 
     pub star_noise_tex: Resource<Texture>,
-    pub particle_lod_tex: Resource<Texture>,
+    pub particle_lod_tex_lut: Resource<Texture>,
 
     pub scalar_bn: Resource<Texture>,
     pub unit_vec2_bn: Resource<Texture>,
@@ -477,7 +477,7 @@ impl TracerResources {
 
         let star_noise_tex =
             Self::create_star_noise_tex(vulkan_ctx, allocator.clone(), Extent2D::new(128, 128));
-        let particle_lod_tex = Self::create_particle_lod_tex(vulkan_ctx, allocator.clone());
+        let particle_lod_tex_lut = Self::create_particle_lod_tex_lut(vulkan_ctx, allocator.clone());
 
         let extent_dependent_resources = ExtentDependentResources::new(
             device.clone(),
@@ -575,7 +575,7 @@ impl TracerResources {
             shadow_map_tex_for_vsm_ping: Resource::new(shadow_map_tex_for_vsm_ping),
             shadow_map_tex_for_vsm_pong: Resource::new(shadow_map_tex_for_vsm_pong),
             star_noise_tex: Resource::new(star_noise_tex),
-            particle_lod_tex: Resource::new(particle_lod_tex),
+            particle_lod_tex_lut: Resource::new(particle_lod_tex_lut),
             scalar_bn: Resource::new(scalar_bn),
             unit_vec2_bn: Resource::new(unit_vec2_bn),
             unit_vec3_bn: Resource::new(unit_vec3_bn),
@@ -675,48 +675,22 @@ impl TracerResources {
         tex
     }
 
-    fn create_particle_lod_tex(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
+    fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
         const PARTICLE_LOD_TEXTURE_REL_PATH: Option<&str> =
             Some("assets/texture/butterfly/Australian Lurcher.png");
+        const LUT_DIM: u32 = 16;
+        const LUT_LAYER_LEAF: u32 = 0;
+        const LUT_LAYER_BUTTERFLY: u32 = 1;
+        const LUT_LAYER_COUNT: u32 = 2;
+
         let sam_desc = crate::vkn::SamplerDesc {
             mag_filter: vk::Filter::NEAREST,
             min_filter: vk::Filter::NEAREST,
             ..Default::default()
         };
-
-        let Some(relative_path) = PARTICLE_LOD_TEXTURE_REL_PATH else {
-            return Self::create_solid_color_tex(
-                vulkan_ctx,
-                allocator,
-                sam_desc,
-                [255, 255, 255, 255],
-                "Particle LOD texture not configured; using blocky fallback",
-            );
-        };
-
-        let path = get_project_root() + "/" + relative_path;
-        if !Path::new(&path).exists() {
-            return Self::create_solid_color_tex(
-                vulkan_ctx,
-                allocator,
-                sam_desc,
-                [255, 255, 255, 255],
-                &format!(
-                    "Particle LOD texture missing at '{}'; using blocky fallback",
-                    path
-                ),
-            );
-        }
-
-        let image = image::open(&path).unwrap_or_else(|e| {
-            panic!("Failed to open particle LOD texture '{}': {}", path, e);
-        });
-        let (width, height) = image.dimensions();
-        drop(image);
-
         let img_desc = ImageDesc {
-            extent: Extent3D::new(width, height, 1),
-            array_len: 1,
+            extent: Extent3D::new(LUT_DIM, LUT_DIM, 1),
+            array_len: LUT_LAYER_COUNT,
             format: vk::Format::R8G8B8A8_UNORM,
             usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
@@ -725,52 +699,53 @@ impl TracerResources {
         };
         let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
-        tex.get_image()
-            .load_and_fill(
-                &vulkan_ctx.get_general_queue(),
-                vulkan_ctx.command_pool(),
-                &path,
-                0,
-                Some(vk::ImageLayout::GENERAL),
-            )
-            .unwrap();
+        let white = [255u8, 255u8, 255u8, 255u8];
+        let white_layer = white
+            .repeat((LUT_DIM * LUT_DIM) as usize)
+            .into_iter()
+            .collect::<Vec<u8>>();
+        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_LEAF, &white_layer);
+
+        let butterfly_layer = match PARTICLE_LOD_TEXTURE_REL_PATH {
+            Some(relative_path) => {
+                let path = get_project_root() + "/" + relative_path;
+                if !Path::new(&path).exists() {
+                    log::warn!(
+                        "Particle LOD butterfly texture missing at '{}'; using blocky fallback",
+                        path
+                    );
+                    white_layer.clone()
+                } else {
+                    let image = image::open(&path).unwrap_or_else(|e| {
+                        panic!("Failed to open particle LOD texture '{}': {}", path, e);
+                    });
+                    image
+                        .resize_exact(LUT_DIM, LUT_DIM, image::imageops::FilterType::Nearest)
+                        .to_rgba8()
+                        .into_raw()
+                }
+            }
+            None => {
+                log::warn!("Particle LOD butterfly texture not configured; using blocky fallback");
+                white_layer.clone()
+            }
+        };
+        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_BUTTERFLY, &butterfly_layer);
+
         tex
     }
 
-    fn create_solid_color_tex(
-        vulkan_ctx: &VulkanContext,
-        allocator: Allocator,
-        sampler_desc: crate::vkn::SamplerDesc,
-        rgba: [u8; 4],
-        reason: &str,
-    ) -> Texture {
-        log::warn!("{}", reason);
-        let img_desc = ImageDesc {
-            extent: Extent3D::new(1, 1, 1),
-            array_len: 1,
-            format: vk::Format::R8G8B8A8_UNORM,
-            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-            initial_layout: vk::ImageLayout::UNDEFINED,
-            aspect: vk::ImageAspectFlags::COLOR,
-            ..Default::default()
-        };
-        let tex = Texture::new(
-            vulkan_ctx.device().clone(),
-            allocator,
-            &img_desc,
-            &sampler_desc,
-        );
+    fn fill_particle_lut_layer(vulkan_ctx: &VulkanContext, tex: &Texture, layer: u32, data: &[u8]) {
         tex.get_image()
             .fill_with_raw_u8(
                 &vulkan_ctx.get_general_queue(),
                 vulkan_ctx.command_pool(),
                 TextureRegion::from_image(tex.get_image()),
-                &rgba,
-                0,
+                data,
+                layer,
                 Some(vk::ImageLayout::GENERAL),
             )
             .unwrap();
-        tex
     }
 
     fn create_shadow_map_tex(

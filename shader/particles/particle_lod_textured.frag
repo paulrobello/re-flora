@@ -2,13 +2,14 @@
 
 layout(location = 0) in vec4 vert_color;
 layout(location = 1) in vec2 vert_uv;
+layout(location = 2) flat in uint vert_tex_index;
 
 layout(location = 0) out vec4 out_color;
 
-layout(set = 0, binding = 6) uniform sampler2D particle_lod_tex;
+layout(set = 0, binding = 6) uniform sampler2DArray particle_lod_tex_lut;
 
 void main() {
-    vec4 texel = texture(particle_lod_tex, vert_uv);
+    vec4 texel = texture(particle_lod_tex_lut, vec3(vert_uv, float(vert_tex_index)));
     float alpha = vert_color.a * texel.a;
     float alpha_mask = step(0.5, alpha);
 

@@ -123,6 +123,13 @@ pub struct ParticleSnapshot {
     pub position: UVec3,
     pub color: Vec4,
     pub size: f32,
+    pub kind: ParticleRenderKind,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParticleRenderKind {
+    Leaf,
+    Butterfly,
 }
 
 /// Keeps particle data in a struct-of-arrays layout for cache-friendly updates.
@@ -393,10 +400,15 @@ impl ParticleSystem {
         out.clear();
         out.reserve(self.alive_indices.len());
         for slot in &self.alive_indices {
+            let kind = match self.motion_modes[*slot] {
+                MotionMode::Falling => ParticleRenderKind::Leaf,
+                MotionMode::Free => ParticleRenderKind::Butterfly,
+            };
             out.push(ParticleSnapshot {
                 position: Self::quantize_position(self.positions[*slot]),
                 color: self.colors[*slot],
                 size: self.sizes[*slot],
+                kind,
             });
         }
     }

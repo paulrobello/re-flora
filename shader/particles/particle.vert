@@ -10,6 +10,7 @@ layout(location = 0) in uvec2 in_packed_data;
 layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in float in_instance_size;
 layout(location = 3) in vec4 in_instance_color;
+layout(location = 4) in uint in_instance_tex_index;
 
 layout(location = 0) out vec4 vert_color;
 
