@@ -47,7 +47,7 @@ use anyhow::Result;
 use ash::vk;
 use std::collections::HashMap;
 
-const MAX_TERRAIN_QUERIES: u32 = 1_000;
+const MAX_TERRAIN_QUERIES: usize = 1_000;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
@@ -178,7 +178,7 @@ impl Tracer {
             render_extent,
             screen_extent,
             Extent2D::new(1024, 1024),
-            MAX_TERRAIN_QUERIES,
+            MAX_TERRAIN_QUERIES as u32,
         );
         let particle_resources =
             ParticleRendererResources::new(vulkan_ctx.device().clone(), allocator.clone());
@@ -1677,12 +1677,23 @@ impl Tracer {
     }
 
     pub fn query_terrain_heights_batch(&mut self, positions: &[Vec2]) -> Result<Vec<f32>> {
-        let query_count = positions.len() as u32;
-        if query_count == 0 {
+        if positions.is_empty() {
             return Ok(vec![]);
         }
 
-        // update query count
+        let mut all_heights = Vec::with_capacity(positions.len());
+        for chunk in positions.chunks(MAX_TERRAIN_QUERIES) {
+            all_heights.extend(self.query_terrain_heights_chunk(chunk)?);
+        }
+        Ok(all_heights)
+    }
+
+    fn query_terrain_heights_chunk(&mut self, positions: &[Vec2]) -> Result<Vec<f32>> {
+        debug_assert!(!positions.is_empty());
+        debug_assert!(positions.len() <= MAX_TERRAIN_QUERIES);
+
+        let query_count = positions.len() as u32;
+
         let count_data = StructMemberDataBuilder::from_buffer(&self.resources.terrain_query_count)
             .set_field(
                 "valid_query_count",
@@ -1693,7 +1704,6 @@ impl Tracer {
             .terrain_query_count
             .fill_with_raw_u8(&count_data)?;
 
-        // update query positions
         let mut position_data = Vec::with_capacity(positions.len() * 2);
         for pos in positions {
             position_data.push(pos.x);
@@ -1714,7 +1724,6 @@ impl Tracer {
             },
         );
 
-        // read back results
         let raw_data = self.resources.terrain_query_result.read_back().unwrap();
         let height_data: &[f32] = unsafe {
             std::slice::from_raw_parts(raw_data.as_ptr() as *const f32, query_count as usize)

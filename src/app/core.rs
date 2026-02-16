@@ -1304,6 +1304,7 @@ impl App {
             dt,
             wind_time,
         );
+        self.constrain_butterflies_to_terrain();
         Self::drive_emitters(
             &mut self.leaf_emitters,
             &mut self.particle_system,
@@ -1317,6 +1318,48 @@ impl App {
 
         if let Err(err) = self.tracer.upload_particles(&self.particle_snapshots) {
             log::error!("Failed to upload particles: {}", err);
+        }
+    }
+
+    fn constrain_butterflies_to_terrain(&mut self) {
+        let mut query_positions_xz = Vec::new();
+        let mut query_targets: Vec<ButterflyQueryTarget> = Vec::new();
+
+        for (emitter_index, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
+            let mut emitter_handles = Vec::new();
+            emitter.emitter.collect_ground_queries(
+                &self.particle_system,
+                &mut query_positions_xz,
+                &mut emitter_handles,
+            );
+            query_targets.extend(
+                emitter_handles
+                    .into_iter()
+                    .map(|handle| ButterflyQueryTarget {
+                        emitter_index,
+                        handle,
+                    }),
+            );
+        }
+
+        if query_positions_xz.is_empty() {
+            return;
+        }
+
+        let heights = match self.tracer.query_terrain_heights_batch(&query_positions_xz) {
+            Ok(heights) => heights,
+            Err(err) => {
+                log::error!("Failed terrain query for butterflies: {}", err);
+                return;
+            }
+        };
+
+        for (target, ground_height) in query_targets.into_iter().zip(heights.into_iter()) {
+            if let Some(emitter) = self.butterfly_emitters.get(target.emitter_index) {
+                emitter
+                    .emitter
+                    .constrain_to_ground(&mut self.particle_system, target.handle, ground_height);
+            }
         }
     }
 
@@ -3006,4 +3049,10 @@ impl App {
         let images_in_flight = vec![vk::Fence::null(); image_count];
         (semaphores, images_in_flight)
     }
+}
+
+#[derive(Clone, Copy)]
+struct ButterflyQueryTarget {
+    emitter_index: usize,
+    handle: crate::particles::ParticleHandle,
 }

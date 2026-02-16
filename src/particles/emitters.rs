@@ -1,6 +1,6 @@
 use std::{f32::consts::TAU, ops::RangeInclusive};
 
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{MotionMode, ParticleHandle, ParticleSpawn, ParticleSystem};
@@ -377,6 +377,38 @@ impl ButterflyEmitter {
         };
 
         system.spawn(spawn)
+    }
+
+    pub fn collect_ground_queries(
+        &mut self,
+        system: &ParticleSystem,
+        out_positions_xz: &mut Vec<Vec2>,
+        out_handles: &mut Vec<ParticleHandle>,
+    ) {
+        self.prune_handles(system);
+        for handle in &self.active_handles {
+            if let Some(pos) = system.position(*handle) {
+                out_positions_xz.push(Vec2::new(pos.x, pos.z));
+                out_handles.push(*handle);
+            }
+        }
+    }
+
+    pub fn constrain_to_ground(
+        &self,
+        system: &mut ParticleSystem,
+        handle: ParticleHandle,
+        ground_height: f32,
+    ) {
+        let Some(mut pos) = system.position(handle) else {
+            return;
+        };
+
+        let min_height = ground_height + *self.height_offset.start();
+        let max_height = ground_height + *self.height_offset.end();
+
+        pos.y = pos.y.clamp(min_height, max_height);
+        let _ = system.set_position(handle, pos);
     }
 }
 
