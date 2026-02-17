@@ -111,6 +111,11 @@ vec4 _sample_sun_sprite(vec3 view_dir, vec3 sun_dir, float sun_size) {
     return texture(sun_sprite_tex, uv);
 }
 
+float _sun_visibility(float sun_altitude) {
+    // Fade around the horizon so sunlight-driven effects disappear smoothly at sunset.
+    return smoothstep(-0.05, 0.05, sun_altitude);
+}
+
 vec3 combine_colors(float gfx_depth_01, float compute_depth_01, vec3 gfx_color,
                     vec3 denoiser_output_color, vec2 screen_uv, ivec2 uvi) {
     if (gfx_depth_01 == 1.0 && compute_depth_01 == 1.0) {
@@ -172,7 +177,9 @@ void main() {
                                                     denoiser_spatial_pong_tex, screen_uv, uvi);
 
     // TODO:
+    float sun_visibility   = _sun_visibility(sun_info.sun_dir.y);
     float god_ray_weight   = imageLoad(god_ray_output_tex, uvi).r * god_ray_info.weight;
+    god_ray_weight *= sun_visibility;
     vec3 god_ray_color_rgb = srgb_to_linear(god_ray_info.color);
     vec4 god_ray_color     = vec4(god_ray_color_rgb, god_ray_weight);
     final_color            = mix(final_color, god_ray_color.rgb, god_ray_color.a);

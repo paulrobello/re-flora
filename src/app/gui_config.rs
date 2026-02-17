@@ -16,9 +16,9 @@ declare_gui_adjustables! {
     [Sky] {
         sun_altitude: crate::gui_adjustables::FloatParam = 0.25, float(-1.0..=1.0), "Altitude (normalized)",
         sun_azimuth: crate::gui_adjustables::FloatParam = 0.8, float(0.0..=1.0), "Azimuth (normalized)",
-        sun_size: crate::gui_adjustables::FloatParam = 0.1, float(0.0..=1.0), "Size (relative)",
+        sun_size: crate::gui_adjustables::FloatParam = 0.065, float(0.0..=1.0), "Size (relative)",
         sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
-        sun_luminance: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=10.0), "Sun Luminance",
+        sun_luminance: crate::gui_adjustables::FloatParam = 1.65, float(0.0..=10.0), "Sun Luminance",
         ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(79, 56, 0), color, "Ambient Light",
         auto_daynight_cycle: crate::gui_adjustables::BoolParam = true, bool, "Auto Day/Night Cycle",
         time_of_day: crate::gui_adjustables::FloatParam = 0.65, float(0.0..=1.0), "Time of Day",
