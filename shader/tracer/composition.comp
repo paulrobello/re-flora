@@ -123,7 +123,7 @@ vec3 combine_colors(float gfx_depth_01, float compute_depth_01, vec3 gfx_color,
         vec3 sky_color = get_sky_color(ray.direction, sun_info.sun_dir);
         vec4 sun_texel = _sample_sun_sprite(ray.direction, sun_info.sun_dir, sun_info.sun_size);
         vec3 sun_color = srgb_to_linear(sun_texel.rgb) * sun_info.sun_color;
-        sun_color *= sun_info.sun_luminance * 3.1;
+        sun_color *= sun_info.sun_luminance;
         vec3 sky_with_sun = mix(sky_color, sun_color, sun_texel.a);
         // star visibility thresholds based on sun altitude
         const float star_cutoff_altitude =

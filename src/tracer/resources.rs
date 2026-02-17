@@ -644,7 +644,7 @@ impl TracerResources {
     }
 
     fn create_sun_sprite_tex(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
-        const SUN_SPRITE_REL_PATH: &str = "assets/texture/Planet_Pack_bycancer/sun.png";
+        const SUN_SPRITE_REL_PATH: &str = "assets/texture/Planets_16x16/Sun.png";
 
         let path = get_project_root() + "/" + SUN_SPRITE_REL_PATH;
         if !Path::new(&path).exists() {
