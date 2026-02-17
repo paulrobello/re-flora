@@ -119,7 +119,7 @@ vec3 combine_colors(float gfx_depth_01, float compute_depth_01, vec3 gfx_color,
         vec3 sky_color = get_sky_color(ray.direction, sun_info.sun_dir);
         vec4 sun_texel = _sample_sun_sprite(ray.direction, sun_info.sun_dir, sun_info.sun_size);
         float sun_day_factor = sun_luminance_from_dir(sun_info.sun_dir, 1.0);
-        vec3 sun_color = srgb_to_linear(sun_texel.rgb) * sun_info.sun_color;
+        vec3 sun_color = sun_texel.rgb * sun_info.sun_color;
         sun_color *= sun_info.sun_luminance * sun_day_factor;
         float sun_alpha = sun_texel.a * sun_day_factor;
         vec3 sky_with_sun = mix(sky_color, sun_color, sun_alpha);

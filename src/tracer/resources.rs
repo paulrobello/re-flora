@@ -661,7 +661,7 @@ impl TracerResources {
         let img_desc = ImageDesc {
             extent: extent.into(),
             array_len: 1,
-            format: vk::Format::R8G8B8A8_UNORM,
+            format: vk::Format::R8G8B8A8_SRGB,
             usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
