@@ -725,10 +725,9 @@ impl TracerResources {
                     });
                     let rgba = image.to_rgba8();
                     let (width, height) = rgba.dimensions();
-                    if width >= LUT_DIM && height >= LUT_DIM {
+                    let mut frame = if width >= LUT_DIM && height >= LUT_DIM {
                         image::imageops::crop_imm(&rgba, 0, 0, LUT_DIM, LUT_DIM)
                             .to_image()
-                            .into_raw()
                     } else {
                         log::warn!(
                             "Particle LOD butterfly atlas '{}' is {}x{}; expected at least {}x{}; resizing fallback",
@@ -744,8 +743,15 @@ impl TracerResources {
                             LUT_DIM,
                             image::imageops::FilterType::Nearest,
                         )
-                        .into_raw()
+                    };
+
+                    for pixel in frame.pixels_mut() {
+                        if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                            pixel[3] = 0;
+                        }
                     }
+
+                    frame.into_raw()
                 }
             }
             None => {
