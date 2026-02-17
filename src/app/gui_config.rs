@@ -93,7 +93,7 @@ declare_gui_adjustables! {
     },
 
     [Voxel] {
-        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(153, 191, 0), color, "Dirt Color",
+        voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(171, 171, 171), color, "Dirt Color",
         voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(202, 176, 92), color, "Trunk Color",
     },
 }
