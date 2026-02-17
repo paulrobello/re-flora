@@ -685,7 +685,7 @@ impl TracerResources {
 
     fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
         const PARTICLE_LOD_TEXTURE_REL_PATH: Option<&str> =
-            Some("assets/texture/butterfly/Australian Lurcher.png");
+            Some("assets/texture/butterfly_16px/Blue.png");
         const LUT_DIM: u32 = 16;
         const LUT_LAYER_LEAF: u32 = 0;
         const LUT_LAYER_BUTTERFLY: u32 = 1;
@@ -723,10 +723,29 @@ impl TracerResources {
                     let image = image::open(&path).unwrap_or_else(|e| {
                         panic!("Failed to open particle LOD texture '{}': {}", path, e);
                     });
-                    image
-                        .resize_exact(LUT_DIM, LUT_DIM, image::imageops::FilterType::Nearest)
-                        .to_rgba8()
+                    let rgba = image.to_rgba8();
+                    let (width, height) = rgba.dimensions();
+                    if width >= LUT_DIM && height >= LUT_DIM {
+                        image::imageops::crop_imm(&rgba, 0, 0, LUT_DIM, LUT_DIM)
+                            .to_image()
+                            .into_raw()
+                    } else {
+                        log::warn!(
+                            "Particle LOD butterfly atlas '{}' is {}x{}; expected at least {}x{}; resizing fallback",
+                            path,
+                            width,
+                            height,
+                            LUT_DIM,
+                            LUT_DIM
+                        );
+                        image::imageops::resize(
+                            &rgba,
+                            LUT_DIM,
+                            LUT_DIM,
+                            image::imageops::FilterType::Nearest,
+                        )
                         .into_raw()
+                    }
                 }
             }
             None => {
