@@ -96,8 +96,9 @@ void main() {
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
-    vec3 lighting     = sun_light * shadow_weight + shading_info.ambient_light;
-    vert_color        = vec4(lighting, 1.0);
+    vec3 raw_lighting   = sun_light * shadow_weight + shading_info.ambient_light;
+    vec3 lighting       = clamp(raw_lighting, vec3(0.0), vec3(1.0));
+    vert_color          = vec4(lighting, 1.0);
 
     vert_uv = vec2(float(vert_offset_in_vox.x), 1.0 - float(vert_offset_in_vox.y));
     vert_tex_index = in_instance_tex_index;
