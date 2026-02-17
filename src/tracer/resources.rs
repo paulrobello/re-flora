@@ -695,7 +695,7 @@ impl TracerResources {
         let img_desc = ImageDesc {
             extent: Extent3D::new(LUT_DIM, LUT_DIM, 1),
             array_len: LUT_LAYER_COUNT,
-            format: vk::Format::R8G8B8A8_UNORM,
+            format: vk::Format::R8G8B8A8_SRGB,
             usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
