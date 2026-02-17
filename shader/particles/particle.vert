@@ -5,6 +5,7 @@
 #include "../foliage/unpacker.glsl"
 #include "../include/core/color.glsl"
 #include "../include/depth_offset.glsl"
+#include "../include/sunlight.glsl"
 
 layout(location = 0) in uvec2 in_packed_data;
 layout(location = 1) in uvec3 in_instance_pos;
@@ -87,7 +88,8 @@ void main() {
         get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(vertex_pos, 1.0));
     shadow_weight *= get_shadow_weight(vox_local_pos);
 
-    vec3 sun_light    = sun_info.sun_color * sun_info.sun_luminance;
+    float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
+    vec3 sun_light      = sun_info.sun_color * sun_luminance;
     vec3 linear_color = srgb_to_linear(in_instance_color.rgb);
     vec3 lighting     = sun_light * shadow_weight + shading_info.ambient_light;
     vert_color        = vec4(linear_color * lighting, in_instance_color.a);

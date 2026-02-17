@@ -70,6 +70,7 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "../include/core/hash.glsl"
 #include "../include/flora_registry.glsl"
 #include "../include/instance.glsl"
+#include "../include/sunlight.glsl"
 #include "../include/vsm.glsl"
 #include "../include/wind.glsl"
 #include "./billboard.glsl"
@@ -156,6 +157,7 @@ void main() {
     vec3 total_color_variation = instance_color_variation + voxel_color_variation;
     vec3 varied_color          = apply_hsv_offset(interpolated_color, total_color_variation);
 
-    vec3 sun_light = sun_info.sun_color * sun_info.sun_luminance;
+    float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
+    vec3 sun_light      = sun_info.sun_color * sun_luminance;
     vert_color     = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
 }
