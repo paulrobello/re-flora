@@ -220,7 +220,7 @@ impl Default for ButterflyEmitterDesc {
         Self {
             enabled: true,
             spawn_rate: 3.0,
-            max_butterflies: 6,
+            max_butterflies: 24,
             wander_radius: 2.5,
             height_offset_min: 0.03,
             height_offset_max: 0.07,

@@ -9,7 +9,7 @@ declare_gui_adjustables! {
     [Debug] {
         debug_float: crate::gui_adjustables::FloatParam = 0.0, float(0.0..=10.0), "Debug Float",
         debug_uint: crate::gui_adjustables::UintParam = 0, uint(0..=100), "Debug UInt",
-        lod_distance: crate::gui_adjustables::FloatParam = 1.5, float(0.0..=10.0), "LOD Distance",
+        lod_distance: crate::gui_adjustables::FloatParam = 0.0, float(0.0..=10.0), "LOD Distance",
         debug_bool: crate::gui_adjustables::BoolParam = true, bool, "Debug Bool",
     },
 

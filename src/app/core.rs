@@ -229,27 +229,6 @@ impl ParticleEmitter for TreeLeafEmitter {
     }
 }
 
-struct TreeButterflyEmitter {
-    tree_id: u32,
-    emitter: ButterflyEmitter,
-}
-
-impl TreeButterflyEmitter {
-    fn new(tree_id: u32, emitter: ButterflyEmitter) -> Self {
-        Self { tree_id, emitter }
-    }
-
-    fn tree_id(&self) -> u32 {
-        self.tree_id
-    }
-}
-
-impl ParticleEmitter for TreeButterflyEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
-        self.emitter.update(system, dt, time);
-    }
-}
-
 struct FrameSync {
     image_available: Semaphore,
     fence: Fence,
@@ -297,8 +276,7 @@ pub struct App {
     leaf_emitters: Vec<TreeLeafEmitter>,
     tree_leaf_emitter_indices: HashMap<u32, Vec<usize>>,
     leaf_emitter_desc: LeafEmitterDesc,
-    butterfly_emitters: Vec<TreeButterflyEmitter>,
-    tree_butterfly_emitter_indices: HashMap<u32, Vec<usize>>,
+    butterfly_emitters: Vec<ButterflyEmitter>,
     butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_snapshots_lod: Vec<ParticleSnapshot>,
@@ -459,7 +437,6 @@ impl App {
             ..LeafEmitterDesc::default()
         };
         let butterfly_emitters = Vec::new();
-        let tree_butterfly_emitter_indices = HashMap::new();
         let butterfly_emitter_desc = ButterflyEmitterDesc::default();
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_snapshots_lod = Vec::with_capacity(PARTICLE_CAPACITY);
@@ -511,7 +488,6 @@ impl App {
             tree_leaf_emitter_indices,
             leaf_emitter_desc,
             butterfly_emitters,
-            tree_butterfly_emitter_indices,
             butterfly_emitter_desc,
             particle_snapshots,
             particle_snapshots_lod,
@@ -522,6 +498,7 @@ impl App {
         };
 
         app.configure_gui_font()?;
+        app.ensure_map_butterfly_emitter();
 
         app.add_tree(
             app.debug_tree_desc.clone(),
@@ -1151,7 +1128,6 @@ impl App {
         );
 
         self.upsert_tree_leaf_emitter(tree_id, tree_pos, &this_bound, &leaf_clusters);
-        self.upsert_tree_butterfly_emitter(tree_id, tree_pos, &this_bound);
 
         Ok(())
     }
@@ -1202,28 +1178,6 @@ impl App {
             .insert(tree_id, emitter_indices);
     }
 
-    fn upsert_tree_butterfly_emitter(&mut self, tree_id: u32, tree_pos: Vec3, bound: &UAabb3) {
-        self.remove_butterfly_emitters(tree_id);
-
-        if !self.butterfly_emitter_desc.enabled {
-            return;
-        }
-
-        let (center, extent) = Self::compute_leaf_emitter_region(tree_pos, bound);
-        let emitter = ButterflyEmitter::new(
-            center,
-            extent,
-            tree_id as u64 + 9_173,
-            &self.butterfly_emitter_desc,
-        );
-
-        let idx = self.butterfly_emitters.len();
-        self.butterfly_emitters
-            .push(TreeButterflyEmitter::new(tree_id, emitter));
-        self.tree_butterfly_emitter_indices
-            .insert(tree_id, vec![idx]);
-    }
-
     fn compute_leaf_emitter_region(tree_pos: Vec3, bound: &UAabb3) -> (Vec3, Vec3) {
         if bound.min() == bound.max() {
             return (
@@ -1271,28 +1225,29 @@ impl App {
         }
     }
 
-    fn remove_butterfly_emitters(&mut self, tree_id: u32) {
-        if let Some(indices) = self.tree_butterfly_emitter_indices.remove(&tree_id) {
-            let mut sorted_indices = indices;
-            sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
-
-            for index in sorted_indices {
-                self.butterfly_emitters.swap_remove(index);
-                if let Some(swapped) = self.butterfly_emitters.get(index) {
-                    if let Some(tree_indices) = self
-                        .tree_butterfly_emitter_indices
-                        .get_mut(&swapped.tree_id())
-                    {
-                        if let Some(pos) = tree_indices
-                            .iter()
-                            .position(|&i| i == self.butterfly_emitters.len())
-                        {
-                            tree_indices[pos] = index;
-                        }
-                    }
-                }
-            }
+    fn ensure_map_butterfly_emitter(&mut self) {
+        if !self.butterfly_emitters.is_empty() {
+            return;
         }
+
+        let (center, extent) = Self::map_butterfly_region();
+        self.butterfly_emitters.push(ButterflyEmitter::new(
+            center,
+            extent,
+            9_173,
+            &self.butterfly_emitter_desc,
+        ));
+    }
+
+    fn map_butterfly_region() -> (Vec3, Vec3) {
+        let map_size = CHUNK_DIM.as_vec3();
+        let center = Vec3::new(map_size.x * 0.5, 0.5, map_size.z * 0.5);
+        let extent = Vec3::new(
+            (map_size.x * 0.5).max(1.0),
+            0.6,
+            (map_size.z * 0.5).max(1.0),
+        );
+        (center, extent)
     }
 
     fn update_particle_simulation(&mut self, dt: f32) {
@@ -1300,6 +1255,7 @@ impl App {
             return;
         }
 
+        self.ensure_map_butterfly_emitter();
         let wind_time = self.time_info.time_since_start();
         Self::drive_emitters(
             &mut self.butterfly_emitters,
@@ -1365,7 +1321,7 @@ impl App {
         for (emitter_index, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
             let mut emitter_positions_xz = Vec::new();
             let mut emitter_handles = Vec::new();
-            emitter.emitter.collect_ground_queries(
+            emitter.collect_ground_queries(
                 &self.particle_system,
                 &mut emitter_positions_xz,
                 &mut emitter_handles,
@@ -1398,7 +1354,7 @@ impl App {
 
         for (target, ground_height) in query_targets.into_iter().zip(heights.into_iter()) {
             if let Some(emitter) = self.butterfly_emitters.get(target.emitter_index) {
-                emitter.emitter.constrain_to_ground(
+                emitter.constrain_to_ground(
                     &mut self.particle_system,
                     target.handle,
                     ground_height,
@@ -2448,9 +2404,9 @@ impl App {
                                             .add(
                                                 egui::Slider::new(
                                                     &mut max_butterflies,
-                                                    0..=32,
+                                                    0..=128,
                                                 )
-                                                .text("Max Butterflies / tree"),
+                                                .text("Max Butterflies (map)"),
                                             )
                                             .changed();
                                         if max_changed {
@@ -2721,9 +2677,7 @@ impl App {
 
                                         if butterflies_changed {
                                             for emitter in &mut self.butterfly_emitters {
-                                                emitter
-                                                    .emitter
-                                                    .apply_desc(&self.butterfly_emitter_desc);
+                                                emitter.apply_desc(&self.butterfly_emitter_desc);
                                             }
                                         }
 
