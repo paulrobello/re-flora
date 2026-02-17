@@ -195,8 +195,7 @@ impl ParticleEmitter for FallenLeafEmitter {
 #[derive(Clone, Copy, Debug)]
 pub struct ButterflyEmitterDesc {
     pub enabled: bool,
-    pub spawn_rate: f32,
-    pub max_butterflies: u32,
+    pub butterfly_count: u32,
     pub wander_radius: f32,
     pub height_offset_min: f32,
     pub height_offset_max: f32,
@@ -219,8 +218,7 @@ impl Default for ButterflyEmitterDesc {
     fn default() -> Self {
         Self {
             enabled: true,
-            spawn_rate: 3.0,
-            max_butterflies: 24,
+            butterfly_count: 128,
             wander_radius: 2.5,
             height_offset_min: 0.03,
             height_offset_max: 0.07,
@@ -256,10 +254,8 @@ pub struct ButterflyEmitter {
     pub color_low: Vec4,
     pub color_high: Vec4,
     pub enabled: bool,
-    pub max_butterflies: u32,
-    pub spawn_rate: f32,
+    pub butterfly_count: u32,
     rng: SmallRng,
-    spawn_accumulator: f32,
     active_handles: Vec<ParticleHandle>,
 }
 
@@ -288,10 +284,8 @@ impl ButterflyEmitter {
             color_low: desc.color_low,
             color_high: desc.color_high,
             enabled: desc.enabled,
-            max_butterflies: desc.max_butterflies,
-            spawn_rate: desc.spawn_rate,
+            butterfly_count: desc.butterfly_count,
             rng: SmallRng::seed_from_u64(seed),
-            spawn_accumulator: 0.0,
             active_handles: Vec::new(),
         };
         emitter.clamp_height(center.y);
@@ -300,8 +294,7 @@ impl ButterflyEmitter {
 
     pub fn apply_desc(&mut self, desc: &ButterflyEmitterDesc) {
         self.enabled = desc.enabled;
-        self.spawn_rate = desc.spawn_rate;
-        self.max_butterflies = desc.max_butterflies;
+        self.butterfly_count = desc.butterfly_count;
         self.wander_radius = desc.wander_radius.max(self.min_wander_radius).max(0.1);
         self.height_offset = desc.height_offset_min.min(desc.height_offset_max)
             ..=desc.height_offset_max.max(desc.height_offset_min);
@@ -440,18 +433,17 @@ impl ButterflyEmitter {
 impl ParticleEmitter for ButterflyEmitter {
     fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
         self.prune_handles(system);
-        if !self.enabled || self.spawn_rate <= 0.0 || self.max_butterflies == 0 {
-            self.spawn_accumulator = 0.0;
+        if !self.enabled || self.butterfly_count == 0 {
             return;
         }
 
-        let max_count = self.max_butterflies as usize;
-        self.spawn_accumulator += self.spawn_rate * dt;
-        while self.spawn_accumulator >= 1.0 && self.active_handles.len() < max_count {
+        let target_count = self.butterfly_count as usize;
+        while self.active_handles.len() < target_count {
             if let Some(handle) = self.spawn_butterfly(system) {
                 self.active_handles.push(handle);
+            } else {
+                break;
             }
-            self.spawn_accumulator -= 1.0;
         }
 
         self.steer_towards_home(system, dt, time);

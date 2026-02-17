@@ -2382,38 +2382,22 @@ impl App {
                                             .changed();
                                         self.butterfly_emitter_desc.enabled = butterflies_enabled;
 
-                                        let mut butterfly_spawn_rate =
-                                            self.butterfly_emitter_desc.spawn_rate;
-                                        let spawn_changed = ui
+                                        let mut butterfly_count =
+                                            self.butterfly_emitter_desc.butterfly_count;
+                                        let count_changed = ui
                                             .add(
                                                 egui::Slider::new(
-                                                    &mut butterfly_spawn_rate,
-                                                    0.0..=40.0,
-                                                )
-                                                .text("Spawn Rate (per s)"),
-                                            )
-                                            .changed();
-                                        if spawn_changed {
-                                            self.butterfly_emitter_desc.spawn_rate = butterfly_spawn_rate;
-                                        }
-                                        butterflies_changed |= spawn_changed;
-
-                                        let mut max_butterflies =
-                                            self.butterfly_emitter_desc.max_butterflies;
-                                        let max_changed = ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut max_butterflies,
+                                                    &mut butterfly_count,
                                                     0..=128,
                                                 )
-                                                .text("Max Butterflies (map)"),
+                                                .text("Butterfly Count (map)"),
                                             )
                                             .changed();
-                                        if max_changed {
-                                            self.butterfly_emitter_desc.max_butterflies =
-                                                max_butterflies;
+                                        if count_changed {
+                                            self.butterfly_emitter_desc.butterfly_count =
+                                                butterfly_count;
                                         }
-                                        butterflies_changed |= max_changed;
+                                        butterflies_changed |= count_changed;
 
                                         let mut wander_radius =
                                             self.butterfly_emitter_desc.wander_radius;
