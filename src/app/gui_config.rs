@@ -92,6 +92,26 @@ declare_gui_adjustables! {
         leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 137, 241), color, "Tip Color",
     },
 
+    [Butterflies] {
+        butterflies_enabled: crate::gui_adjustables::BoolParam = true, bool, "Enable Butterflies",
+        butterflies_per_chunk: crate::gui_adjustables::UintParam = 2, uint(0..=10), "Butterflies Per Chunk",
+        butterfly_wander_radius: crate::gui_adjustables::FloatParam = 2.5, float(0.5..=8.0), "Wander Radius",
+        butterfly_height_offset_min: crate::gui_adjustables::FloatParam = 0.06, float(0.0..=4.0), "Height Offset Min",
+        butterfly_height_offset_max: crate::gui_adjustables::FloatParam = 0.14, float(0.0..=4.0), "Height Offset Max",
+        butterfly_lifetime_min: crate::gui_adjustables::FloatParam = 8.0, float(1.0..=60.0), "Lifetime Min (s)",
+        butterfly_lifetime_max: crate::gui_adjustables::FloatParam = 14.0, float(1.0..=60.0), "Lifetime Max (s)",
+        butterfly_size: crate::gui_adjustables::FloatParam = 0.018, float(0.001..=0.03), "Size",
+        butterfly_drift_strength_min: crate::gui_adjustables::FloatParam = 0.6, float(0.0..=3.0), "Flutter Strength Min",
+        butterfly_drift_strength_max: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=3.0), "Flutter Strength Max",
+        butterfly_drift_frequency_min: crate::gui_adjustables::FloatParam = 1.5, float(0.5..=6.0), "Flutter Speed Min",
+        butterfly_drift_frequency_max: crate::gui_adjustables::FloatParam = 3.5, float(0.5..=6.0), "Flutter Speed Max",
+        butterfly_steering_strength: crate::gui_adjustables::FloatParam = 0.9, float(0.0..=3.0), "Home Pull Strength",
+        butterfly_bob_frequency_hz: crate::gui_adjustables::FloatParam = 2.2, float(0.0..=8.0), "Vertical Bob Frequency (Hz)",
+        butterfly_bob_strength: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=6.0), "Vertical Bob Strength",
+        butterfly_wing_color_low: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 230, 140), color, "Wing Color Low",
+        butterfly_wing_color_high: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 247, 184), color, "Wing Color High",
+    },
+
     [Voxel] {
         voxel_dirt_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(171, 171, 171), color, "Dirt Color",
         voxel_trunk_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(202, 176, 92), color, "Trunk Color",
