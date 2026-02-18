@@ -1553,7 +1553,8 @@ impl Tracer {
         let near_count = near_snapshots.len().min(capacity);
         let far_count = far_snapshots.len().min(capacity);
         const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
-        let butterfly_frame_count = self
+        const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
+        let butterfly_total_layer_count = self
             .resources
             .particle_lod_tex_lut
             .get_image()
@@ -1561,14 +1562,18 @@ impl Tracer {
             .array_len
             .saturating_sub(1)
             .max(1);
+        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT.min(butterfly_total_layer_count);
+        let butterfly_variant_count = (butterfly_total_layer_count / butterfly_frame_count).max(1);
         let animation_step =
             (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
         let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
-        let butterfly_tex_index = 1 + butterfly_anim_frame;
 
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(near_count);
         for snap in near_snapshots.iter().take(capacity) {
+            let butterfly_variant = snap.texture_variant % butterfly_variant_count;
+            let butterfly_tex_index =
+                1 + butterfly_variant * butterfly_frame_count + butterfly_anim_frame;
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position.to_array(),
                 size: snap.size,
@@ -1590,6 +1595,9 @@ impl Tracer {
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(far_count);
         for snap in far_snapshots.iter().take(capacity) {
+            let butterfly_variant = snap.texture_variant % butterfly_variant_count;
+            let butterfly_tex_index =
+                1 + butterfly_variant * butterfly_frame_count + butterfly_anim_frame;
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position.to_array(),
                 size: snap.size,

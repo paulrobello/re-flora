@@ -684,89 +684,108 @@ impl TracerResources {
     }
 
     fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
-        const PARTICLE_LOD_TEXTURE_REL_PATH: Option<&str> =
-            Some("assets/texture/butterfly_16px/Blue.png");
+        const PARTICLE_LOD_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
         const LUT_DIM: u32 = 16;
         const LUT_LAYER_LEAF: u32 = 0;
+        const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
 
         let white = [255u8, 255u8, 255u8, 255u8];
         let white_layer = white
             .repeat((LUT_DIM * LUT_DIM) as usize)
             .into_iter()
             .collect::<Vec<u8>>();
+        let dir_path = get_project_root() + "/" + PARTICLE_LOD_TEXTURE_DIR_REL_PATH;
+        let mut atlas_paths = std::fs::read_dir(&dir_path)
+            .ok()
+            .into_iter()
+            .flat_map(|entries| entries.filter_map(Result::ok))
+            .map(|entry| entry.path())
+            .filter(|path| {
+                path.extension()
+                    .and_then(|ext| ext.to_str())
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
+            })
+            .collect::<Vec<_>>();
+        atlas_paths.sort();
+        if atlas_paths.is_empty() {
+            log::warn!(
+                "No butterfly atlases found in '{}'; using fallback texture",
+                dir_path
+            );
+        }
 
-        let butterfly_layers = match PARTICLE_LOD_TEXTURE_REL_PATH {
-            Some(relative_path) => {
-                let path = get_project_root() + "/" + relative_path;
-                if !Path::new(&path).exists() {
+        let mut butterfly_layers = Vec::new();
+        for atlas_path in atlas_paths {
+            let atlas_path_str = atlas_path.to_string_lossy().to_string();
+            let image = match image::open(&atlas_path) {
+                Ok(image) => image,
+                Err(e) => {
                     log::warn!(
-                        "Particle LOD butterfly texture missing at '{}'; using blocky fallback",
-                        path
+                        "Failed to open butterfly atlas '{}': {}; skipping",
+                        atlas_path_str,
+                        e
                     );
-                    vec![white_layer.clone()]
-                } else {
-                    let image = image::open(&path).unwrap_or_else(|e| {
-                        panic!("Failed to open particle LOD texture '{}': {}", path, e);
-                    });
-                    let rgba = image.to_rgba8();
-                    let (width, height) = rgba.dimensions();
-                    if width < LUT_DIM || height < LUT_DIM {
-                        log::warn!(
-                            "Particle LOD butterfly atlas '{}' is {}x{}; expected at least {}x{}; resizing fallback",
-                            path,
-                            width,
-                            height,
-                            LUT_DIM,
-                            LUT_DIM
-                        );
-                        let mut frame = image::imageops::resize(
-                            &rgba,
-                            LUT_DIM,
-                            LUT_DIM,
-                            image::imageops::FilterType::Nearest,
-                        );
-                        for pixel in frame.pixels_mut() {
-                            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                                pixel[3] = 0;
-                            }
-                        }
-                        vec![frame.into_raw()]
-                    } else {
-                        let frame_count = (width / LUT_DIM).max(1);
-                        if width % LUT_DIM != 0 {
-                            log::warn!(
-                                "Particle LOD butterfly atlas '{}' width {} is not divisible by frame size {}; ignoring trailing pixels",
-                                path,
-                                width,
-                                LUT_DIM
-                            );
-                        }
-                        let mut frames = Vec::with_capacity(frame_count as usize);
-                        for frame_idx in 0..frame_count {
-                            let mut frame = image::imageops::crop_imm(
-                                &rgba,
-                                frame_idx * LUT_DIM,
-                                0,
-                                LUT_DIM,
-                                LUT_DIM,
-                            )
-                            .to_image();
-                            for pixel in frame.pixels_mut() {
-                                if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                                    pixel[3] = 0;
-                                }
-                            }
-                            frames.push(frame.into_raw());
-                        }
-                        frames
+                    continue;
+                }
+            };
+            let rgba = image.to_rgba8();
+            let (width, height) = rgba.dimensions();
+            if width < LUT_DIM || height < LUT_DIM {
+                log::warn!(
+                    "Butterfly atlas '{}' is {}x{}; expected at least {}x{}; using resized fallback",
+                    atlas_path_str,
+                    width,
+                    height,
+                    LUT_DIM,
+                    LUT_DIM
+                );
+                let mut frame = image::imageops::resize(
+                    &rgba,
+                    LUT_DIM,
+                    LUT_DIM,
+                    image::imageops::FilterType::Nearest,
+                );
+                for pixel in frame.pixels_mut() {
+                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                        pixel[3] = 0;
                     }
                 }
+                let frame_data = frame.into_raw();
+                for _ in 0..BUTTERFLY_FRAMES_PER_VARIANT {
+                    butterfly_layers.push(frame_data.clone());
+                }
+                continue;
             }
-            None => {
-                log::warn!("Particle LOD butterfly texture not configured; using blocky fallback");
-                vec![white_layer.clone()]
+
+            let available_frames = (width / LUT_DIM).max(1);
+            if width % LUT_DIM != 0 {
+                log::warn!(
+                    "Butterfly atlas '{}' width {} is not divisible by frame size {}; ignoring trailing pixels",
+                    atlas_path_str,
+                    width,
+                    LUT_DIM
+                );
             }
-        };
+
+            for target_frame_idx in 0..BUTTERFLY_FRAMES_PER_VARIANT {
+                let src_frame_idx = target_frame_idx.min(available_frames - 1);
+                let mut frame =
+                    image::imageops::crop_imm(&rgba, src_frame_idx * LUT_DIM, 0, LUT_DIM, LUT_DIM)
+                        .to_image();
+                for pixel in frame.pixels_mut() {
+                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                        pixel[3] = 0;
+                    }
+                }
+                butterfly_layers.push(frame.into_raw());
+            }
+        }
+
+        if butterfly_layers.is_empty() {
+            for _ in 0..BUTTERFLY_FRAMES_PER_VARIANT {
+                butterfly_layers.push(white_layer.clone());
+            }
+        }
         let lut_layer_count = 1 + butterfly_layers.len() as u32;
 
         let sam_desc = Default::default();

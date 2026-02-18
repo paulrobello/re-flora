@@ -4,10 +4,37 @@ use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{MotionMode, ParticleHandle, ParticleSpawn, ParticleSystem};
+use crate::util::get_project_root;
 use crate::wind::Wind;
 
 pub trait ParticleEmitter {
     fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32);
+}
+
+const BUTTERFLY_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
+
+fn discover_butterfly_texture_variant_count() -> u32 {
+    let dir_path = get_project_root() + "/" + BUTTERFLY_TEXTURE_DIR_REL_PATH;
+    let Ok(entries) = std::fs::read_dir(&dir_path) else {
+        log::warn!(
+            "Failed to read butterfly texture directory '{}'; defaulting to one variant",
+            dir_path
+        );
+        return 1;
+    };
+
+    let count = entries
+        .filter_map(Result::ok)
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("png"))
+        })
+        .count() as u32;
+
+    count.max(1)
 }
 
 fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
@@ -144,6 +171,7 @@ impl FallenLeafEmitter {
             motion_mode: MotionMode::Falling,
             sink_on_lifetime: true,
             sink_speed: self.rng.random_range(0.08..=0.18),
+            texture_variant: 0,
         };
         let _ = system.spawn(spawn);
     }
@@ -253,6 +281,7 @@ pub struct ButterflyEmitter {
     pub color_high: Vec4,
     pub enabled: bool,
     pub butterfly_count: u32,
+    texture_variant_count: u32,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
 }
@@ -283,6 +312,7 @@ impl ButterflyEmitter {
             color_high: desc.color_high,
             enabled: desc.enabled,
             butterfly_count: desc.butterfly_count,
+            texture_variant_count: discover_butterfly_texture_variant_count(),
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
         };
@@ -396,6 +426,7 @@ impl ButterflyEmitter {
             motion_mode: MotionMode::Free,
             sink_on_lifetime: true,
             sink_speed: self.rng.random_range(0.06..=0.12),
+            texture_variant: self.rng.random_range(0..self.texture_variant_count),
         };
 
         system.spawn(spawn)

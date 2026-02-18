@@ -56,6 +56,8 @@ pub struct ParticleSpawn {
     pub sink_on_lifetime: bool,
     /// Downward speed used during the sinking phase.
     pub sink_speed: f32,
+    /// Optional texture variant for render-time atlas selection.
+    pub texture_variant: u32,
 }
 
 impl Default for ParticleSpawn {
@@ -75,6 +77,7 @@ impl Default for ParticleSpawn {
             motion_mode: MotionMode::Falling,
             sink_on_lifetime: false,
             sink_speed: 0.1,
+            texture_variant: 0,
         }
     }
 }
@@ -124,6 +127,7 @@ pub struct ParticleSnapshot {
     pub color: Vec4,
     pub size: f32,
     pub kind: ParticleRenderKind,
+    pub texture_variant: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -155,6 +159,7 @@ pub struct ParticleSystem {
     free_list: Vec<usize>,
     max_particles: usize,
     speed_noise_offsets: Vec<f32>,
+    texture_variants: Vec<u32>,
     speed_noise: FastNoiseLite,
 }
 
@@ -194,6 +199,7 @@ impl ParticleSystem {
             free_list,
             max_particles,
             speed_noise_offsets: vec![0.0; max_particles],
+            texture_variants: vec![0; max_particles],
             speed_noise,
         }
     }
@@ -258,6 +264,7 @@ impl ParticleSystem {
         self.is_alive[slot] = true;
         self.alive_indices.push(slot);
         self.speed_noise_offsets[slot] = spawn.speed_noise_offset;
+        self.texture_variants[slot] = spawn.texture_variant;
 
         Some(ParticleHandle {
             index: slot as u32,
@@ -409,6 +416,7 @@ impl ParticleSystem {
                 color: self.colors[*slot],
                 size: self.sizes[*slot],
                 kind,
+                texture_variant: self.texture_variants[*slot],
             });
         }
     }
