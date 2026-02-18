@@ -63,7 +63,7 @@ void main() {
     }
 
     vec2 query_pos  = terrain_query_info.query_pos_xz[query_index];
-    vec3 ray_origin = vec3(query_pos.x, 100.0, query_pos.y);
+    vec3 ray_origin = vec3(query_pos.x, 10.0, query_pos.y);
 
     Ray ray;
     ray.origin        = ray_origin;

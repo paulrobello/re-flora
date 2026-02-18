@@ -1400,9 +1400,25 @@ impl App {
 
         let total_sample_count = heights.len();
         let mut invalid_sample_count = 0usize;
-        for (target, sample) in query_targets.into_iter().zip(heights.into_iter()) {
+        for (idx, (target, sample)) in query_targets
+            .into_iter()
+            .zip(heights.into_iter())
+            .enumerate()
+        {
             if !sample.is_valid {
                 invalid_sample_count += 1;
+                let query_pos = query_positions_xz[idx];
+                log::warn!(
+                    "Invalid butterfly terrain ray: origin=({:.4},{:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
+                    query_pos.x,
+                    10.0f32,
+                    query_pos.y,
+                    0.0f32,
+                    -1.0f32,
+                    0.0f32,
+                    target.emitter_index,
+                    target.handle
+                );
                 continue;
             }
             if let Some(emitter) = self.butterfly_emitters.get_mut(target.emitter_index) {
