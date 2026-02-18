@@ -1345,6 +1345,48 @@ impl App {
             return;
         }
 
+        const BORDER_PADDING_INWARD: f32 = 0.001;
+        let map_size = CHUNK_DIM.as_vec3();
+        let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
+        let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
+        let mut bounce_count = 0usize;
+        let mut out_of_bounds_before_bounce = 0usize;
+        for (idx, target) in query_targets.iter().enumerate() {
+            let Some(mut pos) = self.particle_system.position(target.handle) else {
+                continue;
+            };
+
+            let mut flip_x = false;
+            let mut flip_z = false;
+            if pos.x < 0.0 || pos.x > map_size.x || pos.z < 0.0 || pos.z > map_size.z {
+                out_of_bounds_before_bounce += 1;
+            }
+            if pos.x <= BORDER_PADDING_INWARD {
+                pos.x = BORDER_PADDING_INWARD;
+                flip_x = true;
+            } else if pos.x >= max_x {
+                pos.x = max_x;
+                flip_x = true;
+            }
+
+            if pos.z <= BORDER_PADDING_INWARD {
+                pos.z = BORDER_PADDING_INWARD;
+                flip_z = true;
+            } else if pos.z >= max_z {
+                pos.z = max_z;
+                flip_z = true;
+            }
+
+            if flip_x || flip_z {
+                bounce_count += 1;
+                let _ = self.particle_system.set_position(target.handle, pos);
+                let _ = self
+                    .particle_system
+                    .flip_planar_motion(target.handle, flip_x, flip_z);
+                query_positions_xz[idx] = Vec2::new(pos.x, pos.z);
+            }
+        }
+
         let heights = match self
             .tracer
             .query_terrain_heights_batch_with_validity(&query_positions_xz)
@@ -1374,10 +1416,36 @@ impl App {
         }
 
         if invalid_sample_count > 0 {
+            let (min_qx, max_qx, min_qz, max_qz) = query_positions_xz.iter().fold(
+                (
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                ),
+                |(min_x, max_x_q, min_z, max_z_q), q| {
+                    (
+                        min_x.min(q.x),
+                        max_x_q.max(q.x),
+                        min_z.min(q.y),
+                        max_z_q.max(q.y),
+                    )
+                },
+            );
             log::warn!(
-                "Invalid butterfly terrain height samples this frame: {}/{}",
+                "Invalid butterfly terrain samples: {}/{}; bounces={} out_of_bounds_before_bounce={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
                 invalid_sample_count,
-                total_sample_count
+                total_sample_count,
+                bounce_count,
+                out_of_bounds_before_bounce,
+                min_qx,
+                max_qx,
+                min_qz,
+                max_qz,
+                BORDER_PADDING_INWARD,
+                max_x,
+                BORDER_PADDING_INWARD,
+                max_z
             );
         }
     }

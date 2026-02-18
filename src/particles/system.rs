@@ -427,6 +427,33 @@ impl ParticleSystem {
     }
 
     #[allow(dead_code)]
+    pub fn velocity(&self, handle: ParticleHandle) -> Option<Vec3> {
+        self.validate_handle(handle).map(|idx| self.velocities[idx])
+    }
+
+    #[allow(dead_code)]
+    pub fn flip_planar_motion(
+        &mut self,
+        handle: ParticleHandle,
+        flip_x: bool,
+        flip_z: bool,
+    ) -> bool {
+        if let Some(idx) = self.validate_handle(handle) {
+            if flip_x {
+                self.velocities[idx].x = -self.velocities[idx].x;
+                self.drift_directions[idx].x = -self.drift_directions[idx].x;
+            }
+            if flip_z {
+                self.velocities[idx].z = -self.velocities[idx].z;
+                self.drift_directions[idx].z = -self.drift_directions[idx].z;
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn set_position(&mut self, handle: ParticleHandle, pos: Vec3) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.positions[idx] = pos;
