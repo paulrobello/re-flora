@@ -1345,7 +1345,10 @@ impl App {
             return;
         }
 
-        let heights = match self.tracer.query_terrain_heights_batch(&query_positions_xz) {
+        let heights = match self
+            .tracer
+            .query_terrain_heights_batch_with_validity(&query_positions_xz)
+        {
             Ok(heights) => heights,
             Err(err) => {
                 log::error!("Failed terrain query for butterflies: {}", err);
@@ -1353,12 +1356,15 @@ impl App {
             }
         };
 
-        for (target, ground_height) in query_targets.into_iter().zip(heights.into_iter()) {
+        for (target, sample) in query_targets.into_iter().zip(heights.into_iter()) {
+            if !sample.is_valid {
+                continue;
+            }
             if let Some(emitter) = self.butterfly_emitters.get_mut(target.emitter_index) {
                 emitter.constrain_to_ground(
                     &mut self.particle_system,
                     target.handle,
-                    ground_height,
+                    sample.height,
                     dt,
                 );
             }

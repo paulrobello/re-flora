@@ -456,7 +456,7 @@ impl TracerResources {
             allocator.clone(),
             BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
             gpu_allocator::MemoryLocation::CpuToGpu,
-            (max_terrain_queries * std::mem::size_of::<f32>() as u32) as u64,
+            (max_terrain_queries * 2 * std::mem::size_of::<f32>() as u32) as u64,
         );
 
         let shadow_map_tex = Self::create_shadow_map_tex(

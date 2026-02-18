@@ -20,7 +20,7 @@ contree_leaf_data;
 
 layout(set = 0, binding = 4, rg32ui) readonly uniform uimage3D scene_tex;
 
-layout(set = 0, binding = 5) writeonly buffer B_TerrainQueryResult { float terrain_height[]; }
+layout(set = 0, binding = 5) writeonly buffer B_TerrainQueryResult { vec2 terrain_height_and_valid[]; }
 terrain_query_result;
 
 #include "../include/contree_marching.glsl"
@@ -73,8 +73,8 @@ void main() {
     MarchingResult res = general_scene_marching(ray);
 
     if (res.is_hit) {
-        terrain_query_result.terrain_height[query_index] = ray_origin.y - res.t;
+        terrain_query_result.terrain_height_and_valid[query_index] = vec2(ray_origin.y - res.t, 1.0);
     } else {
-        terrain_query_result.terrain_height[query_index] = 0.0;
+        terrain_query_result.terrain_height_and_valid[query_index] = vec2(0.0, 0.0);
     }
 }

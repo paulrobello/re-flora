@@ -49,6 +49,12 @@ use std::collections::HashMap;
 
 const MAX_TERRAIN_QUERIES: usize = 1_000;
 
+#[derive(Debug, Clone, Copy)]
+pub struct TerrainHeightSample {
+    pub height: f32,
+    pub is_valid: bool,
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct PushConstantStd140 {
@@ -1746,23 +1752,43 @@ impl Tracer {
     }
 
     pub fn query_terrain_height(&mut self, pos_xz: Vec2) -> Result<f32> {
-        let heights = self.query_terrain_heights_batch(&[pos_xz])?;
-        Ok(heights[0])
+        let sample = self.query_terrain_heights_batch_with_validity(&[pos_xz])?[0];
+        Ok(if sample.is_valid { sample.height } else { 0.0 })
     }
 
     pub fn query_terrain_heights_batch(&mut self, positions: &[Vec2]) -> Result<Vec<f32>> {
+        let samples = self.query_terrain_heights_batch_with_validity(positions)?;
+        Ok(samples
+            .into_iter()
+            .map(|sample| {
+                if sample.is_valid {
+                    sample.height
+                } else {
+                    0.0
+                }
+            })
+            .collect())
+    }
+
+    pub fn query_terrain_heights_batch_with_validity(
+        &mut self,
+        positions: &[Vec2],
+    ) -> Result<Vec<TerrainHeightSample>> {
         if positions.is_empty() {
             return Ok(vec![]);
         }
 
         let mut all_heights = Vec::with_capacity(positions.len());
         for chunk in positions.chunks(MAX_TERRAIN_QUERIES) {
-            all_heights.extend(self.query_terrain_heights_chunk(chunk)?);
+            all_heights.extend(self.query_terrain_heights_chunk_with_validity(chunk)?);
         }
         Ok(all_heights)
     }
 
-    fn query_terrain_heights_chunk(&mut self, positions: &[Vec2]) -> Result<Vec<f32>> {
+    fn query_terrain_heights_chunk_with_validity(
+        &mut self,
+        positions: &[Vec2],
+    ) -> Result<Vec<TerrainHeightSample>> {
         debug_assert!(!positions.is_empty());
         debug_assert!(positions.len() <= MAX_TERRAIN_QUERIES);
 
@@ -1799,9 +1825,17 @@ impl Tracer {
         );
 
         let raw_data = self.resources.terrain_query_result.read_back().unwrap();
-        let height_data: &[f32] = unsafe {
-            std::slice::from_raw_parts(raw_data.as_ptr() as *const f32, query_count as usize)
+        let sample_data: &[f32] = unsafe {
+            std::slice::from_raw_parts(raw_data.as_ptr() as *const f32, (query_count as usize) * 2)
         };
-        Ok(height_data.to_vec())
+
+        let mut samples = Vec::with_capacity(query_count as usize);
+        for pair in sample_data.chunks_exact(2) {
+            samples.push(TerrainHeightSample {
+                height: pair[0],
+                is_valid: pair[1] >= 0.5,
+            });
+        }
+        Ok(samples)
     }
 }
