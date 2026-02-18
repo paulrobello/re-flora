@@ -1356,8 +1356,11 @@ impl App {
             }
         };
 
+        let total_sample_count = heights.len();
+        let mut invalid_sample_count = 0usize;
         for (target, sample) in query_targets.into_iter().zip(heights.into_iter()) {
             if !sample.is_valid {
+                invalid_sample_count += 1;
                 continue;
             }
             if let Some(emitter) = self.butterfly_emitters.get_mut(target.emitter_index) {
@@ -1368,6 +1371,14 @@ impl App {
                     dt,
                 );
             }
+        }
+
+        if invalid_sample_count > 0 {
+            log::warn!(
+                "Invalid butterfly terrain height samples this frame: {}/{}",
+                invalid_sample_count,
+                total_sample_count
+            );
         }
     }
 
