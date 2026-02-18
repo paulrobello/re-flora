@@ -1279,10 +1279,11 @@ impl App {
             self.gui_adjustables.lod_distance.value.max(0.0),
         );
 
-        if let Err(err) = self
-            .tracer
-            .upload_particles_lod(&self.particle_snapshots, &self.particle_snapshots_lod)
-        {
+        if let Err(err) = self.tracer.upload_particles_lod(
+            &self.particle_snapshots,
+            &self.particle_snapshots_lod,
+            self.time_info.total_frame_count() as u32,
+        ) {
             log::error!("Failed to upload particles: {}", err);
         }
     }

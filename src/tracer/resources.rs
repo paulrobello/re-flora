@@ -688,29 +688,14 @@ impl TracerResources {
             Some("assets/texture/butterfly_16px/Blue.png");
         const LUT_DIM: u32 = 16;
         const LUT_LAYER_LEAF: u32 = 0;
-        const LUT_LAYER_BUTTERFLY: u32 = 1;
-        const LUT_LAYER_COUNT: u32 = 2;
-
-        let sam_desc = Default::default();
-        let img_desc = ImageDesc {
-            extent: Extent3D::new(LUT_DIM, LUT_DIM, 1),
-            array_len: LUT_LAYER_COUNT,
-            format: vk::Format::R8G8B8A8_SRGB,
-            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
-            initial_layout: vk::ImageLayout::UNDEFINED,
-            aspect: vk::ImageAspectFlags::COLOR,
-            ..Default::default()
-        };
-        let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
         let white = [255u8, 255u8, 255u8, 255u8];
         let white_layer = white
             .repeat((LUT_DIM * LUT_DIM) as usize)
             .into_iter()
             .collect::<Vec<u8>>();
-        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_LEAF, &white_layer);
 
-        let butterfly_layer = match PARTICLE_LOD_TEXTURE_REL_PATH {
+        let butterfly_layers = match PARTICLE_LOD_TEXTURE_REL_PATH {
             Some(relative_path) => {
                 let path = get_project_root() + "/" + relative_path;
                 if !Path::new(&path).exists() {
@@ -718,17 +703,14 @@ impl TracerResources {
                         "Particle LOD butterfly texture missing at '{}'; using blocky fallback",
                         path
                     );
-                    white_layer.clone()
+                    vec![white_layer.clone()]
                 } else {
                     let image = image::open(&path).unwrap_or_else(|e| {
                         panic!("Failed to open particle LOD texture '{}': {}", path, e);
                     });
                     let rgba = image.to_rgba8();
                     let (width, height) = rgba.dimensions();
-                    let mut frame = if width >= LUT_DIM && height >= LUT_DIM {
-                        image::imageops::crop_imm(&rgba, 0, 0, LUT_DIM, LUT_DIM)
-                            .to_image()
-                    } else {
+                    if width < LUT_DIM || height < LUT_DIM {
                         log::warn!(
                             "Particle LOD butterfly atlas '{}' is {}x{}; expected at least {}x{}; resizing fallback",
                             path,
@@ -737,29 +719,77 @@ impl TracerResources {
                             LUT_DIM,
                             LUT_DIM
                         );
-                        image::imageops::resize(
+                        let mut frame = image::imageops::resize(
                             &rgba,
                             LUT_DIM,
                             LUT_DIM,
                             image::imageops::FilterType::Nearest,
-                        )
-                    };
-
-                    for pixel in frame.pixels_mut() {
-                        if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                            pixel[3] = 0;
+                        );
+                        for pixel in frame.pixels_mut() {
+                            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                                pixel[3] = 0;
+                            }
                         }
+                        vec![frame.into_raw()]
+                    } else {
+                        let frame_count = (width / LUT_DIM).max(1);
+                        if width % LUT_DIM != 0 {
+                            log::warn!(
+                                "Particle LOD butterfly atlas '{}' width {} is not divisible by frame size {}; ignoring trailing pixels",
+                                path,
+                                width,
+                                LUT_DIM
+                            );
+                        }
+                        let mut frames = Vec::with_capacity(frame_count as usize);
+                        for frame_idx in 0..frame_count {
+                            let mut frame = image::imageops::crop_imm(
+                                &rgba,
+                                frame_idx * LUT_DIM,
+                                0,
+                                LUT_DIM,
+                                LUT_DIM,
+                            )
+                            .to_image();
+                            for pixel in frame.pixels_mut() {
+                                if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                                    pixel[3] = 0;
+                                }
+                            }
+                            frames.push(frame.into_raw());
+                        }
+                        frames
                     }
-
-                    frame.into_raw()
                 }
             }
             None => {
                 log::warn!("Particle LOD butterfly texture not configured; using blocky fallback");
-                white_layer.clone()
+                vec![white_layer.clone()]
             }
         };
-        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_BUTTERFLY, &butterfly_layer);
+        let lut_layer_count = 1 + butterfly_layers.len() as u32;
+
+        let sam_desc = Default::default();
+        let img_desc = ImageDesc {
+            extent: Extent3D::new(LUT_DIM, LUT_DIM, 1),
+            array_len: lut_layer_count,
+            format: vk::Format::R8G8B8A8_SRGB,
+            usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
+
+        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_LEAF, &white_layer);
+        for (frame_idx, frame_data) in butterfly_layers.iter().enumerate() {
+            Self::fill_particle_lut_layer(
+                vulkan_ctx,
+                &tex,
+                (frame_idx as u32) + 1,
+                frame_data.as_slice(),
+            );
+        }
 
         tex
     }

@@ -1547,10 +1547,23 @@ impl Tracer {
         &mut self,
         near_snapshots: &[ParticleSnapshot],
         far_snapshots: &[ParticleSnapshot],
+        frame_serial_idx: u32,
     ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
         let near_count = near_snapshots.len().min(capacity);
         let far_count = far_snapshots.len().min(capacity);
+        const BUTTERFLY_ANIM_FRAME_HOLD: u32 = 3;
+        let butterfly_frame_count = self
+            .resources
+            .particle_lod_tex_lut
+            .get_image()
+            .get_desc()
+            .array_len
+            .saturating_sub(1)
+            .max(1);
+        let butterfly_anim_frame =
+            (frame_serial_idx / BUTTERFLY_ANIM_FRAME_HOLD) % butterfly_frame_count;
+        let butterfly_tex_index = 1 + butterfly_anim_frame;
 
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(near_count);
@@ -1561,7 +1574,7 @@ impl Tracer {
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
                     crate::particles::ParticleRenderKind::Leaf => 0,
-                    crate::particles::ParticleRenderKind::Butterfly => 1,
+                    crate::particles::ParticleRenderKind::Butterfly => butterfly_tex_index,
                 },
             });
         }
@@ -1582,7 +1595,7 @@ impl Tracer {
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
                     crate::particles::ParticleRenderKind::Leaf => 0,
-                    crate::particles::ParticleRenderKind::Butterfly => 1,
+                    crate::particles::ParticleRenderKind::Butterfly => butterfly_tex_index,
                 },
             });
         }
