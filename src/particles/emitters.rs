@@ -224,8 +224,8 @@ impl Default for ButterflyEmitterDesc {
             height_offset_max: 0.07,
             lifetime_min: 8.0,
             lifetime_max: 14.0,
-            size_min: 0.006,
-            size_max: 0.012,
+            size_min: 0.018,
+            size_max: 0.018,
             drift_strength_min: 0.6,
             drift_strength_max: 1.4,
             drift_frequency_min: 1.5,
@@ -245,7 +245,7 @@ pub struct ButterflyEmitter {
     min_wander_radius: f32,
     pub height_offset: RangeInclusive<f32>,
     pub lifetime: RangeInclusive<f32>,
-    pub size: RangeInclusive<f32>,
+    pub size: f32,
     pub drift_strength: RangeInclusive<f32>,
     pub drift_frequency: RangeInclusive<f32>,
     pub steering_strength: f32,
@@ -273,7 +273,7 @@ impl ButterflyEmitter {
                 ..=desc.height_offset_max.max(desc.height_offset_min),
             lifetime: desc.lifetime_min.min(desc.lifetime_max)
                 ..=desc.lifetime_max.max(desc.lifetime_min),
-            size: desc.size_min.min(desc.size_max)..=desc.size_max.max(desc.size_min),
+            size: ((desc.size_min + desc.size_max) * 0.5).max(0.001),
             drift_strength: desc.drift_strength_min.min(desc.drift_strength_max)
                 ..=desc.drift_strength_max.max(desc.drift_strength_min),
             drift_frequency: desc.drift_frequency_min.min(desc.drift_frequency_max)
@@ -300,7 +300,7 @@ impl ButterflyEmitter {
             ..=desc.height_offset_max.max(desc.height_offset_min);
         self.lifetime =
             desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
-        self.size = desc.size_min.min(desc.size_max)..=desc.size_max.max(desc.size_min);
+        self.size = ((desc.size_min + desc.size_max) * 0.5).max(0.001);
         self.drift_strength = desc.drift_strength_min.min(desc.drift_strength_max)
             ..=desc.drift_strength_max.max(desc.drift_strength_min);
         self.drift_frequency = desc.drift_frequency_min.min(desc.drift_frequency_max)
@@ -381,7 +381,7 @@ impl ButterflyEmitter {
             position,
             velocity: drift_direction * drift_strength * 0.35,
             color: random_color(&mut self.rng, self.color_low, self.color_high),
-            size: random_in_range(&mut self.rng, &self.size),
+            size: self.size,
             lifetime: random_in_range(&mut self.rng, &self.lifetime),
             wind_factor: 0.0,
             gravity_factor: 0.0,
