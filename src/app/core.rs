@@ -2525,7 +2525,7 @@ impl App {
                                             .add(
                                                 egui::Slider::new(
                                                     &mut height_min,
-                                                    -1.0..=4.0,
+                                                    0.0..=4.0,
                                                 )
                                                 .text("Height Offset Min"),
                                             )
@@ -2534,7 +2534,7 @@ impl App {
                                             .add(
                                                 egui::Slider::new(
                                                     &mut height_max,
-                                                    -1.0..=4.0,
+                                                    0.0..=4.0,
                                                 )
                                                 .text("Height Offset Max"),
                                             )
