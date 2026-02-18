@@ -1409,9 +1409,8 @@ impl App {
                 invalid_sample_count += 1;
                 let query_pos = query_positions_xz[idx];
                 log::warn!(
-                    "Invalid butterfly terrain ray: origin=({:.4},{:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
+                    "Invalid butterfly terrain ray: origin_xz=({:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
                     query_pos.x,
-                    10.0f32,
                     query_pos.y,
                     0.0f32,
                     -1.0f32,
