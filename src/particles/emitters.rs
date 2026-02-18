@@ -397,6 +397,15 @@ impl ButterflyEmitter {
         }
     }
 
+    fn trim_active_to_count(&mut self, system: &mut ParticleSystem, target_count: usize) {
+        while self.active_handles.len() > target_count {
+            if let Some(handle) = self.active_handles.pop() {
+                let _ = system.despawn(handle);
+                self.smoothed_ground_height.remove(&handle);
+            }
+        }
+    }
+
     fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
         let radius_factor = self.rng.random_range(0.35..=1.0);
         let angle = self.rng.random_range(0.0..TAU);
@@ -494,13 +503,18 @@ impl ButterflyEmitter {
 impl ParticleEmitter for ButterflyEmitter {
     fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
         self.prune_handles(system);
-        if !self.enabled || self.butterfly_count == 0 {
+        let target_count = if self.enabled {
+            self.butterfly_count as usize
+        } else {
+            0
+        };
+        self.trim_active_to_count(system, target_count);
+        if target_count == 0 {
             return;
         }
 
         self.enforce_size_on_active(system);
 
-        let target_count = self.butterfly_count as usize;
         while self.active_handles.len() < target_count {
             if let Some(handle) = self.spawn_butterfly(system) {
                 self.active_handles.push(handle);
