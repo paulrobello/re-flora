@@ -58,6 +58,7 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 #include "../include/vsm.glsl"
 
 const float scaling_factor = 1.0 / 256.0;
+const uint SPRITE_FLIP_BIT = 0x80000000u;
 
 vec3 clamp_to_grid(vec3 position) {
     const float clamp_fac = scaling_factor;
@@ -100,5 +101,10 @@ void main() {
     vert_color          = vec4(lighting, 1.0);
 
     vert_uv = vec2(float(vert_offset_in_vox.x), 1.0 - float(vert_offset_in_vox.y));
-    vert_tex_index = in_instance_tex_index;
+    bool flip_sprite_x = (in_instance_tex_index & SPRITE_FLIP_BIT) != 0u;
+    if (flip_sprite_x) {
+        vert_uv.x = 1.0 - vert_uv.x;
+    }
+
+    vert_tex_index = in_instance_tex_index & ~SPRITE_FLIP_BIT;
 }

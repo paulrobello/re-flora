@@ -1573,6 +1573,30 @@ impl Tracer {
         let animation_step =
             (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
         let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
+        let camera_right_xz =
+            Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z).normalize_or_zero();
+        const SPRITE_FLIP_BIT: u32 = 1 << 31;
+        const MIN_FLIP_SPEED_SQ: f32 = 0.01 * 0.01;
+
+        let is_moving_right_relative_to_player = |velocity: Vec3| -> bool {
+            let velocity_xz = Vec2::new(velocity.x, velocity.z);
+            if velocity_xz.length_squared() <= MIN_FLIP_SPEED_SQ {
+                return false;
+            }
+            if camera_right_xz.length_squared() <= f32::EPSILON {
+                return false;
+            }
+
+            velocity_xz.normalize().dot(camera_right_xz) > 0.0
+        };
+        let pack_particle_tex_index = |tex_index: u32, flip_sprite_x: bool| -> u32 {
+            let base = tex_index & !SPRITE_FLIP_BIT;
+            if flip_sprite_x {
+                base | SPRITE_FLIP_BIT
+            } else {
+                base
+            }
+        };
 
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(near_count);
@@ -1586,7 +1610,10 @@ impl Tracer {
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
                     crate::particles::ParticleRenderKind::Leaf => 0,
-                    crate::particles::ParticleRenderKind::Butterfly => butterfly_tex_index,
+                    crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
+                        butterfly_tex_index,
+                        is_moving_right_relative_to_player(snap.velocity),
+                    ),
                 },
             });
         }
@@ -1610,7 +1637,10 @@ impl Tracer {
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
                     crate::particles::ParticleRenderKind::Leaf => 0,
-                    crate::particles::ParticleRenderKind::Butterfly => butterfly_tex_index,
+                    crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
+                        butterfly_tex_index,
+                        is_moving_right_relative_to_player(snap.velocity),
+                    ),
                 },
             });
         }

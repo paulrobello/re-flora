@@ -124,6 +124,7 @@ impl Default for ParticleForces {
 #[derive(Clone, Copy, Debug)]
 pub struct ParticleSnapshot {
     pub position: UVec3,
+    pub velocity: Vec3,
     pub color: Vec4,
     pub size: f32,
     pub kind: ParticleRenderKind,
@@ -413,6 +414,7 @@ impl ParticleSystem {
             };
             out.push(ParticleSnapshot {
                 position: Self::quantize_position(self.positions[*slot]),
+                velocity: self.velocities[*slot],
                 color: self.colors[*slot],
                 size: self.sizes[*slot],
                 kind,
