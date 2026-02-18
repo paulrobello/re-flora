@@ -1263,7 +1263,7 @@ impl App {
             dt,
             wind_time,
         );
-        self.constrain_butterflies_to_terrain();
+        self.constrain_butterflies_to_terrain(dt);
         Self::drive_emitters(
             &mut self.leaf_emitters,
             &mut self.particle_system,
@@ -1315,7 +1315,7 @@ impl App {
         self.particle_snapshots = near_snapshots;
     }
 
-    fn constrain_butterflies_to_terrain(&mut self) {
+    fn constrain_butterflies_to_terrain(&mut self, dt: f32) {
         let mut query_positions_xz = Vec::new();
         let mut query_targets: Vec<ButterflyQueryTarget> = Vec::new();
 
@@ -1354,11 +1354,12 @@ impl App {
         };
 
         for (target, ground_height) in query_targets.into_iter().zip(heights.into_iter()) {
-            if let Some(emitter) = self.butterfly_emitters.get(target.emitter_index) {
+            if let Some(emitter) = self.butterfly_emitters.get_mut(target.emitter_index) {
                 emitter.constrain_to_ground(
                     &mut self.particle_system,
                     target.handle,
                     ground_height,
+                    dt,
                 );
             }
         }

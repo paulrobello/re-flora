@@ -1,4 +1,4 @@
-use std::{f32::consts::TAU, ops::RangeInclusive};
+use std::{collections::HashMap, f32::consts::TAU, ops::RangeInclusive};
 
 use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
@@ -284,6 +284,7 @@ pub struct ButterflyEmitter {
     texture_variant_count: u32,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
+    smoothed_ground_height: HashMap<ParticleHandle, f32>,
 }
 
 impl ButterflyEmitter {
@@ -315,6 +316,7 @@ impl ButterflyEmitter {
             texture_variant_count: discover_butterfly_texture_variant_count(),
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
+            smoothed_ground_height: HashMap::new(),
         };
         emitter.clamp_height(center.y);
         emitter
@@ -352,6 +354,8 @@ impl ButterflyEmitter {
     fn prune_handles(&mut self, system: &ParticleSystem) {
         self.active_handles
             .retain(|handle| system.is_alive_handle(*handle));
+        self.smoothed_ground_height
+            .retain(|handle, _| system.is_alive_handle(*handle));
     }
 
     fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
@@ -448,19 +452,41 @@ impl ButterflyEmitter {
     }
 
     pub fn constrain_to_ground(
-        &self,
+        &mut self,
         system: &mut ParticleSystem,
         handle: ParticleHandle,
         ground_height: f32,
+        dt: f32,
     ) {
         let Some(mut pos) = system.position(handle) else {
             return;
         };
 
-        let min_height = ground_height + *self.height_offset.start();
-        let max_height = ground_height + *self.height_offset.end();
+        // Temporal smoothing prevents per-frame query jitter from snapping butterflies.
+        const GROUND_TRACKING_TAU_SEC: f32 = 0.22;
+        const MAX_GROUND_STEP_PER_SEC: f32 = 3.5;
+        const MAX_VERTICAL_CORRECTION_PER_SEC: f32 = 1.8;
 
-        pos.y = pos.y.clamp(min_height, max_height);
+        let clamped_dt = dt.max(1.0 / 240.0);
+        let tracked_ground = self
+            .smoothed_ground_height
+            .entry(handle)
+            .or_insert(ground_height);
+        let max_ground_step = MAX_GROUND_STEP_PER_SEC * clamped_dt;
+        let limited_measurement =
+            *tracked_ground + (ground_height - *tracked_ground).clamp(-max_ground_step, max_ground_step);
+        let alpha = 1.0 - (-clamped_dt / GROUND_TRACKING_TAU_SEC).exp();
+        *tracked_ground += (limited_measurement - *tracked_ground) * alpha;
+
+        let min_height = *tracked_ground + *self.height_offset.start();
+        let max_height = *tracked_ground + *self.height_offset.end();
+        let max_vertical_correction = MAX_VERTICAL_CORRECTION_PER_SEC * clamped_dt;
+
+        if pos.y < min_height {
+            pos.y = (pos.y + max_vertical_correction).min(min_height);
+        } else if pos.y > max_height {
+            pos.y = (pos.y - max_vertical_correction).max(max_height);
+        }
         let _ = system.set_position(handle, pos);
     }
 }
