@@ -278,6 +278,7 @@ pub struct App {
     leaf_emitter_desc: LeafEmitterDesc,
     butterfly_emitters: Vec<ButterflyEmitter>,
     butterfly_emitter_desc: ButterflyEmitterDesc,
+    butterflies_per_chunk: u32,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_snapshots_lod: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
@@ -304,6 +305,15 @@ const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 const MAX_FRAMES_IN_FLIGHT: usize = 1;
 
 impl App {
+    const DEFAULT_BUTTERFLIES_PER_CHUNK: u32 = 2;
+
+    fn butterfly_count_from_per_chunk(butterflies_per_chunk: u32) -> u32 {
+        CHUNK_DIM
+            .x
+            .saturating_mul(CHUNK_DIM.z)
+            .saturating_mul(butterflies_per_chunk)
+    }
+
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
         let window_state = Self::create_window_state(_event_loop);
@@ -437,7 +447,10 @@ impl App {
             ..LeafEmitterDesc::default()
         };
         let butterfly_emitters = Vec::new();
-        let butterfly_emitter_desc = ButterflyEmitterDesc::default();
+        let butterflies_per_chunk = Self::DEFAULT_BUTTERFLIES_PER_CHUNK;
+        let mut butterfly_emitter_desc = ButterflyEmitterDesc::default();
+        butterfly_emitter_desc.butterfly_count =
+            Self::butterfly_count_from_per_chunk(butterflies_per_chunk);
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_snapshots_lod = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
@@ -489,6 +502,7 @@ impl App {
             leaf_emitter_desc,
             butterfly_emitters,
             butterfly_emitter_desc,
+            butterflies_per_chunk,
             particle_snapshots,
             particle_snapshots_lod,
             particle_forces,
@@ -2484,20 +2498,22 @@ impl App {
                                             .changed();
                                         self.butterfly_emitter_desc.enabled = butterflies_enabled;
 
-                                        let mut butterfly_count =
-                                            self.butterfly_emitter_desc.butterfly_count;
+                                        let mut butterflies_per_chunk = self.butterflies_per_chunk;
                                         let count_changed = ui
                                             .add(
                                                 egui::Slider::new(
-                                                    &mut butterfly_count,
-                                                    0..=128,
+                                                    &mut butterflies_per_chunk,
+                                                    0..=10,
                                                 )
-                                                .text("Butterfly Count (map)"),
+                                                .text("Butterflies Per Chunk"),
                                             )
                                             .changed();
                                         if count_changed {
+                                            self.butterflies_per_chunk = butterflies_per_chunk;
                                             self.butterfly_emitter_desc.butterfly_count =
-                                                butterfly_count;
+                                                Self::butterfly_count_from_per_chunk(
+                                                    butterflies_per_chunk,
+                                                );
                                         }
                                         butterflies_changed |= count_changed;
 
