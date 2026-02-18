@@ -227,8 +227,6 @@ pub struct ButterflyEmitterDesc {
     pub wander_radius: f32,
     pub height_offset_min: f32,
     pub height_offset_max: f32,
-    pub lifetime_min: f32,
-    pub lifetime_max: f32,
     pub size: f32,
     pub drift_strength_min: f32,
     pub drift_strength_max: f32,
@@ -249,8 +247,6 @@ impl Default for ButterflyEmitterDesc {
             wander_radius: 2.5,
             height_offset_min: 0.06,
             height_offset_max: 0.14,
-            lifetime_min: 8.0,
-            lifetime_max: 14.0,
             size: 0.018,
             drift_strength_min: 0.6,
             drift_strength_max: 1.4,
@@ -270,7 +266,6 @@ pub struct ButterflyEmitter {
     pub wander_radius: f32,
     min_wander_radius: f32,
     pub height_offset: RangeInclusive<f32>,
-    pub lifetime: RangeInclusive<f32>,
     pub size: f32,
     pub drift_strength: RangeInclusive<f32>,
     pub drift_frequency: RangeInclusive<f32>,
@@ -299,8 +294,6 @@ impl ButterflyEmitter {
             min_wander_radius,
             height_offset: desc.height_offset_min.min(desc.height_offset_max)
                 ..=desc.height_offset_max.max(desc.height_offset_min),
-            lifetime: desc.lifetime_min.min(desc.lifetime_max)
-                ..=desc.lifetime_max.max(desc.lifetime_min),
             size: desc.size.max(0.001),
             drift_strength: desc.drift_strength_min.min(desc.drift_strength_max)
                 ..=desc.drift_strength_max.max(desc.drift_strength_min),
@@ -328,8 +321,6 @@ impl ButterflyEmitter {
         self.wander_radius = desc.wander_radius.max(self.min_wander_radius).max(0.1);
         self.height_offset = desc.height_offset_min.min(desc.height_offset_max)
             ..=desc.height_offset_max.max(desc.height_offset_min);
-        self.lifetime =
-            desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
         self.size = desc.size.max(0.001);
         self.drift_strength = desc.drift_strength_min.min(desc.drift_strength_max)
             ..=desc.drift_strength_max.max(desc.drift_strength_min);
@@ -429,7 +420,7 @@ impl ButterflyEmitter {
             velocity: drift_direction * drift_strength * 0.35,
             color: random_color(&mut self.rng, self.color_low, self.color_high),
             size: self.size,
-            lifetime: random_in_range(&mut self.rng, &self.lifetime),
+            lifetime: f32::MAX,
             wind_factor: 0.0,
             gravity_factor: 0.0,
             drift_direction,
@@ -437,8 +428,8 @@ impl ButterflyEmitter {
             drift_frequency,
             speed_noise_offset: self.rng.random_range(0.0..10_000.0),
             motion_mode: MotionMode::Free,
-            sink_on_lifetime: true,
-            sink_speed: self.rng.random_range(0.06..=0.12),
+            sink_on_lifetime: false,
+            sink_speed: 0.0,
             texture_variant: self.rng.random_range(0..self.texture_variant_count),
         };
 
@@ -482,8 +473,8 @@ impl ButterflyEmitter {
             .entry(handle)
             .or_insert(ground_height);
         let max_ground_step = MAX_GROUND_STEP_PER_SEC * clamped_dt;
-        let limited_measurement =
-            *tracked_ground + (ground_height - *tracked_ground).clamp(-max_ground_step, max_ground_step);
+        let limited_measurement = *tracked_ground
+            + (ground_height - *tracked_ground).clamp(-max_ground_step, max_ground_step);
         let alpha = 1.0 - (-clamped_dt / GROUND_TRACKING_TAU_SEC).exp();
         *tracked_ground += (limited_measurement - *tracked_ground) * alpha;
 

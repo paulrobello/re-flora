@@ -98,8 +98,6 @@ declare_gui_adjustables! {
         butterfly_wander_radius: crate::gui_adjustables::FloatParam = 2.5, float(0.5..=8.0), "Wander Radius",
         butterfly_height_offset_min: crate::gui_adjustables::FloatParam = 0.06, float(0.0..=4.0), "Height Offset Min",
         butterfly_height_offset_max: crate::gui_adjustables::FloatParam = 0.14, float(0.0..=4.0), "Height Offset Max",
-        butterfly_lifetime_min: crate::gui_adjustables::FloatParam = 8.0, float(1.0..=60.0), "Lifetime Min (s)",
-        butterfly_lifetime_max: crate::gui_adjustables::FloatParam = 14.0, float(1.0..=60.0), "Lifetime Max (s)",
         butterfly_size: crate::gui_adjustables::FloatParam = 0.018, float(0.001..=0.03), "Size",
         butterfly_drift_strength_min: crate::gui_adjustables::FloatParam = 0.6, float(0.0..=3.0), "Flutter Strength Min",
         butterfly_drift_strength_max: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=3.0), "Flutter Strength Max",

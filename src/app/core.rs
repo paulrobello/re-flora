@@ -320,15 +320,12 @@ impl App {
         )
     }
 
-    fn butterfly_desc_from_gui_adjustables(gui_adjustables: &GuiAdjustables) -> ButterflyEmitterDesc {
+    fn butterfly_desc_from_gui_adjustables(
+        gui_adjustables: &GuiAdjustables,
+    ) -> ButterflyEmitterDesc {
         let (height_offset_min, height_offset_max) = {
             let min = gui_adjustables.butterfly_height_offset_min.value;
             let max = gui_adjustables.butterfly_height_offset_max.value;
-            (min.min(max), min.max(max))
-        };
-        let (lifetime_min, lifetime_max) = {
-            let min = gui_adjustables.butterfly_lifetime_min.value;
-            let max = gui_adjustables.butterfly_lifetime_max.value;
             (min.min(max), min.max(max))
         };
         let (drift_strength_min, drift_strength_max) = {
@@ -350,8 +347,6 @@ impl App {
             wander_radius: gui_adjustables.butterfly_wander_radius.value,
             height_offset_min,
             height_offset_max,
-            lifetime_min,
-            lifetime_max,
             size: gui_adjustables.butterfly_size.value,
             drift_strength_min,
             drift_strength_max,
@@ -1410,40 +1405,37 @@ impl App {
         let map_size = CHUNK_DIM.as_vec3();
         let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
         let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        let mut bounce_count = 0usize;
-        let mut out_of_bounds_before_bounce = 0usize;
+        let mut border_despawn_count = 0usize;
+        let mut out_of_bounds_before_border = 0usize;
         for (idx, target) in query_targets.iter().enumerate() {
             let Some(mut pos) = self.particle_system.position(target.handle) else {
                 continue;
             };
 
-            let mut flip_x = false;
-            let mut flip_z = false;
+            let mut at_border = false;
             if pos.x < 0.0 || pos.x > map_size.x || pos.z < 0.0 || pos.z > map_size.z {
-                out_of_bounds_before_bounce += 1;
+                out_of_bounds_before_border += 1;
             }
             if pos.x <= BORDER_PADDING_INWARD {
                 pos.x = BORDER_PADDING_INWARD;
-                flip_x = true;
+                at_border = true;
             } else if pos.x >= max_x {
                 pos.x = max_x;
-                flip_x = true;
+                at_border = true;
             }
 
             if pos.z <= BORDER_PADDING_INWARD {
                 pos.z = BORDER_PADDING_INWARD;
-                flip_z = true;
+                at_border = true;
             } else if pos.z >= max_z {
                 pos.z = max_z;
-                flip_z = true;
+                at_border = true;
             }
 
-            if flip_x || flip_z {
-                bounce_count += 1;
+            if at_border {
+                border_despawn_count += 1;
                 let _ = self.particle_system.set_position(target.handle, pos);
-                let _ = self
-                    .particle_system
-                    .flip_planar_motion(target.handle, flip_x, flip_z);
+                let _ = self.particle_system.despawn(target.handle);
                 query_positions_xz[idx] = Vec2::new(pos.x, pos.z);
             }
         }
@@ -1509,11 +1501,11 @@ impl App {
                 },
             );
             log::warn!(
-                "Invalid butterfly terrain samples: {}/{}; bounces={} out_of_bounds_before_bounce={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
+                "Invalid butterfly terrain samples: {}/{}; border_despawns={} out_of_bounds_before_border={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
                 invalid_sample_count,
                 total_sample_count,
-                bounce_count,
-                out_of_bounds_before_bounce,
+                border_despawn_count,
+                out_of_bounds_before_border,
                 min_qx,
                 max_qx,
                 min_qz,
@@ -2603,35 +2595,6 @@ impl App {
                                             );
                                         }
                                         butterflies_changed |= height_changed;
-
-                                        let mut lifetime_changed = ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut self.gui_adjustables.butterfly_lifetime_min.value,
-                                                    1.0..=60.0,
-                                                )
-                                                .text("Lifetime Min (s)"),
-                                            )
-                                            .changed();
-                                        lifetime_changed |= ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut self.gui_adjustables.butterfly_lifetime_max.value,
-                                                    1.0..=60.0,
-                                                )
-                                                .text("Lifetime Max (s)"),
-                                            )
-                                            .changed();
-                                        if lifetime_changed
-                                            && self.gui_adjustables.butterfly_lifetime_min.value
-                                                > self.gui_adjustables.butterfly_lifetime_max.value
-                                        {
-                                            std::mem::swap(
-                                                &mut self.gui_adjustables.butterfly_lifetime_min.value,
-                                                &mut self.gui_adjustables.butterfly_lifetime_max.value,
-                                            );
-                                        }
-                                        butterflies_changed |= lifetime_changed;
 
                                         butterflies_changed |= ui
                                             .add(
