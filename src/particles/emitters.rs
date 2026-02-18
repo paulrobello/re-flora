@@ -201,8 +201,7 @@ pub struct ButterflyEmitterDesc {
     pub height_offset_max: f32,
     pub lifetime_min: f32,
     pub lifetime_max: f32,
-    pub size_min: f32,
-    pub size_max: f32,
+    pub size: f32,
     pub drift_strength_min: f32,
     pub drift_strength_max: f32,
     pub drift_frequency_min: f32,
@@ -224,8 +223,7 @@ impl Default for ButterflyEmitterDesc {
             height_offset_max: 0.07,
             lifetime_min: 8.0,
             lifetime_max: 14.0,
-            size_min: 0.018,
-            size_max: 0.018,
+            size: 0.018,
             drift_strength_min: 0.6,
             drift_strength_max: 1.4,
             drift_frequency_min: 1.5,
@@ -273,7 +271,7 @@ impl ButterflyEmitter {
                 ..=desc.height_offset_max.max(desc.height_offset_min),
             lifetime: desc.lifetime_min.min(desc.lifetime_max)
                 ..=desc.lifetime_max.max(desc.lifetime_min),
-            size: ((desc.size_min + desc.size_max) * 0.5).max(0.001),
+            size: desc.size.max(0.001),
             drift_strength: desc.drift_strength_min.min(desc.drift_strength_max)
                 ..=desc.drift_strength_max.max(desc.drift_strength_min),
             drift_frequency: desc.drift_frequency_min.min(desc.drift_frequency_max)
@@ -300,7 +298,7 @@ impl ButterflyEmitter {
             ..=desc.height_offset_max.max(desc.height_offset_min);
         self.lifetime =
             desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
-        self.size = ((desc.size_min + desc.size_max) * 0.5).max(0.001);
+        self.size = desc.size.max(0.001);
         self.drift_strength = desc.drift_strength_min.min(desc.drift_strength_max)
             ..=desc.drift_strength_max.max(desc.drift_strength_min);
         self.drift_frequency = desc.drift_frequency_min.min(desc.drift_frequency_max)

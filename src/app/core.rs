@@ -2485,32 +2485,15 @@ impl App {
                                         }
                                         butterflies_changed |= lifetime_changed;
 
-                                        let mut size_min = self.butterfly_emitter_desc.size_min;
-                                        let mut size_max = self.butterfly_emitter_desc.size_max;
-                                        let mut size_changed = ui
+                                        let mut size = self.butterfly_emitter_desc.size;
+                                        let size_changed = ui
                                             .add(
-                                                egui::Slider::new(
-                                                    &mut size_min,
-                                                    0.001..=0.02,
-                                                )
-                                                .text("Size Min"),
-                                            )
-                                            .changed();
-                                        size_changed |= ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut size_max,
-                                                    0.001..=0.02,
-                                                )
-                                                .text("Size Max"),
+                                                egui::Slider::new(&mut size, 0.001..=0.03)
+                                                    .text("Size"),
                                             )
                                             .changed();
                                         if size_changed {
-                                            if size_min > size_max {
-                                                std::mem::swap(&mut size_min, &mut size_max);
-                                            }
-                                            self.butterfly_emitter_desc.size_min = size_min;
-                                            self.butterfly_emitter_desc.size_max = size_max;
+                                            self.butterfly_emitter_desc.size = size;
                                         }
                                         butterflies_changed |= size_changed;
 
