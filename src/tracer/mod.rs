@@ -1547,12 +1547,12 @@ impl Tracer {
         &mut self,
         near_snapshots: &[ParticleSnapshot],
         far_snapshots: &[ParticleSnapshot],
-        frame_serial_idx: u32,
+        time_since_start_sec: f32,
     ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
         let near_count = near_snapshots.len().min(capacity);
         let far_count = far_snapshots.len().min(capacity);
-        const BUTTERFLY_ANIM_FRAME_HOLD: u32 = 3;
+        const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
         let butterfly_frame_count = self
             .resources
             .particle_lod_tex_lut
@@ -1561,8 +1561,9 @@ impl Tracer {
             .array_len
             .saturating_sub(1)
             .max(1);
-        let butterfly_anim_frame =
-            (frame_serial_idx / BUTTERFLY_ANIM_FRAME_HOLD) % butterfly_frame_count;
+        let animation_step =
+            (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
+        let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
         let butterfly_tex_index = 1 + butterfly_anim_frame;
 
         self.particle_instance_scratch.clear();

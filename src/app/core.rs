@@ -1282,7 +1282,7 @@ impl App {
         if let Err(err) = self.tracer.upload_particles_lod(
             &self.particle_snapshots,
             &self.particle_snapshots_lod,
-            self.time_info.total_frame_count() as u32,
+            self.time_info.time_since_start(),
         ) {
             log::error!("Failed to upload particles: {}", err);
         }
