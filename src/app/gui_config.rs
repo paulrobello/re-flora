@@ -75,12 +75,12 @@ declare_gui_adjustables! {
     },
 
     [FloraVariation] {
-        flora_instance_hue_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Hue Offset Max",
-        flora_instance_saturation_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Saturation Offset Max",
-        flora_instance_value_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Instance Value Offset Max",
-        flora_voxel_hue_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Hue Offset Max",
-        flora_voxel_saturation_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Saturation Offset Max",
-        flora_voxel_value_offset: crate::gui_adjustables::FloatParam = 0.01, float(0.0..=1.0), "Voxel Value Offset Max",
+        flora_instance_hue_offset: crate::gui_adjustables::FloatParam = 0.025, float(0.0..=1.0), "Instance Hue Offset Max",
+        flora_instance_saturation_offset: crate::gui_adjustables::FloatParam = 0.1, float(0.0..=1.0), "Instance Saturation Offset Max",
+        flora_instance_value_offset: crate::gui_adjustables::FloatParam = 0.05, float(0.0..=1.0), "Instance Value Offset Max",
+        flora_voxel_hue_offset: crate::gui_adjustables::FloatParam = 0.00, float(0.0..=1.0), "Voxel Hue Offset Max",
+        flora_voxel_saturation_offset: crate::gui_adjustables::FloatParam = 0.00, float(0.0..=1.0), "Voxel Saturation Offset Max",
+        flora_voxel_value_offset: crate::gui_adjustables::FloatParam = 0.00, float(0.0..=1.0), "Voxel Value Offset Max",
     },
 
     [Leaves] {
