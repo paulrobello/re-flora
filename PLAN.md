@@ -3,7 +3,7 @@
 ## Short answer
 
 Your instinct is correct: `build tree` and `build fence` are high-level gameplay behaviors, not voxel-engine primitives.
-The voxel layer should accept generic shape/material edit commands (for example: "stamp round cone", "fill box", "union/intersect/subtract"), while tree/fence systems compile into those commands.
+The voxel layer should accept generic shape/material edit commands (for example: "stamp round cone", "union/intersect/subtract"), while tree/fence systems compile into those commands.
 
 ## Current architecture (what exists today)
 
@@ -43,7 +43,6 @@ This makes the command model conceptually inconsistent and makes future primitiv
 Create an engine-level enum, e.g.:
 
 - `VoxelEdit::StampRoundCones { cones, voxel_type }`
-- `VoxelEdit::FillAabb { offset, dim, voxel_type }`
 - (optional next) `VoxelEdit::StampCuboids { cuboids, voxel_type }`
 
 And keep build commands separate:
@@ -124,11 +123,6 @@ pub enum VoxelEdit {
     StampRoundCones {
         bvh_nodes: Vec<BvhNode>,
         cones: Vec<RoundCone>,
-        voxel_type: u32,
-    },
-    FillAabb {
-        offset: UVec3,
-        dim: UVec3,
         voxel_type: u32,
     },
 }
