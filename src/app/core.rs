@@ -847,7 +847,7 @@ impl App {
             prev_bound: Default::default(),
             tree_records: HashMap::new(),
             config_panel_visible: false,
-            is_fly_mode: true,
+            is_fly_mode: false,
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
