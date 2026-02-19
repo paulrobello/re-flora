@@ -203,6 +203,33 @@ impl TreeAddOptions {
 }
 
 #[derive(Clone, Debug)]
+struct TreePlacementEdit {
+    tree_desc: TreeDesc,
+    placement: TreePlacement,
+    options: TreeAddOptions,
+}
+
+#[derive(Clone, Debug)]
+enum WorldEdit {
+    PlaceTree(TreePlacementEdit),
+}
+
+#[derive(Clone, Debug, Default)]
+struct WorldEditBatch {
+    edits: Vec<WorldEdit>,
+}
+
+impl WorldEditBatch {
+    fn single(edit: WorldEdit) -> Self {
+        Self { edits: vec![edit] }
+    }
+
+    fn push(&mut self, edit: WorldEdit) {
+        self.edits.push(edit);
+    }
+}
+
+#[derive(Clone, Debug)]
 struct TreeRecord {
     position: Vec3,
     bound: UAabb3,
@@ -765,18 +792,20 @@ impl App {
 
         let mut rng = rand::rng();
 
-        // plant all trees with known heights and unique IDs
+        // plant all trees with known heights and unique IDs through a single batch entrypoint
+        let mut edit_batch = WorldEditBatch::default();
         for tree_pos in tree_positions_3d.iter() {
             let mut tree_desc = self.debug_tree_desc.clone();
             tree_desc.seed = rng.random_range(1..10000);
 
             self.apply_tree_variations(&mut tree_desc, &mut rng);
-            self.add_tree(
+            edit_batch.push(WorldEdit::PlaceTree(TreePlacementEdit {
                 tree_desc,
-                TreePlacement::World(*tree_pos),
-                TreeAddOptions::default().with_new_id(),
-            )?;
+                placement: TreePlacement::World(*tree_pos),
+                options: TreeAddOptions::default().with_new_id(),
+            }));
         }
+        self.apply_world_edit_batch(edit_batch)?;
 
         Ok(())
     }
@@ -1086,6 +1115,31 @@ impl App {
         placement: TreePlacement,
         options: TreeAddOptions,
     ) -> Result<()> {
+        self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::PlaceTree(
+            TreePlacementEdit {
+                tree_desc,
+                placement,
+                options,
+            },
+        )))
+    }
+
+    fn apply_world_edit_batch(&mut self, batch: WorldEditBatch) -> Result<()> {
+        for edit in batch.edits {
+            match edit {
+                WorldEdit::PlaceTree(tree_edit) => self.apply_place_tree_edit(tree_edit)?,
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_place_tree_edit(&mut self, edit: TreePlacementEdit) -> Result<()> {
+        let TreePlacementEdit {
+            tree_desc,
+            placement,
+            options,
+        } = edit;
+
         if options.clean_before_add {
             self.clean_up_prev_tree()?;
         }

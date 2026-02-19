@@ -1574,7 +1574,8 @@ impl Tracer {
             (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
         let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
         let camera_right_xz =
-            Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z).normalize_or_zero();
+            Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
+                .normalize_or_zero();
         const SPRITE_FLIP_BIT: u32 = 1 << 31;
         const MIN_FLIP_SPEED_SQ: f32 = 0.01 * 0.01;
 
@@ -1790,13 +1791,7 @@ impl Tracer {
         let samples = self.query_terrain_heights_batch_with_validity(positions)?;
         Ok(samples
             .into_iter()
-            .map(|sample| {
-                if sample.is_valid {
-                    sample.height
-                } else {
-                    0.0
-                }
-            })
+            .map(|sample| if sample.is_valid { sample.height } else { 0.0 })
             .collect())
     }
 
