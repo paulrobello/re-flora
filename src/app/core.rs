@@ -210,8 +210,16 @@ struct TreePlacementEdit {
 }
 
 #[derive(Clone, Debug)]
+struct ClearVoxelRegionEdit {
+    offset: UVec3,
+    dim: UVec3,
+}
+
+#[derive(Clone, Debug)]
 enum WorldEdit {
     PlaceTree(TreePlacementEdit),
+    ClearVoxelRegion(ClearVoxelRegionEdit),
+    RebuildMesh(UAabb3),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -763,10 +771,13 @@ impl App {
         // remove the standalone debug tree so only procedural forest remains
         self.remove_tree(self.single_tree_id)?;
 
-        self.plain_builder.chunk_init(
-            self.prev_bound.min(),
-            self.prev_bound.max() - self.prev_bound.min(),
-        )?;
+        let prev_bound = self.prev_bound;
+        self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::ClearVoxelRegion(
+            ClearVoxelRegionEdit {
+                offset: prev_bound.min(),
+                dim: prev_bound.max() - prev_bound.min(),
+            },
+        )))?;
 
         let world_size = CHUNK_DIM * VOXEL_DIM_PER_CHUNK;
         let map_padding = 50.0;
@@ -1003,28 +1014,23 @@ impl App {
         contree_builder: &mut ContreeBuilder,
         scene_accel_builder: &mut SceneAccelBuilder,
     ) -> Result<()> {
-        plain_builder.chunk_init(UVec3::new(0, 0, 0), VOXEL_DIM_PER_CHUNK * CHUNK_DIM)?;
-
-        let chunk_pos_to_build_min = UVec3::new(0, 0, 0);
-        let chunk_pos_to_build_max = CHUNK_DIM;
-
-        for x in chunk_pos_to_build_min.x..chunk_pos_to_build_max.x {
-            for y in chunk_pos_to_build_min.y..chunk_pos_to_build_max.y {
-                for z in chunk_pos_to_build_min.z..chunk_pos_to_build_max.z {
-                    let chunk_idx = UVec3::new(x, y, z);
-                    let this_bound = UAabb3::new(
-                        chunk_idx * VOXEL_DIM_PER_CHUNK,
-                        (chunk_idx + UVec3::ONE) * VOXEL_DIM_PER_CHUNK - UVec3::ONE,
-                    );
-                    Self::mesh_generate(
-                        surface_builder,
-                        contree_builder,
-                        scene_accel_builder,
-                        this_bound,
-                    )?;
-                }
-            }
-        }
+        let world_dim = VOXEL_DIM_PER_CHUNK * CHUNK_DIM;
+        let world_bound = UAabb3::new(UVec3::ZERO, world_dim - UVec3::ONE);
+        Self::apply_world_edit_batch_to_builders(
+            plain_builder,
+            surface_builder,
+            contree_builder,
+            scene_accel_builder,
+            WorldEditBatch {
+                edits: vec![
+                    WorldEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
+                        offset: UVec3::ZERO,
+                        dim: world_dim,
+                    }),
+                    WorldEdit::RebuildMesh(world_bound),
+                ],
+            },
+        )?;
 
         BENCH.lock().unwrap().summary();
         Ok(())
@@ -1093,18 +1099,17 @@ impl App {
         // don't leak looping sounds when rebuilding the tree geometry.
         self.tree_audio_manager.remove_all();
 
-        self.plain_builder.chunk_init(
-            self.prev_bound.min(),
-            self.prev_bound.max() - self.prev_bound.min(),
-        )?;
-
-        // force mesh regeneration after cleanup to ensure terrain is properly accessible for querying
-        Self::mesh_generate(
-            &mut self.surface_builder,
-            &mut self.contree_builder,
-            &mut self.scene_accel_builder,
-            self.prev_bound,
-        )?;
+        // Clear prior tree voxels and rebuild affected data through the shared world-edit pipeline.
+        let prev_bound = self.prev_bound;
+        self.apply_world_edit_batch(WorldEditBatch {
+            edits: vec![
+                WorldEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
+                    offset: prev_bound.min(),
+                    dim: prev_bound.max() - prev_bound.min(),
+                }),
+                WorldEdit::RebuildMesh(prev_bound),
+            ],
+        })?;
 
         Ok(())
     }
@@ -1128,6 +1133,51 @@ impl App {
         for edit in batch.edits {
             match edit {
                 WorldEdit::PlaceTree(tree_edit) => self.apply_place_tree_edit(tree_edit)?,
+                WorldEdit::ClearVoxelRegion(clear_edit) => {
+                    self.apply_clear_voxel_region_edit(clear_edit)?
+                }
+                WorldEdit::RebuildMesh(bound) => self.apply_rebuild_mesh_edit(bound)?,
+            }
+        }
+        Ok(())
+    }
+
+    fn apply_clear_voxel_region_edit(&mut self, edit: ClearVoxelRegionEdit) -> Result<()> {
+        self.plain_builder.chunk_init(edit.offset, edit.dim)
+    }
+
+    fn apply_rebuild_mesh_edit(&mut self, bound: UAabb3) -> Result<()> {
+        Self::mesh_generate(
+            &mut self.surface_builder,
+            &mut self.contree_builder,
+            &mut self.scene_accel_builder,
+            bound,
+        )
+    }
+
+    fn apply_world_edit_batch_to_builders(
+        plain_builder: &mut PlainBuilder,
+        surface_builder: &mut SurfaceBuilder,
+        contree_builder: &mut ContreeBuilder,
+        scene_accel_builder: &mut SceneAccelBuilder,
+        batch: WorldEditBatch,
+    ) -> Result<()> {
+        for edit in batch.edits {
+            match edit {
+                WorldEdit::ClearVoxelRegion(clear_edit) => {
+                    plain_builder.chunk_init(clear_edit.offset, clear_edit.dim)?
+                }
+                WorldEdit::RebuildMesh(bound) => Self::mesh_generate(
+                    surface_builder,
+                    contree_builder,
+                    scene_accel_builder,
+                    bound,
+                )?,
+                WorldEdit::PlaceTree(_) => {
+                    return Err(anyhow::anyhow!(
+                        "PlaceTree edit requires app-level systems; use apply_world_edit_batch on App"
+                    ));
+                }
             }
         }
         Ok(())
@@ -2054,21 +2104,27 @@ impl App {
 // debug terrain height when X or Z position changes
                                             if x_changed || z_changed {
 // clean up existing tree chunks before querying to avoid blocking the ray
-                                                if let Err(e) = self.plain_builder.chunk_init(
-                                                    self.prev_bound.min(),
-                                                    self.prev_bound.max() - self.prev_bound.min(),
+                                                let prev_bound = self.prev_bound;
+                                                if let Err(e) = Self::apply_world_edit_batch_to_builders(
+                                                    &mut self.plain_builder,
+                                                    &mut self.surface_builder,
+                                                    &mut self.contree_builder,
+                                                    &mut self.scene_accel_builder,
+                                                    WorldEditBatch {
+                                                        edits: vec![
+                                                            WorldEdit::ClearVoxelRegion(
+                                                                ClearVoxelRegionEdit {
+                                                                    offset: prev_bound.min(),
+                                                                    dim: prev_bound.max()
+                                                                        - prev_bound.min(),
+                                                                },
+                                                            ),
+                                                            WorldEdit::RebuildMesh(prev_bound),
+                                                        ],
+                                                    },
                                                 ) {
                                                     log::error!("Failed to clean up chunks for terrain query: {}", e);
                                                 } else {
-// force mesh regeneration after cleanup
-                                                    if let Err(e) = Self::mesh_generate(
-                                                        &mut self.surface_builder,
-                                                        &mut self.contree_builder,
-                                                        &mut self.scene_accel_builder,
-                                                        self.prev_bound,
-                                                    ) {
-                                                        log::error!("Failed to regenerate mesh after cleanup: {}", e);
-                                                    } else {
 // now query terrain height with clean terrain
                                                         match self.tracer.query_terrain_height(glam::Vec2::new(
                                                             self.debug_tree_pos.x,
@@ -2084,7 +2140,6 @@ impl App {
                                                             }
                                                         }
                                                     }
-                                                }
                                             }
 
                                             ui.separator();
