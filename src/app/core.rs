@@ -235,60 +235,38 @@ enum VoxelEdit {
     ClearVoxelRegion(ClearVoxelRegionEdit),
 }
 
-#[derive(Clone, Debug, Default)]
-struct VoxelEditBatch {
-    edits: Vec<VoxelEdit>,
-}
-
-impl VoxelEditBatch {
-    fn push(&mut self, edit: VoxelEdit) {
-        self.edits.push(edit);
-    }
-}
-
 #[derive(Clone, Debug)]
 enum BuildEdit {
     RebuildMesh(UAabb3),
 }
 
 #[derive(Clone, Debug, Default)]
-struct BuildEditBatch {
-    edits: Vec<BuildEdit>,
+struct WorldEditPlan {
+    voxel_edits: Vec<VoxelEdit>,
+    build_edits: Vec<BuildEdit>,
 }
 
-impl BuildEditBatch {
-    fn push(&mut self, edit: BuildEdit) {
-        self.edits.push(edit);
+impl WorldEditPlan {
+    fn with_voxel(edit: VoxelEdit) -> Self {
+        Self {
+            voxel_edits: vec![edit],
+            build_edits: vec![],
+        }
     }
-}
 
-#[derive(Clone, Debug)]
-enum WorldEdit {
-    Voxel(VoxelEdit),
-    Build(BuildEdit),
-}
-
-#[derive(Clone, Debug, Default)]
-struct WorldEditBatch {
-    edits: Vec<WorldEdit>,
-}
-
-impl WorldEditBatch {
-    fn single(edit: WorldEdit) -> Self {
-        Self { edits: vec![edit] }
+    fn with_build(edit: BuildEdit) -> Self {
+        Self {
+            voxel_edits: vec![],
+            build_edits: vec![edit],
+        }
     }
-}
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum WorldBuildStage {
-    VoxelWrite,
-    AccelBuild,
-}
-
-#[derive(Clone, Debug, Default)]
-struct ScheduledWorldEdits {
-    voxel_write: VoxelEditBatch,
-    accel_build: BuildEditBatch,
+    fn with_voxel_and_build(voxel_edit: VoxelEdit, build_edit: BuildEdit) -> Self {
+        Self {
+            voxel_edits: vec![voxel_edit],
+            build_edits: vec![build_edit],
+        }
+    }
 }
 
 struct CompiledFencePlacement {
@@ -1006,11 +984,11 @@ impl App {
         self.remove_tree(self.single_tree_id)?;
 
         let prev_bound = self.prev_bound;
-        self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::Voxel(
-            VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
+        self.execute_edit_plan(WorldEditPlan::with_voxel(VoxelEdit::ClearVoxelRegion(
+            ClearVoxelRegionEdit {
                 offset: prev_bound.min(),
                 dim: prev_bound.max() - prev_bound.min(),
-            }),
+            },
         )))?;
 
         let world_size = CHUNK_DIM * VOXEL_DIM_PER_CHUNK;
@@ -1247,19 +1225,17 @@ impl App {
     ) -> Result<()> {
         let world_dim = VOXEL_DIM_PER_CHUNK * CHUNK_DIM;
         let world_bound = UAabb3::new(UVec3::ZERO, world_dim - UVec3::ONE);
-        Self::apply_world_edit_batch_to_builders(
+        Self::execute_edit_plan_on_builders(
             plain_builder,
             surface_builder,
             contree_builder,
             scene_accel_builder,
-            WorldEditBatch {
-                edits: vec![
-                    WorldEdit::Voxel(VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
-                        offset: UVec3::ZERO,
-                        dim: world_dim,
-                    })),
-                    WorldEdit::Build(BuildEdit::RebuildMesh(world_bound)),
-                ],
+            WorldEditPlan {
+                voxel_edits: vec![VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
+                    offset: UVec3::ZERO,
+                    dim: world_dim,
+                })],
+                build_edits: vec![BuildEdit::RebuildMesh(world_bound)],
             },
         )?;
 
@@ -1332,14 +1308,12 @@ impl App {
 
         // Clear prior tree voxels and rebuild affected data through the shared world-edit pipeline.
         let prev_bound = self.prev_bound;
-        self.apply_world_edit_batch(WorldEditBatch {
-            edits: vec![
-                WorldEdit::Voxel(VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
-                    offset: prev_bound.min(),
-                    dim: prev_bound.max() - prev_bound.min(),
-                })),
-                WorldEdit::Build(BuildEdit::RebuildMesh(prev_bound)),
-            ],
+        self.execute_edit_plan(WorldEditPlan {
+            voxel_edits: vec![VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
+                offset: prev_bound.min(),
+                dim: prev_bound.max() - prev_bound.min(),
+            })],
+            build_edits: vec![BuildEdit::RebuildMesh(prev_bound)],
         })?;
 
         Ok(())
@@ -1407,64 +1381,35 @@ impl App {
         Ok(())
     }
 
-    fn apply_world_edit_batch(&mut self, batch: WorldEditBatch) -> Result<()> {
-        let scheduled = Self::schedule_world_edit_batch(batch);
-
-        Self::execute_low_level_stages(self, scheduled.voxel_write, scheduled.accel_build)
+    fn execute_edit_plan(&mut self, plan: WorldEditPlan) -> Result<()> {
+        Self::execute_edit_plan_on_backend(self, plan)
     }
 
-    fn apply_world_edit_batch_to_builders(
+    fn execute_edit_plan_on_builders(
         plain_builder: &mut PlainBuilder,
         surface_builder: &mut SurfaceBuilder,
         contree_builder: &mut ContreeBuilder,
         scene_accel_builder: &mut SceneAccelBuilder,
-        batch: WorldEditBatch,
+        plan: WorldEditPlan,
     ) -> Result<()> {
-        let scheduled = Self::schedule_world_edit_batch(batch);
         let mut backend = BuilderOnlyWorldBackend {
             plain_builder,
             surface_builder,
             contree_builder,
             scene_accel_builder,
         };
-        Self::execute_low_level_stages(&mut backend, scheduled.voxel_write, scheduled.accel_build)
+        Self::execute_edit_plan_on_backend(&mut backend, plan)
     }
 
-    fn stage_of_edit(edit: &WorldEdit) -> WorldBuildStage {
-        match edit {
-            WorldEdit::Voxel(_) => WorldBuildStage::VoxelWrite,
-            WorldEdit::Build(_) => WorldBuildStage::AccelBuild,
-        }
-    }
-
-    fn schedule_world_edit_batch(batch: WorldEditBatch) -> ScheduledWorldEdits {
-        let mut scheduled = ScheduledWorldEdits::default();
-
-        for edit in batch.edits {
-            match (Self::stage_of_edit(&edit), edit) {
-                (WorldBuildStage::VoxelWrite, WorldEdit::Voxel(edit)) => {
-                    scheduled.voxel_write.push(edit);
-                }
-                (WorldBuildStage::AccelBuild, WorldEdit::Build(edit)) => {
-                    scheduled.accel_build.push(edit);
-                }
-                _ => unreachable!("Edit-to-stage mapping mismatch"),
-            }
-        }
-
-        scheduled
-    }
-
-    fn execute_low_level_stages<B: WorldBuildBackend>(
+    fn execute_edit_plan_on_backend<B: WorldBuildBackend>(
         backend: &mut B,
-        voxel_write: VoxelEditBatch,
-        accel_build: BuildEditBatch,
+        plan: WorldEditPlan,
     ) -> Result<()> {
-        for edit in voxel_write.edits {
+        for edit in plan.voxel_edits {
             backend.apply_voxel_edit(edit)?;
         }
 
-        for edit in accel_build.edits {
+        for edit in plan.build_edits {
             backend.apply_build_edit(edit)?;
         }
 
@@ -1476,8 +1421,10 @@ impl App {
         let compiled = FencePlacementService::compile(edit, terrain_height);
 
         // Fence geometry is trunk voxels only; no leaf instance registration.
-        self.apply_voxel_edit(compiled.voxel_edit)?;
-        self.apply_build_edit(BuildEdit::RebuildMesh(compiled.rebuild_bound))
+        self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
+            compiled.voxel_edit,
+            BuildEdit::RebuildMesh(compiled.rebuild_bound),
+        ))
     }
 
     fn apply_tree_placement(&mut self, edit: TreePlacementEdit) -> Result<()> {
@@ -1511,13 +1458,15 @@ impl App {
 
         let compiled = TreePlacementService::compile(tree_desc, tree_pos, self.prev_bound);
 
-        self.apply_voxel_edit(compiled.trunk_voxel_edit)?;
+        self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.trunk_voxel_edit))?;
         self.tracer.add_tree_leaves(
             &mut self.surface_builder.resources,
             tree_id,
             &compiled.quantized_leaf_positions,
         )?;
-        self.apply_build_edit(BuildEdit::RebuildMesh(compiled.rebuild_bound))?;
+        self.execute_edit_plan(WorldEditPlan::with_build(BuildEdit::RebuildMesh(
+            compiled.rebuild_bound,
+        )))?;
 
         self.prev_bound = compiled.rebuild_bound;
 
@@ -2364,26 +2313,22 @@ impl App {
                                             if x_changed || z_changed {
 // clean up existing tree chunks before querying to avoid blocking the ray
                                                 let prev_bound = self.prev_bound;
-                                                if let Err(e) = Self::apply_world_edit_batch_to_builders(
+                                                if let Err(e) = Self::execute_edit_plan_on_builders(
                                                     &mut self.plain_builder,
                                                     &mut self.surface_builder,
                                                     &mut self.contree_builder,
                                                     &mut self.scene_accel_builder,
-                                                    WorldEditBatch {
-                                                        edits: vec![
-                                                            WorldEdit::Voxel(
-                                                                VoxelEdit::ClearVoxelRegion(
-                                                                    ClearVoxelRegionEdit {
-                                                                        offset: prev_bound.min(),
-                                                                        dim: prev_bound.max()
-                                                                            - prev_bound.min(),
-                                                                    },
-                                                                ),
-                                                            ),
-                                                            WorldEdit::Build(BuildEdit::RebuildMesh(
-                                                                prev_bound,
-                                                            )),
-                                                        ],
+                                                    WorldEditPlan {
+                                                        voxel_edits: vec![VoxelEdit::ClearVoxelRegion(
+                                                            ClearVoxelRegionEdit {
+                                                                offset: prev_bound.min(),
+                                                                dim: prev_bound.max()
+                                                                    - prev_bound.min(),
+                                                            },
+                                                        )],
+                                                        build_edits: vec![BuildEdit::RebuildMesh(
+                                                            prev_bound,
+                                                        )],
                                                     },
                                                 ) {
                                                     log::error!("Failed to clean up chunks for terrain query: {}", e);
