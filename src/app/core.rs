@@ -213,7 +213,7 @@ struct TreePlacementEdit {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct FencePlacementEdit {
+struct FencePostPlacementEdit {
     horizontal: Vec2,
     height: f32,
     half_width: f32,
@@ -288,10 +288,10 @@ struct CompiledFencePlacement {
     rebuild_bound: UAabb3,
 }
 
-struct FencePlacementService;
+struct FencePostPlacementService;
 
-impl FencePlacementService {
-    fn compile(edit: FencePlacementEdit, terrain_height: f32) -> CompiledFencePlacement {
+impl FencePostPlacementService {
+    fn compile(edit: FencePostPlacementEdit, terrain_height: f32) -> CompiledFencePlacement {
         let downward_offset = edit.height * 0.4;
         let mut base = Vec3::new(edit.horizontal.x, terrain_height, edit.horizontal.y) * 256.0;
         base.y -= downward_offset;
@@ -875,7 +875,7 @@ impl App {
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
             TreeAddOptions::default(),
         )?;
-        app.plant_map_region_fence_columns()?;
+        app.plant_map_region_fence_posts()?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
@@ -1400,14 +1400,14 @@ impl App {
         })
     }
 
-    fn plant_map_region_fence_columns(&mut self) -> Result<()> {
+    fn plant_map_region_fence_posts(&mut self) -> Result<()> {
         const BASE_FENCE_HEIGHT: f32 = 60.0;
         const FENCE_HEIGHT_SCALE: f32 = 0.45;
         const FENCE_HEIGHT: f32 = BASE_FENCE_HEIGHT * FENCE_HEIGHT_SCALE;
         const BASE_FENCE_SIZE: f32 = 10.0;
         const FENCE_SIZE_SCALE: f32 = 0.3;
-        const FENCE_HALF_WIDTH: f32 = BASE_FENCE_SIZE * FENCE_SIZE_SCALE * 0.5;
-        const FENCE_HALF_DEPTH: f32 = FENCE_HALF_WIDTH;
+        const POST_HALF_WIDTH: f32 = BASE_FENCE_SIZE * FENCE_SIZE_SCALE * 0.5;
+        const POST_HALF_DEPTH: f32 = POST_HALF_WIDTH;
         const BORDER_PADDING: f32 = 0.2;
         const EDGE_INTERIOR_COLUMNS: u32 = 30;
 
@@ -1417,34 +1417,45 @@ impl App {
         let min_z = BORDER_PADDING;
         let max_z = map_size.z - BORDER_PADDING;
 
-        let mut positions = Vec::with_capacity(4 + (EDGE_INTERIOR_COLUMNS as usize) * 4);
+        let edge_segments = EDGE_INTERIOR_COLUMNS + 1;
+        let mut post_positions =
+            Vec::with_capacity((4 * EDGE_INTERIOR_COLUMNS + 4) as usize);
 
-        // Four corner columns.
-        positions.push(Vec2::new(min_x, min_z));
-        positions.push(Vec2::new(max_x, min_z));
-        positions.push(Vec2::new(max_x, max_z));
-        positions.push(Vec2::new(min_x, max_z));
-
-        // Ten interior columns per edge.
-        let edge_step_count = (EDGE_INTERIOR_COLUMNS + 1) as f32;
-        for i in 1..=EDGE_INTERIOR_COLUMNS {
-            let t = i as f32 / edge_step_count;
+        // Bottom edge: left to right, include both corners.
+        for i in 0..=edge_segments {
+            let t = i as f32 / edge_segments as f32;
             let x = min_x + (max_x - min_x) * t;
-            let z = min_z + (max_z - min_z) * t;
-
-            positions.push(Vec2::new(x, min_z)); // bottom edge
-            positions.push(Vec2::new(x, max_z)); // top edge
-            positions.push(Vec2::new(min_x, z)); // left edge
-            positions.push(Vec2::new(max_x, z)); // right edge
+            post_positions.push(Vec2::new(x, min_z));
         }
 
-        // Keep each placement as its own atomic fence placement.
-        for horizontal in positions {
-            self.apply_fence_placement(FencePlacementEdit {
+        // Right edge: bottom to top, exclude bottom-right corner.
+        for i in 1..=edge_segments {
+            let t = i as f32 / edge_segments as f32;
+            let z = min_z + (max_z - min_z) * t;
+            post_positions.push(Vec2::new(max_x, z));
+        }
+
+        // Top edge: right to left, exclude top-right corner.
+        for i in 1..=edge_segments {
+            let t = i as f32 / edge_segments as f32;
+            let x = max_x - (max_x - min_x) * t;
+            post_positions.push(Vec2::new(x, max_z));
+        }
+
+        // Left edge: top to bottom, exclude both corners.
+        for i in 1..edge_segments {
+            let t = i as f32 / edge_segments as f32;
+            let z = max_z - (max_z - min_z) * t;
+            post_positions.push(Vec2::new(min_x, z));
+        }
+
+        // Place all fence posts.
+        for horizontal in post_positions {
+            self.apply_fence_post_placement(FencePostPlacementEdit {
                 horizontal,
                 height: FENCE_HEIGHT,
-                half_width: FENCE_HALF_WIDTH,
-                half_depth: FENCE_HALF_DEPTH,
+                half_width: POST_HALF_WIDTH,
+                half_depth: POST_HALF_DEPTH,
             })?;
         }
 
@@ -1486,9 +1497,9 @@ impl App {
         Ok(())
     }
 
-    fn apply_fence_placement(&mut self, edit: FencePlacementEdit) -> Result<()> {
+    fn apply_fence_post_placement(&mut self, edit: FencePostPlacementEdit) -> Result<()> {
         let terrain_height = self.tracer.query_terrain_height(edit.horizontal)?;
-        let compiled = FencePlacementService::compile(edit, terrain_height);
+        let compiled = FencePostPlacementService::compile(edit, terrain_height);
 
         // Fence geometry is trunk voxels only; no leaf instance registration.
         self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
