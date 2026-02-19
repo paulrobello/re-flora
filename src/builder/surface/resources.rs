@@ -9,6 +9,8 @@ use glam::{UVec3, Vec3};
 use resource_container_derive::ResourceContainer;
 use std::collections::HashMap;
 
+const MAX_FLORA_INSTANCES_PER_SPECIES: u64 = 20_000;
+
 // TODO: use some reflection from shader side so i don't need to manually define this again
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -69,7 +71,7 @@ impl FloraInstanceResources {
             resources.push(InstanceResource::new(
                 device.clone(),
                 allocator.clone(),
-                10000,
+                MAX_FLORA_INSTANCES_PER_SPECIES,
             ));
         }
         Self {
