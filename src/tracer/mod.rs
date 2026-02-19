@@ -395,7 +395,6 @@ impl Tracer {
             tracer_resources,
         );
         update_graphics_fn(&self.graphics_pipelines.particle_ppl, tracer_resources);
-        update_graphics_fn(&self.graphics_pipelines.particle_lod_ppl, tracer_resources);
     }
 
     // create a lower resolution texture for rendering, for better performance,
@@ -979,7 +978,7 @@ impl Tracer {
 
     fn record_particle_passes(&self, cmdbuf: &CommandBuffer) {
         let particle_resources = &self.particle_resources;
-        if particle_resources.instance_count == 0 && particle_resources.instance_count_lod == 0 {
+        if particle_resources.instance_count == 0 {
             return;
         }
 
@@ -1054,14 +1053,6 @@ impl Tracer {
             particle_resources.indices_len,
             &particle_resources.instance_buffer,
             particle_resources.instance_count,
-        );
-        draw_particles(
-            &self.graphics_pipelines.particle_lod_ppl,
-            &particle_resources.vertices_lod,
-            &particle_resources.indices_lod,
-            particle_resources.indices_len_lod,
-            &particle_resources.instance_buffer_lod,
-            particle_resources.instance_count_lod,
         );
 
         render_target.record_end(cmdbuf);
@@ -1508,10 +1499,6 @@ impl Tracer {
         self.camera.vectors()
     }
 
-    pub fn camera_position(&self) -> Vec3 {
-        self.camera.position()
-    }
-
     pub fn update_camera(&mut self, frame_delta_time: f32, is_fly_mode: bool) {
         if is_fly_mode {
             self.camera.update_transform_fly_mode(frame_delta_time);
@@ -1557,15 +1544,13 @@ impl Tracer {
         }
     }
 
-    pub fn upload_particles_lod(
+    pub fn upload_particles(
         &mut self,
-        near_snapshots: &[ParticleSnapshot],
-        far_snapshots: &[ParticleSnapshot],
+        snapshots: &[ParticleSnapshot],
         time_since_start_sec: f32,
     ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
-        let near_count = near_snapshots.len().min(capacity);
-        let far_count = far_snapshots.len().min(capacity);
+        let count = snapshots.len().min(capacity);
         const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
         const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
         let butterfly_total_layer_count = self
@@ -1608,8 +1593,8 @@ impl Tracer {
         };
 
         self.particle_instance_scratch.clear();
-        self.particle_instance_scratch.reserve(near_count);
-        for snap in near_snapshots.iter().take(capacity) {
+        self.particle_instance_scratch.reserve(count);
+        for snap in snapshots.iter().take(capacity) {
             let butterfly_variant = snap.texture_variant % butterfly_variant_count;
             let butterfly_tex_index =
                 1 + butterfly_variant * butterfly_frame_count + butterfly_anim_frame;
@@ -1627,39 +1612,12 @@ impl Tracer {
             });
         }
 
-        if near_count > 0 {
+        if count > 0 {
             self.particle_resources
                 .instance_buffer
                 .fill(&self.particle_instance_scratch)?;
         }
-        self.particle_resources.instance_count = near_count as u32;
-
-        self.particle_instance_scratch.clear();
-        self.particle_instance_scratch.reserve(far_count);
-        for snap in far_snapshots.iter().take(capacity) {
-            let butterfly_variant = snap.texture_variant % butterfly_variant_count;
-            let butterfly_tex_index =
-                1 + butterfly_variant * butterfly_frame_count + butterfly_anim_frame;
-            self.particle_instance_scratch.push(ParticleInstanceGpu {
-                position: snap.position.to_array(),
-                size: snap.size,
-                color: snap.color.to_array(),
-                tex_index: match snap.kind {
-                    crate::particles::ParticleRenderKind::Leaf => 0,
-                    crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
-                        butterfly_tex_index,
-                        is_moving_right_relative_to_player(snap.velocity),
-                    ),
-                },
-            });
-        }
-
-        if far_count > 0 {
-            self.particle_resources
-                .instance_buffer_lod
-                .fill(&self.particle_instance_scratch)?;
-        }
-        self.particle_resources.instance_count_lod = far_count as u32;
+        self.particle_resources.instance_count = count as u32;
         Ok(())
     }
 

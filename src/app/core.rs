@@ -489,7 +489,6 @@ pub struct App {
     butterfly_emitters: Vec<ButterflyEmitter>,
     butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
-    particle_snapshots_lod: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
     // note: always keep the context to end, as it has to be destroyed last
@@ -816,7 +815,6 @@ impl App {
         let butterfly_emitters = Vec::new();
         let butterfly_emitter_desc = Self::butterfly_desc_from_gui_adjustables(&gui_adjustables);
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
-        let particle_snapshots_lod = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             linear_damping: 0.08,
             ..ParticleForces::default()
@@ -868,7 +866,6 @@ impl App {
             butterfly_emitters,
             butterfly_emitter_desc,
             particle_snapshots,
-            particle_snapshots_lod,
             particle_forces,
 
             spatial_sound_manager,
@@ -1426,8 +1423,7 @@ impl App {
         let max_z = map_size.z - BORDER_PADDING;
 
         let edge_segments = EDGE_INTERIOR_COLUMNS + 1;
-        let mut post_positions =
-            Vec::with_capacity((4 * EDGE_INTERIOR_COLUMNS + 4) as usize);
+        let mut post_positions = Vec::with_capacity((4 * EDGE_INTERIOR_COLUMNS + 4) as usize);
 
         // Bottom edge: left to right, include both corners.
         for i in 0..=edge_segments {
@@ -1740,45 +1736,13 @@ impl App {
         self.particle_system.update(dt, self.particle_forces);
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
-        self.split_particle_lod(
-            self.tracer.camera_position(),
-            self.gui_adjustables.lod_distance.value.max(0.0),
-        );
 
-        if let Err(err) = self.tracer.upload_particles_lod(
-            &self.particle_snapshots,
-            &self.particle_snapshots_lod,
-            self.time_info.time_since_start(),
-        ) {
+        if let Err(err) = self
+            .tracer
+            .upload_particles(&self.particle_snapshots, self.time_info.time_since_start())
+        {
             log::error!("Failed to upload particles: {}", err);
         }
-    }
-
-    fn split_particle_lod(&mut self, camera_pos: Vec3, lod_distance: f32) {
-        self.particle_snapshots_lod.clear();
-        if lod_distance <= 0.0 {
-            self.particle_snapshots_lod
-                .append(&mut self.particle_snapshots);
-            return;
-        }
-
-        // Similar to flora LOD behavior: split into near and far sets.
-        const FAR_KEEP_STRIDE: usize = 4;
-        let mut near_snapshots = Vec::with_capacity(self.particle_snapshots.len());
-        for (idx, snapshot) in self.particle_snapshots.drain(..).enumerate() {
-            let world_pos = snapshot.position.as_vec3() / 256.0;
-            let distance = (world_pos - camera_pos).length();
-            if distance <= lod_distance {
-                near_snapshots.push(snapshot);
-                continue;
-            }
-
-            if idx % FAR_KEEP_STRIDE == 0 {
-                self.particle_snapshots_lod.push(snapshot);
-            }
-        }
-
-        self.particle_snapshots = near_snapshots;
     }
 
     fn constrain_butterflies_to_terrain(&mut self, dt: f32) {
