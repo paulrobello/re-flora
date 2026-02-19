@@ -30,7 +30,7 @@ pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
 }
 
 pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
-    const STEM_VOXEL_COUNT: u32 = 4;
+    const STEM_VOXEL_COUNT: u32 = 6;
     const LEAF_BALL_RADIUS: f32 = 1.5;
     const LEAF_BALL_BOUNDARY: i32 = LEAF_BALL_RADIUS as i32;
     const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
