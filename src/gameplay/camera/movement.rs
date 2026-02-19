@@ -93,17 +93,15 @@ impl MovementState {
                     KeyCode::KeyS => self.axes.backward = false,
                     KeyCode::KeyA => self.axes.left = false,
                     KeyCode::KeyD => self.axes.right = false,
-                    KeyCode::Space => self.axes.up = false,
+                    KeyCode::Space => {
+                        self.axes.up = false;
+                        self.jump_requested = false;
+                    }
                     KeyCode::ControlLeft => self.axes.down = false,
                     _ => {}
                 },
             }
         }
-    }
-
-    /// Resets the jump request flag after it's been processed
-    pub fn reset_jump_request(&mut self) {
-        self.jump_requested = false;
     }
 
     /// Checks if the player is currently moving horizontally

@@ -267,9 +267,6 @@ impl Camera {
             self.pre_landing_speed = self.rigidbody.velocity.length();
         }
 
-        // reset the jump flag after use
-        self.movement_state.reset_jump_request();
-
         // apply drag to horizontal velocity
         self.rigidbody.velocity.x *= self.rigidbody.drag;
         self.rigidbody.velocity.z *= self.rigidbody.drag;
