@@ -209,6 +209,13 @@ struct TreePlacementEdit {
     options: TreeAddOptions,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct FencePlacementEdit {
+    horizontal: Vec2,
+    height: f32,
+    radius: f32,
+}
+
 #[derive(Clone, Debug)]
 struct TreeGeometryEdit {
     tree_id: u32,
@@ -226,6 +233,7 @@ struct ClearVoxelRegionEdit {
 #[derive(Clone, Debug)]
 enum WorldEdit {
     PlaceTree(TreePlacementEdit),
+    PlaceFence(FencePlacementEdit),
     PlaceTreeGeometry(TreeGeometryEdit),
     ClearVoxelRegion(ClearVoxelRegionEdit),
     RebuildMesh(UAabb3),
@@ -262,6 +270,7 @@ enum VoxelStageEdit {
 #[derive(Clone, Debug, Default)]
 struct ScheduledWorldEdits {
     resolve_high_level: Vec<TreePlacementEdit>,
+    resolve_fence: Vec<FencePlacementEdit>,
     voxel_write: Vec<VoxelStageEdit>,
     accel_build: Vec<UAabb3>,
 }
@@ -1222,32 +1231,16 @@ impl App {
     }
 
     fn plant_init_cylinder(&mut self, horizontal: Vec2) -> Result<()> {
-        let terrain_height = self.tracer.query_terrain_height(horizontal)?;
-        let base = Vec3::new(horizontal.x, terrain_height, horizontal.y) * 256.0;
-
         const CYLINDER_HEIGHT: f32 = 96.0;
         const CYLINDER_RADIUS: f32 = 10.0;
 
-        let round_cone = RoundCone::new(
-            CYLINDER_RADIUS,
-            base,
-            CYLINDER_RADIUS,
-            base + Vec3::Y * CYLINDER_HEIGHT,
-        );
-        let round_cones = vec![round_cone];
-        let leaves_data_sequential = vec![0u32];
-        let aabbs = vec![round_cones[0].aabb()];
-        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
-        let bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
-
-        // Place trunk voxels directly so we don't overwrite tree leaf instances by tree_id.
-        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
-        Self::mesh_generate(
-            &mut self.surface_builder,
-            &mut self.contree_builder,
-            &mut self.scene_accel_builder,
-            bound,
-        )
+        self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::PlaceFence(
+            FencePlacementEdit {
+                horizontal,
+                height: CYLINDER_HEIGHT,
+                radius: CYLINDER_RADIUS,
+            },
+        )))
     }
 
     fn apply_world_edit_batch(&mut self, batch: WorldEditBatch) -> Result<()> {
@@ -1255,6 +1248,9 @@ impl App {
 
         for tree_edit in scheduled.resolve_high_level {
             self.apply_place_tree_edit(tree_edit)?;
+        }
+        for fence_edit in scheduled.resolve_fence {
+            self.apply_place_fence_edit(fence_edit)?;
         }
 
         Self::execute_low_level_stages(self, scheduled.voxel_write, scheduled.accel_build)
@@ -1268,7 +1264,7 @@ impl App {
         batch: WorldEditBatch,
     ) -> Result<()> {
         let scheduled = Self::schedule_world_edit_batch(batch);
-        if !scheduled.resolve_high_level.is_empty() {
+        if !scheduled.resolve_high_level.is_empty() || !scheduled.resolve_fence.is_empty() {
             return Err(anyhow::anyhow!(
                 "ResolveHighLevel edits require app-level systems; use apply_world_edit_batch on App"
             ));
@@ -1284,7 +1280,7 @@ impl App {
 
     fn stage_of_edit(edit: &WorldEdit) -> WorldBuildStage {
         match edit {
-            WorldEdit::PlaceTree(_) => WorldBuildStage::ResolveHighLevel,
+            WorldEdit::PlaceTree(_) | WorldEdit::PlaceFence(_) => WorldBuildStage::ResolveHighLevel,
             WorldEdit::PlaceTreeGeometry(_) | WorldEdit::ClearVoxelRegion(_) => {
                 WorldBuildStage::VoxelWrite
             }
@@ -1299,6 +1295,9 @@ impl App {
             match (Self::stage_of_edit(&edit), edit) {
                 (WorldBuildStage::ResolveHighLevel, WorldEdit::PlaceTree(tree_edit)) => {
                     scheduled.resolve_high_level.push(tree_edit);
+                }
+                (WorldBuildStage::ResolveHighLevel, WorldEdit::PlaceFence(fence_edit)) => {
+                    scheduled.resolve_fence.push(fence_edit);
                 }
                 (WorldBuildStage::VoxelWrite, WorldEdit::PlaceTreeGeometry(tree_geometry_edit)) => {
                     scheduled
@@ -1341,6 +1340,31 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn apply_place_fence_edit(&mut self, edit: FencePlacementEdit) -> Result<()> {
+        let terrain_height = self.tracer.query_terrain_height(edit.horizontal)?;
+        let base = Vec3::new(edit.horizontal.x, terrain_height, edit.horizontal.y) * 256.0;
+
+        let round_cones = vec![RoundCone::new(
+            edit.radius,
+            base,
+            edit.radius,
+            base + Vec3::Y * edit.height,
+        )];
+        let leaves_data_sequential = vec![0u32];
+        let aabbs = vec![round_cones[0].aabb()];
+        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
+        let bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
+
+        // Fence geometry is trunk voxels only; no leaf instance registration.
+        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
+        Self::mesh_generate(
+            &mut self.surface_builder,
+            &mut self.contree_builder,
+            &mut self.scene_accel_builder,
+            bound,
+        )
     }
 
     fn apply_place_tree_edit(&mut self, edit: TreePlacementEdit) -> Result<()> {
