@@ -1,6 +1,5 @@
 mod resources;
-use crate::geom::BvhNode;
-use crate::geom::RoundCone;
+use crate::geom::{BvhNode, Cuboid, RoundCone};
 use crate::util::ShaderCompiler;
 use crate::vkn::execute_one_time_command;
 use crate::vkn::Allocator;
@@ -25,6 +24,8 @@ pub use resources::*;
 
 pub const VOXEL_TYPE_CHERRY_WOOD: u32 = 5;
 pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
+const PRIMITIVE_KIND_ROUND_CONE: u32 = 0;
+const PRIMITIVE_KIND_CUBOID: u32 = 1;
 
 pub struct PlainBuilder {
     vulkan_ctx: VulkanContext,
@@ -229,16 +230,42 @@ impl PlainBuilder {
         round_cones: &[RoundCone],
         fill_voxel_type: u32,
     ) -> Result<()> {
-        let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        self.chunk_modify_round_cones_with_voxel_type(bvh_nodes, round_cones, fill_voxel_type)
+    }
 
-        update_buffers(
+    pub fn chunk_modify_cuboids(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        cuboids: &[Cuboid],
+    ) -> Result<()> {
+        self.chunk_modify_cuboids_with_voxel_type(bvh_nodes, cuboids, VOXEL_TYPE_CHERRY_WOOD)
+    }
+
+    pub fn chunk_modify_cuboids_with_voxel_type(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        cuboids: &[Cuboid],
+        fill_voxel_type: u32,
+    ) -> Result<()> {
+        self.chunk_modify_cuboids_with_voxel_type_impl(bvh_nodes, cuboids, fill_voxel_type)
+    }
+
+    fn chunk_modify_round_cones_with_voxel_type(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        round_cones: &[RoundCone],
+        fill_voxel_type: u32,
+    ) -> Result<()> {
+        let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        update_chunk_modify_info(
             &self.resources,
             offset,
             dim,
-            round_cones,
-            bvh_nodes,
             fill_voxel_type,
+            PRIMITIVE_KIND_ROUND_CONE,
         )?;
+        update_round_cones(&self.resources, round_cones)?;
+        update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
 
         execute_one_time_command(
             self.vulkan_ctx.device(),
@@ -256,108 +283,148 @@ impl PlainBuilder {
                 );
             },
         );
-        return Ok(());
-
-        fn calculate_offset_and_dim(bvh_nodes: &[BvhNode]) -> (UVec3, UVec3) {
-            let root_node = &bvh_nodes[0];
-            (
-                root_node.aabb.min_uvec3(),
-                root_node.aabb.max_uvec3() - root_node.aabb.min_uvec3(),
-            )
-        }
-
-        fn update_buffers(
-            resources: &PlainBuilderResources,
-            offset: UVec3,
-            dim: UVec3,
-            round_cones: &[RoundCone],
-            bvh_nodes: &[BvhNode],
-            fill_voxel_type: u32,
-        ) -> Result<()> {
-            update_chunk_modify_info(resources, offset, dim, fill_voxel_type)?;
-            update_round_cones(resources, round_cones)?;
-            update_trunk_bvh_nodes(resources, bvh_nodes)?;
-            return Ok(());
-
-            fn update_chunk_modify_info(
-                resources: &PlainBuilderResources,
-                offset: UVec3,
-                dim: UVec3,
-                fill_voxel_type: u32,
-            ) -> Result<()> {
-                let data = StructMemberDataBuilder::from_buffer(&resources.chunk_modify_info)
-                    .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
-                    .set_field("dim", PlainMemberTypeWithData::UVec3(dim.to_array()))
-                    .set_field(
-                        "fill_voxel_type",
-                        PlainMemberTypeWithData::UInt(fill_voxel_type),
-                    )
-                    .build()?;
-                resources.chunk_modify_info.fill_with_raw_u8(&data)?;
-                Ok(())
-            }
-
-            fn update_round_cones(
-                resources: &PlainBuilderResources,
-                round_cones: &[RoundCone],
-            ) -> Result<()> {
-                for (i, round_cone) in round_cones.iter().enumerate() {
-                    let data = StructMemberDataBuilder::from_buffer(&resources.round_cones)
-                        .set_field(
-                            "data.center_a",
-                            PlainMemberTypeWithData::Vec3(round_cone.center_a().to_array()),
-                        )
-                        .set_field(
-                            "data.center_b",
-                            PlainMemberTypeWithData::Vec3(round_cone.center_b().to_array()),
-                        )
-                        .set_field(
-                            "data.radius_a",
-                            PlainMemberTypeWithData::Float(round_cone.radius_a()),
-                        )
-                        .set_field(
-                            "data.radius_b",
-                            PlainMemberTypeWithData::Float(round_cone.radius_b()),
-                        )
-                        .build()?;
-                    resources
-                        .round_cones
-                        .fill_element_with_raw_u8(&data, i as u64)?;
-                }
-                Ok(())
-            }
-
-            fn update_trunk_bvh_nodes(
-                resources: &PlainBuilderResources,
-                bvh_nodes: &[BvhNode],
-            ) -> Result<()> {
-                for (i, bvh_node) in bvh_nodes.iter().enumerate() {
-                    let combined_offset: u32 = if bvh_node.is_leaf {
-                        let primitive_idx = bvh_node.data_offset;
-                        0x8000_0000 | primitive_idx
-                    } else {
-                        bvh_node.left
-                    };
-                    let data = StructMemberDataBuilder::from_buffer(&resources.trunk_bvh_nodes)
-                        .set_field(
-                            "data.aabb_min",
-                            PlainMemberTypeWithData::Vec3(bvh_node.aabb.min().to_array()),
-                        )
-                        .set_field(
-                            "data.aabb_max",
-                            PlainMemberTypeWithData::Vec3(bvh_node.aabb.max().to_array()),
-                        )
-                        .set_field(
-                            "data.offset",
-                            PlainMemberTypeWithData::UInt(combined_offset),
-                        )
-                        .build()?;
-                    resources
-                        .trunk_bvh_nodes
-                        .fill_element_with_raw_u8(&data, i as u64)?;
-                }
-                Ok(())
-            }
-        }
+        Ok(())
     }
+
+    fn chunk_modify_cuboids_with_voxel_type_impl(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        cuboids: &[Cuboid],
+        fill_voxel_type: u32,
+    ) -> Result<()> {
+        let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        update_chunk_modify_info(
+            &self.resources,
+            offset,
+            dim,
+            fill_voxel_type,
+            PRIMITIVE_KIND_CUBOID,
+        )?;
+        update_cuboids(&self.resources, cuboids)?;
+        update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
+
+        execute_one_time_command(
+            self.vulkan_ctx.device(),
+            self.vulkan_ctx.command_pool(),
+            &self.vulkan_ctx.get_general_queue(),
+            |cmdbuf| {
+                self.chunk_modify_ppl.record(
+                    cmdbuf,
+                    Extent3D {
+                        width: dim.x,
+                        height: dim.y,
+                        depth: dim.z,
+                    },
+                    None,
+                );
+            },
+        );
+        Ok(())
+    }
+}
+
+fn calculate_offset_and_dim(bvh_nodes: &[BvhNode]) -> (UVec3, UVec3) {
+    let root_node = &bvh_nodes[0];
+    (
+        root_node.aabb.min_uvec3(),
+        root_node.aabb.max_uvec3() - root_node.aabb.min_uvec3(),
+    )
+}
+
+fn update_chunk_modify_info(
+    resources: &PlainBuilderResources,
+    offset: UVec3,
+    dim: UVec3,
+    fill_voxel_type: u32,
+    primitive_kind: u32,
+) -> Result<()> {
+    let data = StructMemberDataBuilder::from_buffer(&resources.chunk_modify_info)
+        .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
+        .set_field("dim", PlainMemberTypeWithData::UVec3(dim.to_array()))
+        .set_field(
+            "fill_voxel_type",
+            PlainMemberTypeWithData::UInt(fill_voxel_type),
+        )
+        .set_field(
+            "primitive_kind",
+            PlainMemberTypeWithData::UInt(primitive_kind),
+        )
+        .build()?;
+    resources.chunk_modify_info.fill_with_raw_u8(&data)?;
+    Ok(())
+}
+
+fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCone]) -> Result<()> {
+    for (i, round_cone) in round_cones.iter().enumerate() {
+        let data = StructMemberDataBuilder::from_buffer(&resources.round_cones)
+            .set_field(
+                "data.center_a",
+                PlainMemberTypeWithData::Vec3(round_cone.center_a().to_array()),
+            )
+            .set_field(
+                "data.center_b",
+                PlainMemberTypeWithData::Vec3(round_cone.center_b().to_array()),
+            )
+            .set_field(
+                "data.radius_a",
+                PlainMemberTypeWithData::Float(round_cone.radius_a()),
+            )
+            .set_field(
+                "data.radius_b",
+                PlainMemberTypeWithData::Float(round_cone.radius_b()),
+            )
+            .build()?;
+        resources
+            .round_cones
+            .fill_element_with_raw_u8(&data, i as u64)?;
+    }
+    Ok(())
+}
+
+fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Result<()> {
+    for (i, cuboid) in cuboids.iter().enumerate() {
+        let data = StructMemberDataBuilder::from_buffer(&resources.cuboids)
+            .set_field(
+                "data.min_corner",
+                PlainMemberTypeWithData::Vec3(cuboid.min().to_array()),
+            )
+            .set_field(
+                "data.max_corner",
+                PlainMemberTypeWithData::Vec3(cuboid.max().to_array()),
+            )
+            .build()?;
+        resources
+            .cuboids
+            .fill_element_with_raw_u8(&data, i as u64)?;
+    }
+    Ok(())
+}
+
+fn update_trunk_bvh_nodes(resources: &PlainBuilderResources, bvh_nodes: &[BvhNode]) -> Result<()> {
+    for (i, bvh_node) in bvh_nodes.iter().enumerate() {
+        let combined_offset: u32 = if bvh_node.is_leaf {
+            let primitive_idx = bvh_node.data_offset;
+            0x8000_0000 | primitive_idx
+        } else {
+            bvh_node.left
+        };
+        let data = StructMemberDataBuilder::from_buffer(&resources.trunk_bvh_nodes)
+            .set_field(
+                "data.aabb_min",
+                PlainMemberTypeWithData::Vec3(bvh_node.aabb.min().to_array()),
+            )
+            .set_field(
+                "data.aabb_max",
+                PlainMemberTypeWithData::Vec3(bvh_node.aabb.max().to_array()),
+            )
+            .set_field(
+                "data.offset",
+                PlainMemberTypeWithData::UInt(combined_offset),
+            )
+            .build()?;
+        resources
+            .trunk_bvh_nodes
+            .fill_element_with_raw_u8(&data, i as u64)?;
+    }
+    Ok(())
 }

@@ -8,7 +8,7 @@ use crate::builder::{
     VOXEL_TYPE_OAK_WOOD,
 };
 use crate::flora::species;
-use crate::geom::{build_bvh, BvhNode, RoundCone, UAabb3};
+use crate::geom::{build_bvh, BvhNode, Cuboid, RoundCone, UAabb3};
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter,
     ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
@@ -216,7 +216,16 @@ struct TreePlacementEdit {
 struct FencePlacementEdit {
     horizontal: Vec2,
     height: f32,
-    radius: f32,
+    half_width: f32,
+    half_depth: f32,
+}
+
+#[derive(Clone, Copy, Debug)]
+#[allow(dead_code)]
+struct CubePlacementEdit {
+    center: Vec3,
+    size: f32,
+    voxel_type: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -230,6 +239,11 @@ enum VoxelEdit {
     StampRoundCones {
         bvh_nodes: Vec<BvhNode>,
         round_cones: Vec<RoundCone>,
+        voxel_type: u32,
+    },
+    StampCuboids {
+        bvh_nodes: Vec<BvhNode>,
+        cuboids: Vec<Cuboid>,
         voxel_type: u32,
     },
     ClearVoxelRegion(ClearVoxelRegionEdit),
@@ -282,23 +296,51 @@ impl FencePlacementService {
         let mut base = Vec3::new(edit.horizontal.x, terrain_height, edit.horizontal.y) * 256.0;
         base.y -= downward_offset;
 
-        let round_cones = vec![RoundCone::new(
-            edit.radius,
-            base,
-            edit.radius,
-            base + Vec3::Y * edit.height,
-        )];
-        let leaves_data_sequential = vec![0u32];
-        let aabbs = vec![round_cones[0].aabb()];
+        let cuboid = Cuboid::new(
+            base + Vec3::Y * (edit.height * 0.5),
+            Vec3::new(edit.half_width, edit.height * 0.5, edit.half_depth),
+        );
+        let cuboids = vec![cuboid];
+        let leaves_data_sequential = vec![0_u32];
+        let aabbs = vec![cuboids[0].aabb()];
         let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
         let rebuild_bound =
             UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
 
         CompiledFencePlacement {
-            voxel_edit: VoxelEdit::StampRoundCones {
+            voxel_edit: VoxelEdit::StampCuboids {
                 bvh_nodes,
-                round_cones,
+                cuboids,
                 voxel_type: VOXEL_TYPE_OAK_WOOD,
+            },
+            rebuild_bound,
+        }
+    }
+}
+
+#[allow(dead_code)]
+struct CubePlacementService;
+
+impl CubePlacementService {
+    #[allow(dead_code)]
+    fn compile(edit: CubePlacementEdit) -> CompiledFencePlacement {
+        let half_extent = edit.size * 0.5;
+        let cuboid = Cuboid::new(
+            edit.center * 256.0,
+            Vec3::new(half_extent, half_extent, half_extent),
+        );
+        let cuboids = vec![cuboid];
+        let leaves_data_sequential = vec![0_u32];
+        let aabbs = vec![cuboids[0].aabb()];
+        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
+        let rebuild_bound =
+            UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
+
+        CompiledFencePlacement {
+            voxel_edit: VoxelEdit::StampCuboids {
+                bvh_nodes,
+                cuboids,
+                voxel_type: edit.voxel_type,
             },
             rebuild_bound,
         }
@@ -486,6 +528,19 @@ impl WorldBuildBackend for BuilderOnlyWorldBackend<'_> {
                     )
                 }
             }
+            VoxelEdit::StampCuboids {
+                bvh_nodes,
+                cuboids,
+                voxel_type,
+            } => {
+                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
+                    self.plain_builder
+                        .chunk_modify_cuboids(&bvh_nodes, &cuboids)
+                } else {
+                    self.plain_builder
+                        .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
+                }
+            }
         }
     }
 
@@ -527,6 +582,19 @@ impl WorldBuildBackend for App {
                         &round_cones,
                         voxel_type,
                     )
+                }
+            }
+            VoxelEdit::StampCuboids {
+                bvh_nodes,
+                cuboids,
+                voxel_type,
+            } => {
+                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
+                    self.plain_builder
+                        .chunk_modify_cuboids(&bvh_nodes, &cuboids)
+                } else {
+                    self.plain_builder
+                        .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
                 }
             }
         }
@@ -1336,9 +1404,12 @@ impl App {
         const BASE_FENCE_HEIGHT: f32 = 60.0;
         const FENCE_HEIGHT_SCALE: f32 = 0.4;
         const FENCE_HEIGHT: f32 = BASE_FENCE_HEIGHT * FENCE_HEIGHT_SCALE;
-        const BASE_FENCE_RADIUS: f32 = 10.0;
-        const FENCE_RADIUS_SCALE: f32 = 0.3;
-        const FENCE_RADIUS: f32 = BASE_FENCE_RADIUS * FENCE_RADIUS_SCALE;
+        const BASE_FENCE_WIDTH: f32 = 10.0;
+        const BASE_FENCE_DEPTH: f32 = 10.0;
+        const FENCE_WIDTH_SCALE: f32 = 0.3;
+        const FENCE_DEPTH_SCALE: f32 = 0.18;
+        const FENCE_HALF_WIDTH: f32 = BASE_FENCE_WIDTH * FENCE_WIDTH_SCALE * 0.5;
+        const FENCE_HALF_DEPTH: f32 = BASE_FENCE_DEPTH * FENCE_DEPTH_SCALE * 0.5;
         const BORDER_PADDING: f32 = 0.5;
         const EDGE_INTERIOR_COLUMNS: u32 = 30;
 
@@ -1374,7 +1445,8 @@ impl App {
             self.apply_fence_placement(FencePlacementEdit {
                 horizontal,
                 height: FENCE_HEIGHT,
-                radius: FENCE_RADIUS,
+                half_width: FENCE_HALF_WIDTH,
+                half_depth: FENCE_HALF_DEPTH,
             })?;
         }
 
@@ -1421,6 +1493,15 @@ impl App {
         let compiled = FencePlacementService::compile(edit, terrain_height);
 
         // Fence geometry is trunk voxels only; no leaf instance registration.
+        self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
+            compiled.voxel_edit,
+            BuildEdit::RebuildMesh(compiled.rebuild_bound),
+        ))
+    }
+
+    #[allow(dead_code)]
+    fn apply_cube_placement(&mut self, edit: CubePlacementEdit) -> Result<()> {
+        let compiled = CubePlacementService::compile(edit);
         self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
             compiled.voxel_edit,
             BuildEdit::RebuildMesh(compiled.rebuild_bound),
