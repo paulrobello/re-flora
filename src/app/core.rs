@@ -469,6 +469,7 @@ pub struct App {
     gui_adjustables: GuiAdjustables,
     debug_tree_pos: Vec3,
     config_panel_visible: bool,
+    settings_panel_visible: bool,
     is_fly_mode: bool,
 
     debug_tree_desc: TreeDesc,
@@ -618,6 +619,12 @@ const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 const MAX_FRAMES_IN_FLIGHT: usize = 1;
 
 impl App {
+    fn sync_cursor_with_panels(&mut self) {
+        let any_panel_open = self.config_panel_visible || self.settings_panel_visible;
+        self.window_state.set_cursor_visibility(any_panel_open);
+        self.window_state.set_cursor_grab(!any_panel_open);
+    }
+
     fn butterfly_count_from_per_chunk(butterflies_per_chunk: u32) -> u32 {
         CHUNK_DIM
             .x
@@ -847,6 +854,7 @@ impl App {
             prev_bound: Default::default(),
             tree_records: HashMap::new(),
             config_panel_visible: false,
+            settings_panel_visible: false,
             is_fly_mode: false,
 
             // multi-tree management
@@ -1994,6 +2002,19 @@ impl App {
         _id: WindowId,
         event: WindowEvent,
     ) {
+        if let WindowEvent::KeyboardInput { event, .. } = &event {
+            if event.state == ElementState::Pressed && event.physical_key == KeyCode::KeyQ {
+                self.on_terminate(event_loop);
+                return;
+            }
+
+            if event.state == ElementState::Pressed && event.physical_key == KeyCode::Escape {
+                self.settings_panel_visible = !self.settings_panel_visible;
+                self.sync_cursor_with_panels();
+                return;
+            }
+        }
+
         // if cursor is visible, feed the event to gui first, if the event is being consumed by gui, no need to handle it again later
         if self.window_state.is_cursor_visible() {
             let consumed = self
@@ -2026,20 +2047,9 @@ impl App {
             }
 
             WindowEvent::KeyboardInput { event, .. } => {
-                if event.state == ElementState::Pressed && event.physical_key == KeyCode::Escape {
-                    self.on_terminate(event_loop);
-                    return;
-                }
-
                 if event.state == ElementState::Pressed && event.physical_key == KeyCode::KeyE {
                     self.config_panel_visible = !self.config_panel_visible;
-                    if self.config_panel_visible {
-                        self.window_state.set_cursor_visibility(true);
-                        self.window_state.set_cursor_grab(false);
-                    } else {
-                        self.window_state.set_cursor_visibility(false);
-                        self.window_state.set_cursor_grab(true);
-                    }
+                    self.sync_cursor_with_panels();
                 }
 
                 if event.state == ElementState::Pressed && event.physical_key == KeyCode::KeyF {
@@ -2128,7 +2138,7 @@ impl App {
                                 content_rect.height() * 0.6,
                             );
 
-                            egui::Window::new("Configuration")
+                            egui::Window::new("Debug Panel")
                                 .id(egui::Id::new("config_panel"))
                                 .open(&mut config_panel_open)
                                 .frame(config_frame)
@@ -2139,7 +2149,7 @@ impl App {
                                 .show(ctx, |ui| {
                                     ui.horizontal(|ui| {
                                         ui.heading(
-                                            RichText::new("Scene Configuration")
+                                            RichText::new("Debug Panel")
                                                 .size(18.0)
                                                 .color(GOLD_ACCENT),
                                         );
@@ -3205,6 +3215,22 @@ impl App {
                         }
                         self.config_panel_visible = config_panel_open;
 
+                        if self.settings_panel_visible {
+                            let settings_size = egui::Vec2::new(
+                                ctx.content_rect().width() * 0.5,
+                                ctx.content_rect().height() * 0.5,
+                            );
+
+                            egui::Window::new("Settings Panel")
+                                .id(egui::Id::new("settings_panel"))
+                                .resizable(false)
+                                .movable(false)
+                                .collapsible(false)
+                                .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
+                                .default_size(settings_size)
+                                .show(ctx, |_ui| {});
+                        }
+
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
                             .anchor(egui::Align2::RIGHT_BOTTOM, egui::Vec2::new(-16.0, -16.0))
@@ -3249,6 +3275,7 @@ impl App {
                                 });
                             });
                     });
+                self.sync_cursor_with_panels();
 
                 if tree_desc_changed {
                     self.add_tree(
