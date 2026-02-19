@@ -696,7 +696,7 @@ impl App {
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
             TreeAddOptions::default(),
         )?;
-        app.plant_init_cylinder(Vec2::new(0.5, 0.5))?;
+        app.plant_map_region_fence_columns()?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
@@ -1230,17 +1230,53 @@ impl App {
         )))
     }
 
-    fn plant_init_cylinder(&mut self, horizontal: Vec2) -> Result<()> {
-        const CYLINDER_HEIGHT: f32 = 96.0;
-        const CYLINDER_RADIUS: f32 = 10.0;
+    fn plant_map_region_fence_columns(&mut self) -> Result<()> {
+        const BASE_FENCE_HEIGHT: f32 = 96.0;
+        const FENCE_HEIGHT_SCALE: f32 = 0.4;
+        const FENCE_HEIGHT: f32 = BASE_FENCE_HEIGHT * FENCE_HEIGHT_SCALE;
+        const FENCE_RADIUS: f32 = 10.0;
+        const BORDER_PADDING: f32 = 0.5;
+        const EDGE_INTERIOR_COLUMNS: u32 = 10;
 
-        self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::PlaceFence(
-            FencePlacementEdit {
-                horizontal,
-                height: CYLINDER_HEIGHT,
-                radius: CYLINDER_RADIUS,
-            },
-        )))
+        let map_size = CHUNK_DIM.as_vec3();
+        let min_x = BORDER_PADDING;
+        let max_x = map_size.x - BORDER_PADDING;
+        let min_z = BORDER_PADDING;
+        let max_z = map_size.z - BORDER_PADDING;
+
+        let mut positions = Vec::with_capacity(4 + (EDGE_INTERIOR_COLUMNS as usize) * 4);
+
+        // Four corner columns.
+        positions.push(Vec2::new(min_x, min_z));
+        positions.push(Vec2::new(max_x, min_z));
+        positions.push(Vec2::new(max_x, max_z));
+        positions.push(Vec2::new(min_x, max_z));
+
+        // Ten interior columns per edge.
+        let edge_step_count = (EDGE_INTERIOR_COLUMNS + 1) as f32;
+        for i in 1..=EDGE_INTERIOR_COLUMNS {
+            let t = i as f32 / edge_step_count;
+            let x = min_x + (max_x - min_x) * t;
+            let z = min_z + (max_z - min_z) * t;
+
+            positions.push(Vec2::new(x, min_z)); // bottom edge
+            positions.push(Vec2::new(x, max_z)); // top edge
+            positions.push(Vec2::new(min_x, z)); // left edge
+            positions.push(Vec2::new(max_x, z)); // right edge
+        }
+
+        // Keep each placement as its own atomic world-edit command.
+        for horizontal in positions {
+            self.apply_world_edit_batch(WorldEditBatch::single(WorldEdit::PlaceFence(
+                FencePlacementEdit {
+                    horizontal,
+                    height: FENCE_HEIGHT,
+                    radius: FENCE_RADIUS,
+                },
+            )))?;
+        }
+
+        Ok(())
     }
 
     fn apply_world_edit_batch(&mut self, batch: WorldEditBatch) -> Result<()> {
