@@ -1236,7 +1236,9 @@ impl App {
         const BASE_FENCE_HEIGHT: f32 = 96.0;
         const FENCE_HEIGHT_SCALE: f32 = 0.4;
         const FENCE_HEIGHT: f32 = BASE_FENCE_HEIGHT * FENCE_HEIGHT_SCALE;
-        const FENCE_RADIUS: f32 = 10.0;
+        const BASE_FENCE_RADIUS: f32 = 10.0;
+        const FENCE_RADIUS_SCALE: f32 = 0.3;
+        const FENCE_RADIUS: f32 = BASE_FENCE_RADIUS * FENCE_RADIUS_SCALE;
         const BORDER_PADDING: f32 = 0.5;
         const EDGE_INTERIOR_COLUMNS: u32 = 10;
 
@@ -1382,7 +1384,12 @@ impl App {
 
     fn apply_place_fence_edit(&mut self, edit: FencePlacementEdit) -> Result<()> {
         let terrain_height = self.tracer.query_terrain_height(edit.horizontal)?;
-        let base = Vec3::new(edit.horizontal.x, terrain_height, edit.horizontal.y) * 256.0;
+        let downward_offset = edit.height * 0.4;
+        let base = Vec3::new(
+            edit.horizontal.x,
+            terrain_height - downward_offset,
+            edit.horizontal.y,
+        ) * 256.0;
 
         let round_cones = vec![RoundCone::new(
             edit.radius,
