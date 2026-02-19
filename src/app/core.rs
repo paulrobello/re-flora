@@ -687,6 +687,7 @@ impl App {
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
             TreeAddOptions::default(),
         )?;
+        app.plant_init_cylinder(Vec2::new(0.5, 0.5))?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
@@ -1218,6 +1219,35 @@ impl App {
                 options,
             },
         )))
+    }
+
+    fn plant_init_cylinder(&mut self, horizontal: Vec2) -> Result<()> {
+        let terrain_height = self.tracer.query_terrain_height(horizontal)?;
+        let base = Vec3::new(horizontal.x, terrain_height, horizontal.y) * 256.0;
+
+        const CYLINDER_HEIGHT: f32 = 96.0;
+        const CYLINDER_RADIUS: f32 = 10.0;
+
+        let round_cone = RoundCone::new(
+            CYLINDER_RADIUS,
+            base,
+            CYLINDER_RADIUS,
+            base + Vec3::Y * CYLINDER_HEIGHT,
+        );
+        let round_cones = vec![round_cone];
+        let leaves_data_sequential = vec![0u32];
+        let aabbs = vec![round_cones[0].aabb()];
+        let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
+        let bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
+
+        // Place trunk voxels directly so we don't overwrite tree leaf instances by tree_id.
+        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
+        Self::mesh_generate(
+            &mut self.surface_builder,
+            &mut self.contree_builder,
+            &mut self.scene_accel_builder,
+            bound,
+        )
     }
 
     fn apply_world_edit_batch(&mut self, batch: WorldEditBatch) -> Result<()> {
