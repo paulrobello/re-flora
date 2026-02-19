@@ -455,6 +455,7 @@ impl Tracer {
         starlight_saturation: f32,
         voxel_dirt_color: Vec3,
         voxel_trunk_color: Vec3,
+        voxel_color_variance: f32,
     ) -> Result<()> {
         // camera info
         let view_mat = self.camera.get_view_mat();
@@ -496,7 +497,12 @@ impl Tracer {
             self.camera.front(),
         )?;
 
-        BufferUpdater::update_voxel_colors(&self.resources, voxel_dirt_color, voxel_trunk_color)?;
+        BufferUpdater::update_voxel_colors(
+            &self.resources,
+            voxel_dirt_color,
+            voxel_trunk_color,
+            voxel_color_variance,
+        )?;
 
         BufferUpdater::update_gui_input(
             &self.resources,

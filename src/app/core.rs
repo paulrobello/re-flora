@@ -3185,6 +3185,13 @@ impl App {
                                                     &mut self.gui_adjustables.voxel_trunk_color.value,
                                                 );
                                             });
+                                            ui.add(
+                                                egui::Slider::new(
+                                                    &mut self.gui_adjustables.voxel_color_variance.value,
+                                                    0.0..=2.0,
+                                                )
+                                                .text("Hash Color Variance"),
+                                            );
                                         });
 
                                     });
@@ -3390,6 +3397,7 @@ impl App {
                             self.gui_adjustables.voxel_trunk_color.value.g() as f32 / 255.0,
                             self.gui_adjustables.voxel_trunk_color.value.b() as f32 / 255.0,
                         ),
+                        self.gui_adjustables.voxel_color_variance.value,
                     )
                     .unwrap();
 
