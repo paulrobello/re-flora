@@ -233,6 +233,39 @@ struct ClearVoxelRegionEdit {
 }
 
 #[derive(Clone, Debug)]
+enum VoxelEdit {
+    PlaceTreeGeometry(TreeGeometryEdit),
+    ClearVoxelRegion(ClearVoxelRegionEdit),
+}
+
+#[derive(Clone, Debug, Default)]
+struct VoxelEditBatch {
+    edits: Vec<VoxelEdit>,
+}
+
+impl VoxelEditBatch {
+    fn push(&mut self, edit: VoxelEdit) {
+        self.edits.push(edit);
+    }
+}
+
+#[derive(Clone, Debug)]
+enum BuildEdit {
+    RebuildMesh(UAabb3),
+}
+
+#[derive(Clone, Debug, Default)]
+struct BuildEditBatch {
+    edits: Vec<BuildEdit>,
+}
+
+impl BuildEditBatch {
+    fn push(&mut self, edit: BuildEdit) {
+        self.edits.push(edit);
+    }
+}
+
+#[derive(Clone, Debug)]
 enum WorldEdit {
     PlaceTree(TreePlacementEdit),
     PlaceFence(FencePlacementEdit),
@@ -263,24 +296,17 @@ enum WorldBuildStage {
     AccelBuild,
 }
 
-#[derive(Clone, Debug)]
-enum VoxelStageEdit {
-    PlaceTreeGeometry(TreeGeometryEdit),
-    ClearVoxelRegion(ClearVoxelRegionEdit),
-}
-
 #[derive(Clone, Debug, Default)]
 struct ScheduledWorldEdits {
     resolve_high_level: Vec<TreePlacementEdit>,
     resolve_fence: Vec<FencePlacementEdit>,
-    voxel_write: Vec<VoxelStageEdit>,
-    accel_build: Vec<UAabb3>,
+    voxel_write: VoxelEditBatch,
+    accel_build: BuildEditBatch,
 }
 
 trait WorldBuildBackend {
-    fn clear_voxel_region(&mut self, edit: ClearVoxelRegionEdit) -> Result<()>;
-    fn place_tree_geometry(&mut self, edit: TreeGeometryEdit) -> Result<()>;
-    fn rebuild_mesh(&mut self, bound: UAabb3) -> Result<()>;
+    fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()>;
+    fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()>;
 }
 
 #[derive(Clone, Debug)]
@@ -380,23 +406,26 @@ struct BuilderOnlyWorldBackend<'a> {
 }
 
 impl WorldBuildBackend for BuilderOnlyWorldBackend<'_> {
-    fn clear_voxel_region(&mut self, edit: ClearVoxelRegionEdit) -> Result<()> {
-        self.plain_builder.chunk_init(edit.offset, edit.dim)
+    fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()> {
+        match edit {
+            VoxelEdit::ClearVoxelRegion(edit) => {
+                self.plain_builder.chunk_init(edit.offset, edit.dim)
+            }
+            VoxelEdit::PlaceTreeGeometry(_edit) => Err(anyhow::anyhow!(
+                "PlaceTreeGeometry requires app-level systems (tracer resources)"
+            )),
+        }
     }
 
-    fn place_tree_geometry(&mut self, _edit: TreeGeometryEdit) -> Result<()> {
-        Err(anyhow::anyhow!(
-            "PlaceTreeGeometry requires app-level systems (tracer resources)"
-        ))
-    }
-
-    fn rebuild_mesh(&mut self, bound: UAabb3) -> Result<()> {
-        App::mesh_generate(
-            self.surface_builder,
-            self.contree_builder,
-            self.scene_accel_builder,
-            bound,
-        )
+    fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()> {
+        match edit {
+            BuildEdit::RebuildMesh(bound) => App::mesh_generate(
+                self.surface_builder,
+                self.contree_builder,
+                self.scene_accel_builder,
+                bound,
+            ),
+        }
     }
 }
 
@@ -408,30 +437,34 @@ impl Drop for App {
 }
 
 impl WorldBuildBackend for App {
-    fn clear_voxel_region(&mut self, edit: ClearVoxelRegionEdit) -> Result<()> {
-        self.plain_builder.chunk_init(edit.offset, edit.dim)
+    fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()> {
+        match edit {
+            VoxelEdit::ClearVoxelRegion(edit) => {
+                self.plain_builder.chunk_init(edit.offset, edit.dim)
+            }
+            VoxelEdit::PlaceTreeGeometry(edit) => {
+                self.plain_builder
+                    .chunk_modify(&edit.bvh_nodes, &edit.round_cones)?;
+
+                self.tracer.add_tree_leaves(
+                    &mut self.surface_builder.resources,
+                    edit.tree_id,
+                    &edit.quantized_leaf_positions,
+                )?;
+                Ok(())
+            }
+        }
     }
 
-    fn place_tree_geometry(&mut self, edit: TreeGeometryEdit) -> Result<()> {
-        self.plain_builder
-            .chunk_modify(&edit.bvh_nodes, &edit.round_cones)?;
-
-        self.tracer.add_tree_leaves(
-            &mut self.surface_builder.resources,
-            edit.tree_id,
-            &edit.quantized_leaf_positions,
-        )?;
-
-        Ok(())
-    }
-
-    fn rebuild_mesh(&mut self, bound: UAabb3) -> Result<()> {
-        Self::mesh_generate(
-            &mut self.surface_builder,
-            &mut self.contree_builder,
-            &mut self.scene_accel_builder,
-            bound,
-        )
+    fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()> {
+        match edit {
+            BuildEdit::RebuildMesh(bound) => Self::mesh_generate(
+                &mut self.surface_builder,
+                &mut self.contree_builder,
+                &mut self.scene_accel_builder,
+                bound,
+            ),
+        }
     }
 }
 
@@ -1342,15 +1375,15 @@ impl App {
                 (WorldBuildStage::VoxelWrite, WorldEdit::PlaceTreeGeometry(tree_geometry_edit)) => {
                     scheduled
                         .voxel_write
-                        .push(VoxelStageEdit::PlaceTreeGeometry(tree_geometry_edit));
+                        .push(VoxelEdit::PlaceTreeGeometry(tree_geometry_edit));
                 }
                 (WorldBuildStage::VoxelWrite, WorldEdit::ClearVoxelRegion(clear_edit)) => {
                     scheduled
                         .voxel_write
-                        .push(VoxelStageEdit::ClearVoxelRegion(clear_edit));
+                        .push(VoxelEdit::ClearVoxelRegion(clear_edit));
                 }
                 (WorldBuildStage::AccelBuild, WorldEdit::RebuildMesh(bound)) => {
-                    scheduled.accel_build.push(bound);
+                    scheduled.accel_build.push(BuildEdit::RebuildMesh(bound));
                 }
                 _ => unreachable!("Edit-to-stage mapping mismatch"),
             }
@@ -1361,22 +1394,15 @@ impl App {
 
     fn execute_low_level_stages<B: WorldBuildBackend>(
         backend: &mut B,
-        voxel_write: Vec<VoxelStageEdit>,
-        accel_build: Vec<UAabb3>,
+        voxel_write: VoxelEditBatch,
+        accel_build: BuildEditBatch,
     ) -> Result<()> {
-        for edit in voxel_write {
-            match edit {
-                VoxelStageEdit::PlaceTreeGeometry(tree_geometry_edit) => {
-                    backend.place_tree_geometry(tree_geometry_edit)?
-                }
-                VoxelStageEdit::ClearVoxelRegion(clear_edit) => {
-                    backend.clear_voxel_region(clear_edit)?
-                }
-            }
+        for edit in voxel_write.edits {
+            backend.apply_voxel_edit(edit)?;
         }
 
-        for bound in accel_build {
-            backend.rebuild_mesh(bound)?;
+        for edit in accel_build.edits {
+            backend.apply_build_edit(edit)?;
         }
 
         Ok(())
@@ -1400,8 +1426,11 @@ impl App {
         let bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
 
         // Fence geometry is trunk voxels only; no leaf instance registration.
-        self.plain_builder
-            .chunk_modify_with_voxel_type(&bvh_nodes, &round_cones, VOXEL_TYPE_OAK_WOOD)?;
+        self.plain_builder.chunk_modify_with_voxel_type(
+            &bvh_nodes,
+            &round_cones,
+            VOXEL_TYPE_OAK_WOOD,
+        )?;
         Self::mesh_generate(
             &mut self.surface_builder,
             &mut self.contree_builder,
