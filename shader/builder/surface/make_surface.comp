@@ -23,6 +23,7 @@ layout(set = 0, binding = 3, r8ui) readonly uniform uimage3D chunk_atlas;
 #include "../../include/config.glsl"
 #include "../../include/core/definitions.glsl"
 #include "../../include/core/packer.glsl"
+#include "../../include/voxel_data.glsl"
 #include "../../include/voxel_types.glsl"
 
 #define SHARED_SIZE (GROUP_SIZE + 4) // 4 for halo
@@ -131,12 +132,11 @@ uint compress_coord(ivec3 coord) {
     return coord_compressed;
 }
 
-uint compress_voxel_type_and_normal(uint voxel_type, vec3 normal, bool is_normal_valid) {
-    uint properties_data = 0;
-    properties_data |= voxel_type & 0xFF;
-    properties_data |= pack_normal_v2(normal) << 8;
-    properties_data |= (is_normal_valid ? 1 : 0) << 29;
-    return properties_data;
+uint compress_voxel_type_and_normal(uint voxel_type, vec3 normal, bool is_normal_valid,
+                                    ivec3 world_pos) {
+    uint normal_bits = pack_normal_v2(normal);
+    uint hash_id     = voxel_hash_from_world_pos(world_pos, voxel_type);
+    return pack_voxel_surface_data(voxel_type, normal_bits, is_normal_valid, hash_id);
 }
 
 bool is_surface_top(ivec3 p) { return !is_solid(voxel_at_local_idx(p + ivec3(0, 1, 0))); }
@@ -164,7 +164,7 @@ void main() {
     vec3 normal;
     bool is_normal_valid;
     calculate_normal(normal, is_normal_valid, uvi);
-    uint properties = compress_voxel_type_and_normal(voxel_type, normal, is_normal_valid);
+    uint properties = compress_voxel_type_and_normal(voxel_type, normal, is_normal_valid, world_pos);
 
     atomicAdd(make_surface_result.active_voxel_len, 1);
     imageStore(surface, uvi, uvec4(properties, 0, 0, 0));

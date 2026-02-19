@@ -18,8 +18,25 @@ vec3 _voxel_color_by_type_srgb(uint voxel_type) {
     return vec3(0.0);
 }
 
+vec3 voxel_color_with_hash_srgb(uint voxel_type, uint hash_id) {
+    vec3 color = _voxel_color_by_type_srgb(voxel_type);
+    vec3 hsv   = rgb_to_hsv(color);
+
+    // 2-bit variation gives 4 deterministic, subtle per-type palette variants.
+    float variant = float(hash_id & 0x3u) - 1.5;
+    hsv.x         = fract(hsv.x + variant * 0.01);
+    hsv.y         = clamp(hsv.y + variant * 0.03, 0.0, 1.0);
+    hsv.z         = clamp(hsv.z + variant * 0.025, 0.0, 1.0);
+
+    return hsv_to_rgb(hsv);
+}
+
 vec3 voxel_color_by_type_unorm(uint voxel_type) {
-    return srgb_to_linear(_voxel_color_by_type_srgb(voxel_type));
+    return srgb_to_linear(voxel_color_with_hash_srgb(voxel_type, 0u));
+}
+
+vec3 voxel_color_by_type_and_hash_unorm(uint voxel_type, uint hash_id) {
+    return srgb_to_linear(voxel_color_with_hash_srgb(voxel_type, hash_id));
 }
 
 #endif // VOXEL_COLORS_GLSL

@@ -10,6 +10,7 @@ struct MarchingResult {
     float t;
     vec3 normal;
     uint voxel_type;
+    uint hash_id;
     uint voxel_addr;
 };
 

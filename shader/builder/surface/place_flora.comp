@@ -30,14 +30,15 @@ manual_flora_instances[MAX_FLORA_SPECIES];
 #include "../../include/core/fast_noise_lite.glsl"
 #include "../../include/core/packer.glsl"
 #include "../../include/grass_type.glsl"
+#include "../../include/voxel_data.glsl"
 #include "../../include/voxel_types.glsl"
 
 // Unpack voxel type and normal from surface data
 void unpack_surface_data(uint packed, out uint o_voxel_type, out vec3 o_normal,
                          out bool o_is_normal_valid) {
-    o_voxel_type      = packed & 0xFF;
-    uint normal_bits  = (packed >> 8) & 0x1FFFFF;
-    o_is_normal_valid = ((packed >> 29) & 1) != 0;
+    o_voxel_type      = voxel_type_from_data(packed);
+    uint normal_bits  = voxel_normal_bits_from_data(packed);
+    o_is_normal_valid = voxel_normal_valid_from_data(packed);
     o_normal          = unpack_normal_v2(normal_bits);
 }
 
