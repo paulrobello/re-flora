@@ -388,10 +388,12 @@ fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Resu
                 "data.min_corner",
                 PlainMemberTypeWithData::Vec3(cuboid.min().to_array()),
             )
+            .set_field("data._pad0", PlainMemberTypeWithData::Float(0.0))
             .set_field(
                 "data.max_corner",
                 PlainMemberTypeWithData::Vec3(cuboid.max().to_array()),
             )
+            .set_field("data._pad1", PlainMemberTypeWithData::Float(0.0))
             .build()?;
         resources
             .cuboids
