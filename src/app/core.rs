@@ -1402,14 +1402,12 @@ impl App {
 
     fn plant_map_region_fence_columns(&mut self) -> Result<()> {
         const BASE_FENCE_HEIGHT: f32 = 60.0;
-        const FENCE_HEIGHT_SCALE: f32 = 0.4;
+        const FENCE_HEIGHT_SCALE: f32 = 0.45;
         const FENCE_HEIGHT: f32 = BASE_FENCE_HEIGHT * FENCE_HEIGHT_SCALE;
-        const BASE_FENCE_WIDTH: f32 = 10.0;
-        const BASE_FENCE_DEPTH: f32 = 10.0;
-        const FENCE_WIDTH_SCALE: f32 = 0.3;
-        const FENCE_DEPTH_SCALE: f32 = 0.18;
-        const FENCE_HALF_WIDTH: f32 = BASE_FENCE_WIDTH * FENCE_WIDTH_SCALE * 0.5;
-        const FENCE_HALF_DEPTH: f32 = BASE_FENCE_DEPTH * FENCE_DEPTH_SCALE * 0.5;
+        const BASE_FENCE_SIZE: f32 = 10.0;
+        const FENCE_SIZE_SCALE: f32 = 0.3;
+        const FENCE_HALF_WIDTH: f32 = BASE_FENCE_SIZE * FENCE_SIZE_SCALE * 0.5;
+        const FENCE_HALF_DEPTH: f32 = FENCE_HALF_WIDTH;
         const BORDER_PADDING: f32 = 0.5;
         const EDGE_INTERIOR_COLUMNS: u32 = 30;
 
