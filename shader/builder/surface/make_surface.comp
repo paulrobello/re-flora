@@ -24,6 +24,7 @@ layout(set = 0, binding = 3, r8ui) readonly uniform uimage3D chunk_atlas;
 #include "../../include/core/definitions.glsl"
 #include "../../include/core/packer.glsl"
 #include "../../include/voxel_data.glsl"
+#include "../../include/voxel_hash_blue_noise.glsl"
 #include "../../include/voxel_types.glsl"
 
 #define SHARED_SIZE (GROUP_SIZE + 4) // 4 for halo
@@ -135,7 +136,7 @@ uint compress_coord(ivec3 coord) {
 uint compress_voxel_type_and_normal(uint voxel_type, vec3 normal, bool is_normal_valid,
                                     ivec3 world_pos) {
     uint normal_bits = pack_normal_v2(normal);
-    uint hash_id     = voxel_hash_from_world_pos(world_pos, voxel_type);
+    uint hash_id     = voxel_hash_bucket_from_blue_noise(world_pos);
     return pack_voxel_surface_data(voxel_type, normal_bits, is_normal_valid, hash_id);
 }
 
