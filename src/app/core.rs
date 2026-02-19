@@ -5,7 +5,7 @@ use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder};
 use crate::flora::species;
-use crate::geom::{build_bvh, UAabb3};
+use crate::geom::{build_bvh, BvhNode, RoundCone, UAabb3};
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter,
     ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
@@ -210,6 +210,14 @@ struct TreePlacementEdit {
 }
 
 #[derive(Clone, Debug)]
+struct TreeGeometryEdit {
+    tree_id: u32,
+    bvh_nodes: Vec<BvhNode>,
+    round_cones: Vec<RoundCone>,
+    quantized_leaf_positions: Vec<UVec3>,
+}
+
+#[derive(Clone, Debug)]
 struct ClearVoxelRegionEdit {
     offset: UVec3,
     dim: UVec3,
@@ -218,6 +226,7 @@ struct ClearVoxelRegionEdit {
 #[derive(Clone, Debug)]
 enum WorldEdit {
     PlaceTree(TreePlacementEdit),
+    PlaceTreeGeometry(TreeGeometryEdit),
     ClearVoxelRegion(ClearVoxelRegionEdit),
     RebuildMesh(UAabb3),
 }
@@ -1133,6 +1142,9 @@ impl App {
         for edit in batch.edits {
             match edit {
                 WorldEdit::PlaceTree(tree_edit) => self.apply_place_tree_edit(tree_edit)?,
+                WorldEdit::PlaceTreeGeometry(tree_geometry_edit) => {
+                    self.apply_place_tree_geometry_edit(tree_geometry_edit)?
+                }
                 WorldEdit::ClearVoxelRegion(clear_edit) => {
                     self.apply_clear_voxel_region_edit(clear_edit)?
                 }
@@ -1153,6 +1165,19 @@ impl App {
             &mut self.scene_accel_builder,
             bound,
         )
+    }
+
+    fn apply_place_tree_geometry_edit(&mut self, edit: TreeGeometryEdit) -> Result<()> {
+        self.plain_builder
+            .chunk_modify(&edit.bvh_nodes, &edit.round_cones)?;
+
+        self.tracer.add_tree_leaves(
+            &mut self.surface_builder.resources,
+            edit.tree_id,
+            &edit.quantized_leaf_positions,
+        )?;
+
+        Ok(())
     }
 
     fn apply_world_edit_batch_to_builders(
@@ -1176,6 +1201,11 @@ impl App {
                 WorldEdit::PlaceTree(_) => {
                     return Err(anyhow::anyhow!(
                         "PlaceTree edit requires app-level systems; use apply_world_edit_batch on App"
+                    ));
+                }
+                WorldEdit::PlaceTreeGeometry(_) => {
+                    return Err(anyhow::anyhow!(
+                        "PlaceTreeGeometry edit requires app-level systems; use apply_world_edit_batch on App"
                     ));
                 }
             }
@@ -1233,8 +1263,6 @@ impl App {
         let bvh_nodes = build_bvh(&aabbs, &leaves_data_sequential).unwrap();
         let this_bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
 
-        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
-
         let relative_leaf_positions = tree.relative_leaf_positions();
         let world_leaf_positions = relative_leaf_positions
             .iter()
@@ -1253,20 +1281,20 @@ impl App {
             set.into_iter().collect::<Vec<_>>()
         };
 
-        self.tracer.add_tree_leaves(
-            &mut self.surface_builder.resources,
-            tree_id,
-            &quantized_leaf_positions,
-        )?;
+        let affected_bound = this_bound.union_with(&self.prev_bound);
+        self.apply_world_edit_batch(WorldEditBatch {
+            edits: vec![
+                WorldEdit::PlaceTreeGeometry(TreeGeometryEdit {
+                    tree_id,
+                    bvh_nodes,
+                    round_cones,
+                    quantized_leaf_positions,
+                }),
+                WorldEdit::RebuildMesh(affected_bound),
+            ],
+        })?;
 
-        Self::mesh_generate(
-            &mut self.surface_builder,
-            &mut self.contree_builder,
-            &mut self.scene_accel_builder,
-            this_bound.union_with(&self.prev_bound),
-        )?;
-
-        self.prev_bound = this_bound.union_with(&self.prev_bound);
+        self.prev_bound = affected_bound;
 
         // Cluster leaf positions once for both audio and particle systems
         let leaf_clusters = cluster_positions(&world_leaf_positions, LEAF_CLUSTER_DISTANCE);
