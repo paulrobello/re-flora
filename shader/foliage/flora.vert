@@ -81,11 +81,25 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 const float scaling_factor         = 1.0 / 256.0;
 const uint grass_min_height_voxels = 3u;
 const uint grass_max_height_voxels = 8u;
-const uint grass_bucket_count      = grass_max_height_voxels - grass_min_height_voxels + 1u;
+const float grass_height_mean_voxels   = 6.0;
+const float grass_height_stddev_voxels = 1.0;
+
+float sample_standard_normal(uint seed) {
+    float sum = 0.0;
+    uint state = seed ^ 0xA511E9B3u;
+    for (uint i = 0u; i < 12u; ++i) {
+        state = wellons_hash(state + i * 0x9E3779B9u);
+        sum += construct_float_01(state);
+    }
+    return sum - 6.0;
+}
 
 uint sample_grass_height(uint seed) {
-    uint bucket = seed % grass_bucket_count;
-    return grass_min_height_voxels + bucket;
+    float sampled_height =
+        grass_height_mean_voxels + sample_standard_normal(seed) * grass_height_stddev_voxels;
+    sampled_height = clamp(sampled_height, float(grass_min_height_voxels),
+                           float(grass_max_height_voxels));
+    return uint(round(sampled_height));
 }
 
 float get_shadow_weight(ivec3 vox_local_pos) {
