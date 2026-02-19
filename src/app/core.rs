@@ -3180,9 +3180,15 @@ impl App {
                                                 );
                                             });
                                             ui.horizontal(|ui| {
-                                                ui.label("Trunk Color:");
+                                                ui.label("Cherry Wood Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.voxel_trunk_color.value,
+                                                    &mut self.gui_adjustables.voxel_cherry_wood_color.value,
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
+                                                ui.label("Oak Wood Color:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.voxel_oak_wood_color.value,
                                                 );
                                             });
                                             ui.add(
@@ -3393,9 +3399,14 @@ impl App {
                             self.gui_adjustables.voxel_dirt_color.value.b() as f32 / 255.0,
                         ),
                         Vec3::new(
-                            self.gui_adjustables.voxel_trunk_color.value.r() as f32 / 255.0,
-                            self.gui_adjustables.voxel_trunk_color.value.g() as f32 / 255.0,
-                            self.gui_adjustables.voxel_trunk_color.value.b() as f32 / 255.0,
+                            self.gui_adjustables.voxel_cherry_wood_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_cherry_wood_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_cherry_wood_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.voxel_oak_wood_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.voxel_oak_wood_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.voxel_oak_wood_color.value.b() as f32 / 255.0,
                         ),
                         self.gui_adjustables.voxel_color_variance.value,
                     )
