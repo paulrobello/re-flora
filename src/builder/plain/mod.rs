@@ -23,6 +23,9 @@ use ash::vk;
 use glam::UVec3;
 pub use resources::*;
 
+pub const VOXEL_TYPE_CHERRY_WOOD: u32 = 5;
+pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
+
 pub struct PlainBuilder {
     vulkan_ctx: VulkanContext,
     resources: PlainBuilderResources,
@@ -217,9 +220,25 @@ impl PlainBuilder {
     }
 
     pub fn chunk_modify(&mut self, bvh_nodes: &[BvhNode], round_cones: &[RoundCone]) -> Result<()> {
+        self.chunk_modify_with_voxel_type(bvh_nodes, round_cones, VOXEL_TYPE_CHERRY_WOOD)
+    }
+
+    pub fn chunk_modify_with_voxel_type(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        round_cones: &[RoundCone],
+        fill_voxel_type: u32,
+    ) -> Result<()> {
         let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
 
-        update_buffers(&self.resources, offset, dim, round_cones, bvh_nodes)?;
+        update_buffers(
+            &self.resources,
+            offset,
+            dim,
+            round_cones,
+            bvh_nodes,
+            fill_voxel_type,
+        )?;
 
         execute_one_time_command(
             self.vulkan_ctx.device(),
@@ -253,8 +272,9 @@ impl PlainBuilder {
             dim: UVec3,
             round_cones: &[RoundCone],
             bvh_nodes: &[BvhNode],
+            fill_voxel_type: u32,
         ) -> Result<()> {
-            update_chunk_modify_info(resources, offset, dim, 1)?;
+            update_chunk_modify_info(resources, offset, dim, fill_voxel_type)?;
             update_round_cones(resources, round_cones)?;
             update_trunk_bvh_nodes(resources, bvh_nodes)?;
             return Ok(());

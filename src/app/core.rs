@@ -3,7 +3,9 @@ use crate::util::Timer;
 
 use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
-use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder};
+use crate::builder::{
+    ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder, VOXEL_TYPE_OAK_WOOD,
+};
 use crate::flora::species;
 use crate::geom::{build_bvh, BvhNode, RoundCone, UAabb3};
 use crate::particles::{
@@ -1394,7 +1396,8 @@ impl App {
         let bound = UAabb3::new(bvh_nodes[0].aabb.min_uvec3(), bvh_nodes[0].aabb.max_uvec3());
 
         // Fence geometry is trunk voxels only; no leaf instance registration.
-        self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)?;
+        self.plain_builder
+            .chunk_modify_with_voxel_type(&bvh_nodes, &round_cones, VOXEL_TYPE_OAK_WOOD)?;
         Self::mesh_generate(
             &mut self.surface_builder,
             &mut self.contree_builder,

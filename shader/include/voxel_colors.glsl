@@ -9,8 +9,11 @@ vec3 _voxel_color_by_type_srgb(uint voxel_type) {
         return vec3(0.0);
     } else if (voxel_type == VOXEL_TYPE_DIRT) {
         return voxel_colors.dirt_color;
-    } else if (voxel_type == VOXEL_TYPE_TRUNK) {
+    } else if (voxel_type == VOXEL_TYPE_CHERRY_WOOD) {
         return voxel_colors.trunk_color;
+    } else if (voxel_type == VOXEL_TYPE_OAK_WOOD) {
+        // Keep oak wood visibly darker than cherry wood by default.
+        return voxel_colors.trunk_color * 0.82;
     }
     return vec3(0.0);
 }
