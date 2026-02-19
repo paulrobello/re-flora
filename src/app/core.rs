@@ -1408,7 +1408,7 @@ impl App {
         const FENCE_SIZE_SCALE: f32 = 0.3;
         const FENCE_HALF_WIDTH: f32 = BASE_FENCE_SIZE * FENCE_SIZE_SCALE * 0.5;
         const FENCE_HALF_DEPTH: f32 = FENCE_HALF_WIDTH;
-        const BORDER_PADDING: f32 = 0.5;
+        const BORDER_PADDING: f32 = 0.2;
         const EDGE_INTERIOR_COLUMNS: u32 = 30;
 
         let map_size = CHUNK_DIM.as_vec3();
