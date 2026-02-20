@@ -717,8 +717,9 @@ const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 const MAX_FRAMES_IN_FLIGHT: usize = 1;
 const SHOVEL_REMOVE_RADIUS: f32 = 0.10;
-const SHOVEL_INTERACTION_DISTANCE: f32 = 0.45;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
+const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
+const SHOVEL_RAY_QUERY_STEPS: usize = 24;
 
 impl App {
     fn sync_cursor_with_panels(&mut self) {
@@ -1745,6 +1746,56 @@ impl App {
         Ok(())
     }
 
+    fn query_camera_ray_terrain_intersection(
+        &mut self,
+        max_distance: f32,
+        steps: usize,
+    ) -> Result<Option<Vec3>> {
+        if max_distance <= 0.0 || steps == 0 {
+            return Ok(None);
+        }
+
+        let origin = self.tracer.camera_position();
+        let direction = self.tracer.camera_front();
+        if direction.length_squared() <= f32::EPSILON {
+            return Ok(None);
+        }
+
+        let mut query_positions = Vec::with_capacity(steps + 1);
+        let mut query_t = Vec::with_capacity(steps + 1);
+        for i in 0..=steps {
+            let t = max_distance * (i as f32 / steps as f32);
+            let ray_pos = origin + direction * t;
+            query_positions.push(Vec2::new(ray_pos.x, ray_pos.z));
+            query_t.push(t);
+        }
+
+        let samples = self
+            .tracer
+            .query_terrain_heights_batch_with_validity(&query_positions)?;
+
+        for (i, sample) in samples.iter().enumerate() {
+            let t = query_t[i];
+            let ray_pos = origin + direction * t;
+            log::info!(
+                "Shovel terrain query #{i}: t={:.3}, xz=({:.3},{:.3}), ray_y={:.3}, terrain_y={:.3}, valid={}",
+                t,
+                ray_pos.x,
+                ray_pos.z,
+                ray_pos.y,
+                sample.height,
+                sample.is_valid
+            );
+
+            if sample.is_valid && ray_pos.y <= sample.height {
+                let hit_pos = Vec3::new(ray_pos.x, sample.height, ray_pos.z);
+                return Ok(Some(hit_pos));
+            }
+        }
+
+        Ok(None)
+    }
+
     fn try_shovel_dig(&mut self, now: Instant) {
         if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
             return;
@@ -1756,16 +1807,35 @@ impl App {
             }
         }
 
-        let center = self.tracer.camera_position() + self.tracer.camera_front() * SHOVEL_INTERACTION_DISTANCE;
-        if let Err(err) = self.apply_terrain_removal(TerrainRemovalEdit {
-            center,
-            radius: SHOVEL_REMOVE_RADIUS,
-        }) {
-            log::error!("Failed to apply terrain removal: {}", err);
-            return;
+        match self.query_camera_ray_terrain_intersection(
+            SHOVEL_RAY_QUERY_DISTANCE,
+            SHOVEL_RAY_QUERY_STEPS,
+        ) {
+            Ok(Some(center)) => {
+                log::info!(
+                    "Shovel carve attempt: hit terrain at ({:.3}, {:.3}, {:.3}), radius={:.3}",
+                    center.x,
+                    center.y,
+                    center.z,
+                    SHOVEL_REMOVE_RADIUS
+                );
+                if let Err(err) = self.apply_terrain_removal(TerrainRemovalEdit {
+                    center,
+                    radius: SHOVEL_REMOVE_RADIUS,
+                }) {
+                    log::error!("Failed to apply terrain removal: {}", err);
+                    return;
+                }
+                self.last_shovel_dig_time = Some(now);
+            }
+            Ok(None) => {
+                log::info!("Shovel carve attempt: no terrain hit along camera ray");
+                self.last_shovel_dig_time = Some(now);
+            }
+            Err(err) => {
+                log::error!("Shovel carve attempt failed during terrain query: {}", err);
+            }
         }
-
-        self.last_shovel_dig_time = Some(now);
     }
 
     fn apply_tree_placement(&mut self, edit: TreePlacementEdit) -> Result<()> {
