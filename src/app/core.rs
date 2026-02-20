@@ -27,7 +27,7 @@ use crate::{
 use anyhow::{Context, Result};
 use ash::vk;
 use egui::style::WidgetVisuals;
-use egui::{Color32, FontData, FontDefinitions, FontFamily, RichText};
+use egui::{Color32, ColorImage, FontData, FontDefinitions, FontFamily, RichText, TextureHandle};
 use glam::{UVec3, Vec2, Vec3, Vec4};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
@@ -54,6 +54,10 @@ const GOLD_ACCENT: Color32 = Color32::from_rgb(235, 165, 60);
 const FLOWER_ACCENT: Color32 = Color32::from_rgb(190, 160, 210);
 const SAGE_ACCENT: Color32 = Color32::from_rgb(110, 140, 120);
 const SHADOW_COLOR: Color32 = Color32::from_rgb(75, 60, 85);
+const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/7_Wooden_Shovel.PNG";
+const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -471,6 +475,7 @@ pub struct App {
     config_panel_visible: bool,
     settings_panel_visible: bool,
     is_fly_mode: bool,
+    item_panel_shovel_icon: Option<TextureHandle>,
 
     debug_tree_desc: TreeDesc,
     tree_variation_config: TreeVariationConfig,
@@ -854,6 +859,7 @@ impl App {
             config_panel_visible: false,
             settings_panel_visible: false,
             is_fly_mode: false,
+            item_panel_shovel_icon: None,
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
@@ -873,6 +879,7 @@ impl App {
         };
 
         app.configure_gui_font()?;
+        app.load_item_panel_icon()?;
         app.ensure_map_butterfly_emitter();
 
         app.add_tree(
@@ -918,6 +925,96 @@ impl App {
         }
 
         Ok(())
+    }
+
+    fn load_item_panel_icon(&mut self) -> Result<()> {
+        let icon_path = if std::path::Path::new(ITEM_PANEL_SHOVEL_ICON_PATH).exists() {
+            ITEM_PANEL_SHOVEL_ICON_PATH
+        } else {
+            log::warn!(
+                "Item panel icon not found at {}. Falling back to {}",
+                ITEM_PANEL_SHOVEL_ICON_PATH,
+                ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH
+            );
+            ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH
+        };
+
+        let icon_bytes = std::fs::read(icon_path)
+            .with_context(|| format!("Failed to read item panel icon from {icon_path}"))?;
+        let icon_rgba = image::load_from_memory(&icon_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {icon_path}"))?
+            .to_rgba8();
+        let icon_size = [icon_rgba.width() as usize, icon_rgba.height() as usize];
+        let icon_pixels = icon_rgba.into_raw();
+        let icon_image = ColorImage::from_rgba_unmultiplied(icon_size, &icon_pixels);
+
+        let texture = self.egui_renderer.context().load_texture(
+            "item_panel_wooden_shovel",
+            icon_image,
+            egui::TextureOptions::NEAREST,
+        );
+        self.item_panel_shovel_icon = Some(texture);
+        Ok(())
+    }
+
+    fn draw_item_panel(ctx: &egui::Context, item_panel_shovel_icon: Option<&TextureHandle>) {
+        egui::Area::new("item_panel".into())
+            .anchor(egui::Align2::CENTER_BOTTOM, egui::Vec2::new(0.0, -16.0))
+            .show(ctx, |ui| {
+                let panel_frame = egui::containers::Frame {
+                    fill: PANEL_DARK,
+                    inner_margin: egui::Margin::symmetric(10, 8),
+                    corner_radius: egui::CornerRadius::same(0),
+                    shadow: egui::epaint::Shadow {
+                        offset: [4, 4],
+                        blur: 0,
+                        spread: 0,
+                        color: SHADOW_COLOR,
+                    },
+                    stroke: egui::Stroke::new(2.0, FLOWER_ACCENT),
+                    ..Default::default()
+                };
+
+                panel_frame.show(ui, |ui| {
+                    let slot_size = egui::Vec2::new(52.0, 52.0);
+                    let icon_size = egui::Vec2::new(32.0, 32.0);
+
+                    egui::Grid::new("item_panel_slots")
+                        .num_columns(5)
+                        .spacing(egui::Vec2::new(6.0, 0.0))
+                        .show(ui, |ui| {
+                            for slot_idx in 0..5 {
+                                let slot_frame = egui::containers::Frame {
+                                    fill: PANEL_LIGHT,
+                                    inner_margin: egui::Margin::same(6),
+                                    corner_radius: egui::CornerRadius::same(0),
+                                    stroke: egui::Stroke::new(1.5, SAGE_ACCENT),
+                                    ..Default::default()
+                                };
+
+                                slot_frame.show(ui, |ui| {
+                                    ui.set_min_size(slot_size);
+                                    ui.with_layout(
+                                        egui::Layout::centered_and_justified(
+                                            egui::Direction::LeftToRight,
+                                        ),
+                                        |ui| {
+                                            if slot_idx == 0 {
+                                                if let Some(icon) = item_panel_shovel_icon {
+                                                    ui.add(
+                                                        egui::Image::new(icon)
+                                                            .fit_to_exact_size(icon_size),
+                                                    );
+                                                }
+                                            }
+                                        },
+                                    );
+                                });
+                            }
+                            ui.end_row();
+                        });
+                });
+            });
     }
 
     fn apply_gui_style(style: &mut egui::Style) {
@@ -2069,6 +2166,7 @@ impl App {
                 }
 
                 let mut tree_desc_changed = false;
+                let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
@@ -3194,6 +3292,8 @@ impl App {
                                 .default_size(settings_size)
                                 .show(ctx, |_ui| {});
                         }
+
+                        Self::draw_item_panel(ctx, item_panel_shovel_icon.as_ref());
 
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
