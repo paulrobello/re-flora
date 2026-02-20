@@ -55,7 +55,7 @@ const FLOWER_ACCENT: Color32 = Color32::from_rgb(190, 160, 210);
 const SAGE_ACCENT: Color32 = Color32::from_rgb(110, 140, 120);
 const SHADOW_COLOR: Color32 = Color32::from_rgb(75, 60, 85);
 const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/7_Wooden_Shovel.PNG";
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 
