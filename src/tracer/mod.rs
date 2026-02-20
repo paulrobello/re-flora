@@ -55,6 +55,18 @@ pub struct TerrainHeightSample {
     pub is_valid: bool,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct TerrainRayQuery {
+    pub origin: Vec3,
+    pub direction: Vec3,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct TerrainRayHitSample {
+    pub position: Vec3,
+    pub is_valid: bool,
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Pod, Zeroable)]
 struct PushConstantStd140 {
@@ -1777,21 +1789,46 @@ impl Tracer {
             return Ok(vec![]);
         }
 
-        let mut all_heights = Vec::with_capacity(positions.len());
-        for chunk in positions.chunks(MAX_TERRAIN_QUERIES) {
-            all_heights.extend(self.query_terrain_heights_chunk_with_validity(chunk)?);
-        }
-        Ok(all_heights)
+        let rays = positions
+            .iter()
+            .map(|pos| TerrainRayQuery {
+                origin: Vec3::new(pos.x, 10.0, pos.y),
+                direction: Vec3::new(0.0, -1.0, 0.0),
+            })
+            .collect::<Vec<_>>();
+        let hit_samples = self.query_terrain_rays_batch_with_validity(&rays)?;
+        Ok(hit_samples
+            .into_iter()
+            .map(|sample| TerrainHeightSample {
+                height: if sample.is_valid { sample.position.y } else { 0.0 },
+                is_valid: sample.is_valid,
+            })
+            .collect())
     }
 
-    fn query_terrain_heights_chunk_with_validity(
+    pub fn query_terrain_rays_batch_with_validity(
         &mut self,
-        positions: &[Vec2],
-    ) -> Result<Vec<TerrainHeightSample>> {
-        debug_assert!(!positions.is_empty());
-        debug_assert!(positions.len() <= MAX_TERRAIN_QUERIES);
+        rays: &[TerrainRayQuery],
+    ) -> Result<Vec<TerrainRayHitSample>> {
+        if rays.is_empty() {
+            return Ok(vec![]);
+        }
 
-        let query_count = positions.len() as u32;
+        let mut all_hits = Vec::with_capacity(rays.len());
+        for chunk in rays.chunks(MAX_TERRAIN_QUERIES) {
+            all_hits.extend(self.query_terrain_rays_chunk_with_validity(chunk)?);
+        }
+        Ok(all_hits)
+    }
+
+    fn query_terrain_rays_chunk_with_validity(
+        &mut self,
+        rays: &[TerrainRayQuery],
+    ) -> Result<Vec<TerrainRayHitSample>> {
+        debug_assert!(!rays.is_empty());
+        debug_assert!(rays.len() <= MAX_TERRAIN_QUERIES);
+
+        let query_count = rays.len() as u32;
 
         let count_data = StructMemberDataBuilder::from_buffer(&self.resources.terrain_query_count)
             .set_field(
@@ -1803,12 +1840,18 @@ impl Tracer {
             .terrain_query_count
             .fill_with_raw_u8(&count_data)?;
 
-        let mut position_data = Vec::with_capacity(positions.len() * 2);
-        for pos in positions {
-            position_data.push(pos.x);
-            position_data.push(pos.y);
+        let mut ray_data = Vec::with_capacity(rays.len() * 8);
+        for ray in rays {
+            ray_data.push(ray.origin.x);
+            ray_data.push(ray.origin.y);
+            ray_data.push(ray.origin.z);
+            ray_data.push(0.0);
+            ray_data.push(ray.direction.x);
+            ray_data.push(ray.direction.y);
+            ray_data.push(ray.direction.z);
+            ray_data.push(0.0);
         }
-        self.resources.terrain_query_info.fill(&position_data)?;
+        self.resources.terrain_query_info.fill(&ray_data)?;
 
         execute_one_time_command(
             self.vulkan_ctx.device(),
@@ -1824,17 +1867,25 @@ impl Tracer {
         );
 
         let raw_data = self.resources.terrain_query_result.read_back().unwrap();
-        let sample_data: &[f32] = unsafe {
-            std::slice::from_raw_parts(raw_data.as_ptr() as *const f32, (query_count as usize) * 2)
+        let hit_data: &[f32] = unsafe {
+            std::slice::from_raw_parts(raw_data.as_ptr() as *const f32, (query_count as usize) * 4)
         };
 
-        let mut samples = Vec::with_capacity(query_count as usize);
-        for pair in sample_data.chunks_exact(2) {
-            samples.push(TerrainHeightSample {
-                height: pair[0],
-                is_valid: pair[1] >= 0.5,
+        let mut hits = Vec::with_capacity(query_count as usize);
+        for item in hit_data.chunks_exact(4) {
+            hits.push(TerrainRayHitSample {
+                position: Vec3::new(item[0], item[1], item[2]),
+                is_valid: item[3] >= 0.5,
             });
         }
-        Ok(samples)
+        Ok(hits)
+    }
+
+    pub fn query_terrain_ray_with_validity(
+        &mut self,
+        ray: TerrainRayQuery,
+    ) -> Result<TerrainRayHitSample> {
+        let samples = self.query_terrain_rays_batch_with_validity(&[ray])?;
+        Ok(samples[0])
     }
 }

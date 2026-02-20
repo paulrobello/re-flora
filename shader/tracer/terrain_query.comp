@@ -7,7 +7,12 @@ layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 layout(set = 0, binding = 0) uniform U_TerrainQueryCount { uint valid_query_count; }
 terrain_query_count;
 
-layout(set = 0, binding = 1) readonly buffer B_TerrainQueryInfo { vec2 query_pos_xz[]; }
+struct TerrainRayQuery {
+    vec4 origin;
+    vec4 direction;
+};
+
+layout(set = 0, binding = 1) readonly buffer B_TerrainQueryInfo { TerrainRayQuery data[]; }
 terrain_query_info;
 
 #include "../include/contree_node.glsl"
@@ -20,7 +25,7 @@ contree_leaf_data;
 
 layout(set = 0, binding = 4, rg32ui) readonly uniform uimage3D scene_tex;
 
-layout(set = 0, binding = 5) writeonly buffer B_TerrainQueryResult { vec2 terrain_height_and_valid[]; }
+layout(set = 0, binding = 5) writeonly buffer B_TerrainQueryResult { vec4 hit_pos_and_valid[]; }
 terrain_query_result;
 
 #include "../include/contree_marching.glsl"
@@ -64,19 +69,24 @@ void main() {
         return;
     }
 
-    vec2 query_pos  = terrain_query_info.query_pos_xz[query_index];
-    vec3 ray_origin = vec3(query_pos.x, 10.0, query_pos.y);
+    vec3 ray_origin = terrain_query_info.data[query_index].origin.xyz;
+    vec3 ray_dir = terrain_query_info.data[query_index].direction.xyz;
+    if (dot(ray_dir, ray_dir) < 1e-8) {
+        terrain_query_result.hit_pos_and_valid[query_index] = vec4(0.0, 0.0, 0.0, 0.0);
+        return;
+    }
+    ray_dir = normalize(ray_dir);
 
     Ray ray;
     ray.origin        = ray_origin;
-    ray.direction     = vec3(0.0, -1.0, 0.0);
+    ray.direction     = ray_dir;
     ray.inv_direction = 1.0 / ray.direction;
 
     MarchingResult res = general_scene_marching(ray);
 
     if (res.is_hit) {
-        terrain_query_result.terrain_height_and_valid[query_index] = vec2(ray_origin.y - res.t, 1.0);
+        terrain_query_result.hit_pos_and_valid[query_index] = vec4(res.pos, 1.0);
     } else {
-        terrain_query_result.terrain_height_and_valid[query_index] = vec2(0.0, 0.0);
+        terrain_query_result.hit_pos_and_valid[query_index] = vec4(0.0, 0.0, 0.0, 0.0);
     }
 }

@@ -14,7 +14,7 @@ use crate::particles::{
     ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
-use crate::tracer::{Tracer, TracerDesc};
+use crate::tracer::{TerrainRayQuery, Tracer, TracerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
 use crate::util::{cluster_positions, ClusterResult, TimeInfo, BENCH};
 use crate::util::{get_sun_dir, ShaderCompiler};
@@ -719,7 +719,6 @@ const MAX_FRAMES_IN_FLIGHT: usize = 1;
 const SHOVEL_REMOVE_RADIUS: f32 = 0.10;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
-const SHOVEL_RAY_QUERY_STEPS: usize = 24;
 
 impl App {
     fn sync_cursor_with_panels(&mut self) {
@@ -1749,9 +1748,8 @@ impl App {
     fn query_camera_ray_terrain_intersection(
         &mut self,
         max_distance: f32,
-        steps: usize,
     ) -> Result<Option<Vec3>> {
-        if max_distance <= 0.0 || steps == 0 {
+        if max_distance <= 0.0 {
             return Ok(None);
         }
 
@@ -1761,36 +1759,33 @@ impl App {
             return Ok(None);
         }
 
-        let mut query_positions = Vec::with_capacity(steps + 1);
-        let mut query_t = Vec::with_capacity(steps + 1);
-        for i in 0..=steps {
-            let t = max_distance * (i as f32 / steps as f32);
-            let ray_pos = origin + direction * t;
-            query_positions.push(Vec2::new(ray_pos.x, ray_pos.z));
-            query_t.push(t);
-        }
+        let sample = self.tracer.query_terrain_ray_with_validity(TerrainRayQuery {
+            origin,
+            direction,
+        })?;
 
-        let samples = self
-            .tracer
-            .query_terrain_heights_batch_with_validity(&query_positions)?;
+        let distance = if sample.is_valid {
+            (sample.position - origin).length()
+        } else {
+            f32::INFINITY
+        };
+        log::info!(
+            "Shovel terrain query: origin=({:.3},{:.3},{:.3}), dir=({:.3},{:.3},{:.3}), hit=({}, {:.3},{:.3},{:.3}), dist={:.3}",
+            origin.x,
+            origin.y,
+            origin.z,
+            direction.x,
+            direction.y,
+            direction.z,
+            sample.is_valid,
+            sample.position.x,
+            sample.position.y,
+            sample.position.z,
+            distance
+        );
 
-        for (i, sample) in samples.iter().enumerate() {
-            let t = query_t[i];
-            let ray_pos = origin + direction * t;
-            log::info!(
-                "Shovel terrain query #{i}: t={:.3}, xz=({:.3},{:.3}), ray_y={:.3}, terrain_y={:.3}, valid={}",
-                t,
-                ray_pos.x,
-                ray_pos.z,
-                ray_pos.y,
-                sample.height,
-                sample.is_valid
-            );
-
-            if sample.is_valid && ray_pos.y <= sample.height {
-                let hit_pos = Vec3::new(ray_pos.x, sample.height, ray_pos.z);
-                return Ok(Some(hit_pos));
-            }
+        if sample.is_valid && distance <= max_distance {
+            return Ok(Some(sample.position));
         }
 
         Ok(None)
@@ -1807,10 +1802,7 @@ impl App {
             }
         }
 
-        match self.query_camera_ray_terrain_intersection(
-            SHOVEL_RAY_QUERY_DISTANCE,
-            SHOVEL_RAY_QUERY_STEPS,
-        ) {
+        match self.query_camera_ray_terrain_intersection(SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
                 log::info!(
                     "Shovel carve attempt: hit terrain at ({:.3}, {:.3}, {:.3}), radius={:.3}",
