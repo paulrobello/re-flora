@@ -1769,20 +1769,6 @@ impl App {
         } else {
             f32::INFINITY
         };
-        log::info!(
-            "Shovel terrain query: origin=({:.3},{:.3},{:.3}), dir=({:.3},{:.3},{:.3}), hit=({}, {:.3},{:.3},{:.3}), dist={:.3}",
-            origin.x,
-            origin.y,
-            origin.z,
-            direction.x,
-            direction.y,
-            direction.z,
-            sample.is_valid,
-            sample.position.x,
-            sample.position.y,
-            sample.position.z,
-            distance
-        );
 
         if sample.is_valid && distance <= max_distance {
             return Ok(Some(sample.position));
@@ -1804,13 +1790,6 @@ impl App {
 
         match self.query_camera_ray_terrain_intersection(SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
-                log::info!(
-                    "Shovel carve attempt: hit terrain at ({:.3}, {:.3}, {:.3}), radius={:.3}",
-                    center.x,
-                    center.y,
-                    center.z,
-                    SHOVEL_REMOVE_RADIUS
-                );
                 if let Err(err) = self.apply_terrain_removal(TerrainRemovalEdit {
                     center,
                     radius: SHOVEL_REMOVE_RADIUS,
@@ -1821,7 +1800,6 @@ impl App {
                 self.last_shovel_dig_time = Some(now);
             }
             Ok(None) => {
-                log::info!("Shovel carve attempt: no terrain hit along camera ray");
                 self.last_shovel_dig_time = Some(now);
             }
             Err(err) => {
