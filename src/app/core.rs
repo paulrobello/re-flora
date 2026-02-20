@@ -36,7 +36,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use winit::event::DeviceEvent;
 use winit::{
-    event::{ElementState, WindowEvent},
+    event::{ElementState, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::KeyCode,
     window::WindowId,
@@ -58,6 +58,7 @@ const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
+const ITEM_PANEL_SLOT_COUNT: usize = 5;
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -476,6 +477,7 @@ pub struct App {
     settings_panel_visible: bool,
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
+    selected_item_panel_slot: usize,
 
     debug_tree_desc: TreeDesc,
     tree_variation_config: TreeVariationConfig,
@@ -860,6 +862,7 @@ impl App {
             settings_panel_visible: false,
             is_fly_mode: false,
             item_panel_shovel_icon: None,
+            selected_item_panel_slot: 0,
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
@@ -957,7 +960,11 @@ impl App {
         Ok(())
     }
 
-    fn draw_item_panel(ctx: &egui::Context, item_panel_shovel_icon: Option<&TextureHandle>) {
+    fn draw_item_panel(
+        ctx: &egui::Context,
+        item_panel_shovel_icon: Option<&TextureHandle>,
+        selected_slot_idx: usize,
+    ) {
         egui::Area::new("item_panel".into())
             .anchor(egui::Align2::CENTER_BOTTOM, egui::Vec2::new(0.0, -16.0))
             .show(ctx, |ui| {
@@ -980,15 +987,20 @@ impl App {
                     let icon_size = egui::Vec2::new(32.0, 32.0);
 
                     egui::Grid::new("item_panel_slots")
-                        .num_columns(5)
+                        .num_columns(ITEM_PANEL_SLOT_COUNT)
                         .spacing(egui::Vec2::new(6.0, 0.0))
                         .show(ui, |ui| {
-                            for slot_idx in 0..5 {
+                            for slot_idx in 0..ITEM_PANEL_SLOT_COUNT {
+                                let is_selected = slot_idx == selected_slot_idx;
                                 let slot_frame = egui::containers::Frame {
                                     fill: PANEL_LIGHT,
                                     inner_margin: egui::Margin::same(6),
                                     corner_radius: egui::CornerRadius::same(0),
-                                    stroke: egui::Stroke::new(1.5, SAGE_ACCENT),
+                                    stroke: if is_selected {
+                                        egui::Stroke::new(1.5, GOLD_ACCENT)
+                                    } else {
+                                        egui::Stroke::new(1.5, SAGE_ACCENT)
+                                    },
                                     ..Default::default()
                                 };
 
@@ -2131,6 +2143,29 @@ impl App {
                     self.tracer.handle_keyboard(&event);
                 }
             }
+            WindowEvent::MouseWheel { delta, .. } => {
+                if !self.window_state.is_cursor_visible() {
+                    let scroll_y = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y,
+                        MouseScrollDelta::PixelDelta(position) => position.y as f32,
+                    };
+
+                    let step = if scroll_y > 0.0 {
+                        -1
+                    } else if scroll_y < 0.0 {
+                        1
+                    } else {
+                        0
+                    };
+
+                    if step != 0 {
+                        let next_slot = (self.selected_item_panel_slot as i32 + step)
+                            .rem_euclid(ITEM_PANEL_SLOT_COUNT as i32)
+                            as usize;
+                        self.selected_item_panel_slot = next_slot;
+                    }
+                }
+            }
 
             // redraw the window
             WindowEvent::RedrawRequested => {
@@ -2167,6 +2202,7 @@ impl App {
 
                 let mut tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
+                let selected_item_panel_slot = self.selected_item_panel_slot;
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
@@ -3293,7 +3329,11 @@ impl App {
                                 .show(ctx, |_ui| {});
                         }
 
-                        Self::draw_item_panel(ctx, item_panel_shovel_icon.as_ref());
+                        Self::draw_item_panel(
+                            ctx,
+                            item_panel_shovel_icon.as_ref(),
+                            selected_item_panel_slot,
+                        );
 
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
