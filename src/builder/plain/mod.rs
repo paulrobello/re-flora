@@ -1,5 +1,5 @@
 mod resources;
-use crate::geom::{BvhNode, Cuboid, RoundCone};
+use crate::geom::{BvhNode, Cuboid, RoundCone, Sphere};
 use crate::util::ShaderCompiler;
 use crate::vkn::execute_one_time_command;
 use crate::vkn::Allocator;
@@ -24,8 +24,10 @@ pub use resources::*;
 
 pub const VOXEL_TYPE_CHERRY_WOOD: u32 = 5;
 pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
+pub const VOXEL_TYPE_EMPTY: u32 = 0;
 const PRIMITIVE_KIND_ROUND_CONE: u32 = 0;
 const PRIMITIVE_KIND_CUBOID: u32 = 1;
+const PRIMITIVE_KIND_SPHERE: u32 = 2;
 
 pub struct PlainBuilder {
     vulkan_ctx: VulkanContext,
@@ -250,6 +252,42 @@ impl PlainBuilder {
         self.chunk_modify_cuboids_with_voxel_type_impl(bvh_nodes, cuboids, fill_voxel_type)
     }
 
+    pub fn chunk_modify_spheres_with_voxel_type(
+        &mut self,
+        bvh_nodes: &[BvhNode],
+        spheres: &[Sphere],
+        fill_voxel_type: u32,
+    ) -> Result<()> {
+        let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        update_chunk_modify_info(
+            &self.resources,
+            offset,
+            dim,
+            fill_voxel_type,
+            PRIMITIVE_KIND_SPHERE,
+        )?;
+        update_spheres(&self.resources, spheres)?;
+        update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
+
+        execute_one_time_command(
+            self.vulkan_ctx.device(),
+            self.vulkan_ctx.command_pool(),
+            &self.vulkan_ctx.get_general_queue(),
+            |cmdbuf| {
+                self.chunk_modify_ppl.record(
+                    cmdbuf,
+                    Extent3D {
+                        width: dim.x,
+                        height: dim.y,
+                        depth: dim.z,
+                    },
+                    None,
+                );
+            },
+        );
+        Ok(())
+    }
+
     fn chunk_modify_round_cones_with_voxel_type(
         &mut self,
         bvh_nodes: &[BvhNode],
@@ -398,6 +436,20 @@ fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Resu
         resources
             .cuboids
             .fill_element_with_raw_u8(&data, i as u64)?;
+    }
+    Ok(())
+}
+
+fn update_spheres(resources: &PlainBuilderResources, spheres: &[Sphere]) -> Result<()> {
+    for (i, sphere) in spheres.iter().enumerate() {
+        let data = StructMemberDataBuilder::from_buffer(&resources.spheres)
+            .set_field(
+                "data.center",
+                PlainMemberTypeWithData::Vec3(sphere.center().to_array()),
+            )
+            .set_field("data.radius", PlainMemberTypeWithData::Float(sphere.radius()))
+            .build()?;
+        resources.spheres.fill_element_with_raw_u8(&data, i as u64)?;
     }
     Ok(())
 }

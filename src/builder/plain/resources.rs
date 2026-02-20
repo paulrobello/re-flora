@@ -16,6 +16,7 @@ pub struct PlainBuilderResources {
     pub chunk_modify_info: Resource<Buffer>,
     pub round_cones: Resource<Buffer>,
     pub cuboids: Resource<Buffer>,
+    pub spheres: Resource<Buffer>,
     pub trunk_bvh_nodes: Resource<Buffer>,
 }
 
@@ -95,6 +96,16 @@ impl PlainBuilderResources {
             100000,
         ); // less than 1 MB though, don't worry about the size
 
+        let spheres_layout = chunk_modify_sm.get_buffer_layout("B_Spheres").unwrap();
+        let spheres = Buffer::from_buffer_layout_arraylike(
+            device.clone(),
+            allocator.clone(),
+            spheres_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            100000,
+        ); // less than 1 MB though, don't worry about the size
+
         let region_info_layout = buffer_setup_sm.get_buffer_layout("U_RegionInfo").unwrap();
         let region_info = Buffer::from_buffer_layout(
             device.clone(),
@@ -121,6 +132,7 @@ impl PlainBuilderResources {
             chunk_modify_info: Resource::new(chunk_modify_info),
             round_cones: Resource::new(round_cones),
             cuboids: Resource::new(cuboids),
+            spheres: Resource::new(spheres),
             trunk_bvh_nodes: Resource::new(trunk_bvh_nodes),
             region_info: Resource::new(region_info),
             region_indirect: Resource::new(region_indirect),

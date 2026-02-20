@@ -5,10 +5,10 @@ use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{
     ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBuilder, VOXEL_TYPE_CHERRY_WOOD,
-    VOXEL_TYPE_OAK_WOOD,
+    VOXEL_TYPE_EMPTY, VOXEL_TYPE_OAK_WOOD,
 };
 use crate::flora::species;
-use crate::geom::{build_bvh, BvhNode, Cuboid, RoundCone, UAabb3};
+use crate::geom::{build_bvh, BvhNode, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter,
     ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
@@ -33,10 +33,10 @@ use gpu_allocator::vulkan::AllocatorCreateDesc;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use winit::event::DeviceEvent;
 use winit::{
-    event::{ElementState, MouseScrollDelta, WindowEvent},
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::KeyCode,
     window::WindowId,
@@ -59,6 +59,7 @@ const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
 const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 const ITEM_PANEL_SLOT_COUNT: usize = 5;
+const SHOVEL_SLOT_INDEX: usize = 0;
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -239,6 +240,12 @@ struct ClearVoxelRegionEdit {
     dim: UVec3,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct TerrainRemovalEdit {
+    center: Vec3,
+    radius: f32,
+}
+
 #[derive(Clone, Debug)]
 enum VoxelEdit {
     StampRoundCones {
@@ -249,6 +256,11 @@ enum VoxelEdit {
     StampCuboids {
         bvh_nodes: Vec<BvhNode>,
         cuboids: Vec<Cuboid>,
+        voxel_type: u32,
+    },
+    StampSpheres {
+        bvh_nodes: Vec<BvhNode>,
+        spheres: Vec<Sphere>,
         voxel_type: u32,
     },
     ClearVoxelRegion(ClearVoxelRegionEdit),
@@ -289,6 +301,11 @@ impl WorldEditPlan {
 }
 
 struct CompiledFencePlacement {
+    voxel_edit: VoxelEdit,
+    rebuild_bound: UAabb3,
+}
+
+struct CompiledTerrainRemoval {
     voxel_edit: VoxelEdit,
     rebuild_bound: UAabb3,
 }
@@ -349,6 +366,66 @@ impl CubePlacementService {
             },
             rebuild_bound,
         }
+    }
+}
+
+struct TerrainRemovalService;
+
+impl TerrainRemovalService {
+    fn compile(edit: TerrainRemovalEdit) -> Option<CompiledTerrainRemoval> {
+        if edit.radius <= 0.0 {
+            return None;
+        }
+
+        let center_voxel = edit.center * 256.0;
+        let radius_voxel = edit.radius * 256.0;
+        let sphere = Sphere::new(center_voxel, radius_voxel);
+        let world_dim = VOXEL_DIM_PER_CHUNK * CHUNK_DIM;
+        let max_inclusive = world_dim - UVec3::ONE;
+        let sphere_aabb = sphere.aabb();
+        let min_f = sphere_aabb.min();
+        let max_f = sphere_aabb.max();
+        if max_f.x < 0.0
+            || max_f.y < 0.0
+            || max_f.z < 0.0
+            || min_f.x > max_inclusive.x as f32
+            || min_f.y > max_inclusive.y as f32
+            || min_f.z > max_inclusive.z as f32
+        {
+            return None;
+        }
+
+        let min = UVec3::new(
+            min_f.x.max(0.0).floor() as u32,
+            min_f.y.max(0.0).floor() as u32,
+            min_f.z.max(0.0).floor() as u32,
+        )
+        .min(max_inclusive);
+        let max = UVec3::new(
+            max_f.x.max(0.0).ceil() as u32,
+            max_f.y.max(0.0).ceil() as u32,
+            max_f.z.max(0.0).ceil() as u32,
+        )
+        .min(max_inclusive);
+        if min.cmpgt(max).any() {
+            return None;
+        }
+
+        let clipped_aabb = crate::geom::Aabb3::new(min.as_vec3(), max.as_vec3());
+        let bvh_nodes = build_bvh(&[clipped_aabb], &[0_u32]).ok()?;
+        let rebuild_bound = UAabb3::new(
+            bvh_nodes[0].aabb.min_uvec3().min(max_inclusive),
+            bvh_nodes[0].aabb.max_uvec3().min(max_inclusive),
+        );
+
+        Some(CompiledTerrainRemoval {
+            voxel_edit: VoxelEdit::StampSpheres {
+                bvh_nodes,
+                spheres: vec![sphere],
+                voxel_type: VOXEL_TYPE_EMPTY,
+            },
+            rebuild_bound,
+        })
     }
 }
 
@@ -478,6 +555,8 @@ pub struct App {
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
+    shovel_dig_held: bool,
+    last_shovel_dig_time: Option<Instant>,
 
     debug_tree_desc: TreeDesc,
     tree_variation_config: TreeVariationConfig,
@@ -548,6 +627,13 @@ impl WorldBuildBackend for BuilderOnlyWorldBackend<'_> {
                         .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
                 }
             }
+            VoxelEdit::StampSpheres {
+                bvh_nodes,
+                spheres,
+                voxel_type,
+            } => self
+                .plain_builder
+                .chunk_modify_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
         }
     }
 
@@ -604,6 +690,13 @@ impl WorldBuildBackend for App {
                         .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
                 }
             }
+            VoxelEdit::StampSpheres {
+                bvh_nodes,
+                spheres,
+                voxel_type,
+            } => self
+                .plain_builder
+                .chunk_modify_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
         }
     }
 
@@ -623,12 +716,18 @@ const VOXEL_DIM_PER_CHUNK: UVec3 = UVec3::new(256, 256, 256);
 const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 const MAX_FRAMES_IN_FLIGHT: usize = 1;
+const SHOVEL_REMOVE_RADIUS: f32 = 0.10;
+const SHOVEL_INTERACTION_DISTANCE: f32 = 0.45;
+const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 
 impl App {
     fn sync_cursor_with_panels(&mut self) {
         let any_panel_open = self.config_panel_visible || self.settings_panel_visible;
         self.window_state.set_cursor_visibility(any_panel_open);
         self.window_state.set_cursor_grab(!any_panel_open);
+        if any_panel_open {
+            self.shovel_dig_held = false;
+        }
     }
 
     fn butterfly_count_from_per_chunk(butterflies_per_chunk: u32) -> u32 {
@@ -863,6 +962,8 @@ impl App {
             is_fly_mode: false,
             item_panel_shovel_icon: None,
             selected_item_panel_slot: 0,
+            shovel_dig_held: false,
+            last_shovel_dig_time: None,
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
@@ -1630,6 +1731,43 @@ impl App {
         ))
     }
 
+    fn is_shovel_selected(&self) -> bool {
+        self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
+    }
+
+    fn apply_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
+        if let Some(compiled) = TerrainRemovalService::compile(edit) {
+            self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
+                compiled.voxel_edit,
+                BuildEdit::RebuildMesh(compiled.rebuild_bound),
+            ))?;
+        }
+        Ok(())
+    }
+
+    fn try_shovel_dig(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
+            return;
+        }
+
+        if let Some(last_dig) = self.last_shovel_dig_time {
+            if now.duration_since(last_dig) < SHOVEL_DIG_INTERVAL {
+                return;
+            }
+        }
+
+        let center = self.tracer.camera_position() + self.tracer.camera_front() * SHOVEL_INTERACTION_DISTANCE;
+        if let Err(err) = self.apply_terrain_removal(TerrainRemovalEdit {
+            center,
+            radius: SHOVEL_REMOVE_RADIUS,
+        }) {
+            log::error!("Failed to apply terrain removal: {}", err);
+            return;
+        }
+
+        self.last_shovel_dig_time = Some(now);
+    }
+
     fn apply_tree_placement(&mut self, edit: TreePlacementEdit) -> Result<()> {
         let TreePlacementEdit {
             tree_desc,
@@ -2166,6 +2304,19 @@ impl App {
                     }
                 }
             }
+            WindowEvent::MouseInput { state, button, .. } => {
+                if !self.window_state.is_cursor_visible() && button == MouseButton::Left {
+                    match state {
+                        ElementState::Pressed => {
+                            self.shovel_dig_held = true;
+                            self.try_shovel_dig(Instant::now());
+                        }
+                        ElementState::Released => {
+                            self.shovel_dig_held = false;
+                        }
+                    }
+                }
+            }
 
             // redraw the window
             WindowEvent::RedrawRequested => {
@@ -2182,6 +2333,9 @@ impl App {
                 self.window_state.maintain_cursor_grab();
 
                 self.time_info.update();
+                if self.shovel_dig_held {
+                    self.try_shovel_dig(Instant::now());
+                }
                 let frame_delta_time = self.time_info.delta_time();
                 let time_since_start = self.time_info.time_since_start();
                 if let Err(err) = self.tree_audio_manager.update(time_since_start) {

@@ -1494,6 +1494,14 @@ impl Tracer {
         self.camera.reset_velocity();
     }
 
+    pub fn camera_position(&self) -> Vec3 {
+        self.camera.position()
+    }
+
+    pub fn camera_front(&self) -> Vec3 {
+        self.camera.front()
+    }
+
     #[allow(dead_code)]
     pub fn camera_vectors(&self) -> &CameraVectors {
         self.camera.vectors()
