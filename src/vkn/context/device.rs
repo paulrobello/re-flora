@@ -85,6 +85,126 @@ impl Device {
         let queue = unsafe { self.as_raw().get_device_queue(queue_family_index, 0) };
         Queue::new(queue)
     }
+
+    pub fn cmd_bind_pipeline_graphics_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline: vk::Pipeline,
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
+        }
+    }
+
+    pub fn cmd_set_viewport_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        first_viewport: u32,
+        viewports: &[vk::Viewport],
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_set_viewport(command_buffer, first_viewport, viewports);
+        }
+    }
+
+    pub fn cmd_set_scissor_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        first_scissor: u32,
+        scissors: &[vk::Rect2D],
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_set_scissor(command_buffer, first_scissor, scissors);
+        }
+    }
+
+    pub fn cmd_push_constants_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        layout: vk::PipelineLayout,
+        stage_flags: vk::ShaderStageFlags,
+        offset: u32,
+        constants: &[u8],
+    ) {
+        unsafe {
+            self.as_raw().cmd_push_constants(
+                command_buffer,
+                layout,
+                stage_flags,
+                offset,
+                constants,
+            );
+        }
+    }
+
+    pub fn cmd_bind_index_buffer_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        buffer: vk::Buffer,
+        offset: vk::DeviceSize,
+        index_type: vk::IndexType,
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_bind_index_buffer(command_buffer, buffer, offset, index_type);
+        }
+    }
+
+    pub fn cmd_bind_vertex_buffers_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        first_binding: u32,
+        buffers: &[vk::Buffer],
+        offsets: &[vk::DeviceSize],
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_bind_vertex_buffers(command_buffer, first_binding, buffers, offsets);
+        }
+    }
+
+    pub fn cmd_bind_descriptor_sets_graphics_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        layout: vk::PipelineLayout,
+        first_set: u32,
+        descriptor_sets: &[vk::DescriptorSet],
+    ) {
+        unsafe {
+            self.as_raw().cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                layout,
+                first_set,
+                descriptor_sets,
+                &[],
+            );
+        }
+    }
+
+    pub fn cmd_draw_indexed_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        index_count: u32,
+        instance_count: u32,
+        first_index: u32,
+        vertex_offset: i32,
+        first_instance: u32,
+    ) {
+        unsafe {
+            self.as_raw().cmd_draw_indexed(
+                command_buffer,
+                index_count,
+                instance_count,
+                first_index,
+                vertex_offset,
+                first_instance,
+            );
+        }
+    }
 }
 
 fn create_device(

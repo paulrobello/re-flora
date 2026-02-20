@@ -272,24 +272,12 @@ impl EguiRenderer {
             .unwrap()
             .update(device, allocator, primitives);
 
-        unsafe {
-            device.cmd_bind_pipeline(
-                cmdbuf.as_raw(),
-                vk::PipelineBindPoint::GRAPHICS,
-                pipeline.as_raw(),
-            )
-        };
+        device.cmd_bind_pipeline_graphics_raw(cmdbuf.as_raw(), pipeline.as_raw());
 
         let screen_width = extent.width as f32;
         let screen_height = extent.height as f32;
 
-        unsafe {
-            device.cmd_set_viewport(
-                cmdbuf.as_raw(),
-                0,
-                &[Viewport::from_extent(extent).as_raw()],
-            )
-        };
+        device.cmd_set_viewport_raw(cmdbuf.as_raw(), 0, &[Viewport::from_extent(extent).as_raw()]);
 
         let projection = Mat4::orthographic_rh(
             0.0,
@@ -301,34 +289,28 @@ impl EguiRenderer {
         )
         .to_cols_array();
 
-        unsafe {
-            let push = any_as_u8_slice(&projection);
-            device.cmd_push_constants(
-                cmdbuf.as_raw(),
-                pipeline.get_layout().as_raw(),
-                vk::ShaderStageFlags::VERTEX,
-                0,
-                push,
-            )
-        };
+        let push = bytemuck::bytes_of(&projection);
+        device.cmd_push_constants_raw(
+            cmdbuf.as_raw(),
+            pipeline.get_layout().as_raw(),
+            vk::ShaderStageFlags::VERTEX,
+            0,
+            push,
+        );
 
-        unsafe {
-            device.cmd_bind_index_buffer(
-                cmdbuf.as_raw(),
-                frames.as_mut().unwrap().indices_buffer.as_raw(),
-                0,
-                vk::IndexType::UINT32,
-            )
-        };
+        device.cmd_bind_index_buffer_raw(
+            cmdbuf.as_raw(),
+            frames.as_mut().unwrap().indices_buffer.as_raw(),
+            0,
+            vk::IndexType::UINT32,
+        );
 
-        unsafe {
-            device.cmd_bind_vertex_buffers(
-                cmdbuf.as_raw(),
-                0,
-                &[frames.as_mut().unwrap().vertices_buffer.as_raw()],
-                &[0],
-            )
-        };
+        device.cmd_bind_vertex_buffers_raw(
+            cmdbuf.as_raw(),
+            0,
+            &[frames.as_mut().unwrap().vertices_buffer.as_raw()],
+            &[0],
+        );
 
         let mut index_offset = 0u32;
         let mut vertex_offset = 0i32;
@@ -354,38 +336,30 @@ impl EguiRenderer {
                         },
                     }];
 
-                    unsafe {
-                        device.cmd_set_scissor(cmdbuf.as_raw(), 0, &scissors);
-                    }
+                    device.cmd_set_scissor_raw(cmdbuf.as_raw(), 0, &scissors);
 
                     if Some(m.texture_id) != current_texture_id {
                         let descriptor_set =
                             managed_texture_descriptor_sets.get(&m.texture_id).unwrap();
-                        unsafe {
-                            device.cmd_bind_descriptor_sets(
-                                cmdbuf.as_raw(),
-                                vk::PipelineBindPoint::GRAPHICS,
-                                pipeline.get_layout().as_raw(),
-                                0,
-                                &[descriptor_set.as_raw()],
-                                &[],
-                            );
-                        }
+                        device.cmd_bind_descriptor_sets_graphics_raw(
+                            cmdbuf.as_raw(),
+                            pipeline.get_layout().as_raw(),
+                            0,
+                            &[descriptor_set.as_raw()],
+                        );
                         current_texture_id = Some(m.texture_id);
                     }
 
                     let index_count = m.indices.len() as u32;
 
-                    unsafe {
-                        device.cmd_draw_indexed(
-                            cmdbuf.as_raw(),
-                            index_count,
-                            1,
-                            index_offset,
-                            vertex_offset,
-                            0,
-                        );
-                    }
+                    device.cmd_draw_indexed_raw(
+                        cmdbuf.as_raw(),
+                        index_count,
+                        1,
+                        index_offset,
+                        vertex_offset,
+                        0,
+                    );
 
                     index_offset += index_count;
                     vertex_offset += m.vertices.len() as i32;
@@ -443,10 +417,4 @@ impl EguiRenderer {
             self.clipped_primitives.as_ref().unwrap(),
         );
     }
-}
-
-/// Return a `&[u8]` for any sized object passed in.
-unsafe fn any_as_u8_slice<T: Sized>(any: &T) -> &[u8] {
-    let ptr = (any as *const T) as *const u8;
-    std::slice::from_raw_parts(ptr, std::mem::size_of::<T>())
 }
