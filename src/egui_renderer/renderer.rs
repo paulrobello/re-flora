@@ -9,8 +9,8 @@ use crate::vkn::Viewport;
 use crate::vkn::VulkanContext;
 use crate::vkn::WriteDescriptorSet;
 use crate::vkn::{
-    Allocator, DescriptorPool, Device, Extent2D, Extent3D, GraphicsPipeline, GraphicsPipelineDesc,
-    ShaderModule, Texture,
+    Allocator, DescriptorPool, DescriptorSet, Device, Extent2D, Extent3D, GraphicsPipeline,
+    GraphicsPipelineDesc, ShaderModule, Texture,
 };
 use ash::vk;
 use egui::ViewportId;
@@ -34,9 +34,8 @@ pub struct EguiRenderer {
 
     pool: DescriptorPool,
     managed_textures: HashMap<TextureId, Texture>,
+    managed_texture_descriptor_sets: HashMap<TextureId, DescriptorSet>,
     frames: Option<Mesh>,
-
-    textures_to_free: Option<Vec<TextureId>>,
 
     egui_context: egui::Context,
     egui_winit_state: egui_winit::State,
@@ -97,8 +96,8 @@ impl EguiRenderer {
             egui_frag_sm,
             pool,
             managed_textures: HashMap::new(),
+            managed_texture_descriptor_sets: HashMap::new(),
             frames: None,
-            textures_to_free: None,
 
             egui_context,
             egui_winit_state,
@@ -216,19 +215,44 @@ impl EguiRenderer {
                     ),
                 );
 
+                let descriptor_layout = self
+                    .gui_ppl
+                    .get_layout()
+                    .get_descriptor_set_layouts()
+                    .get(&0)
+                    .expect("Egui pipeline is expected to expose descriptor set 0");
+                let descriptor_set = self
+                    .pool
+                    .allocate_set(descriptor_layout)
+                    .expect("Failed to allocate egui texture descriptor set");
+                descriptor_set.perform_writes(&mut [WriteDescriptorSet::new_texture_write(
+                    0,
+                    vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                    &texture,
+                    vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                )]);
+
                 self.managed_textures.insert(*id, texture);
+                self.managed_texture_descriptor_sets
+                    .insert(*id, descriptor_set);
             }
+        }
+    }
+
+    fn free_textures(&mut self, texture_ids: &[TextureId]) {
+        for texture_id in texture_ids {
+            self.managed_textures.remove(texture_id);
+            self.managed_texture_descriptor_sets.remove(texture_id);
         }
     }
 
     /// Record commands to render the [`egui::Ui`].
     #[allow(clippy::too_many_arguments)]
     fn cmd_draw(
-        gui_ppl: &GraphicsPipeline,
         device: &Device,
         frames: &mut Option<Mesh>,
         pipeline: &GraphicsPipeline,
-        managed_textures: &mut HashMap<TextureId, Texture>,
+        managed_texture_descriptor_sets: &HashMap<TextureId, DescriptorSet>,
         allocator: &mut Allocator,
         cmdbuf: &CommandBuffer,
         extent: Extent2D,
@@ -335,30 +359,33 @@ impl EguiRenderer {
                     }
 
                     if Some(m.texture_id) != current_texture_id {
-                        let texture = managed_textures.get(&m.texture_id).unwrap();
-                        gui_ppl.write_descriptor_set(
-                            0,
-                            WriteDescriptorSet::new_texture_write(
+                        let descriptor_set =
+                            managed_texture_descriptor_sets.get(&m.texture_id).unwrap();
+                        unsafe {
+                            device.cmd_bind_descriptor_sets(
+                                cmdbuf.as_raw(),
+                                vk::PipelineBindPoint::GRAPHICS,
+                                pipeline.get_layout().as_raw(),
                                 0,
-                                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                                texture,
-                                vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                            ),
-                        );
+                                &[descriptor_set.as_raw()],
+                                &[],
+                            );
+                        }
                         current_texture_id = Some(m.texture_id);
                     }
 
                     let index_count = m.indices.len() as u32;
 
-                    gui_ppl.record_indexed(
-                        cmdbuf,
-                        index_count,
-                        1,
-                        index_offset,
-                        vertex_offset,
-                        0,
-                        None,
-                    );
+                    unsafe {
+                        device.cmd_draw_indexed(
+                            cmdbuf.as_raw(),
+                            index_count,
+                            1,
+                            index_offset,
+                            vertex_offset,
+                            0,
+                        );
+                    }
 
                     index_offset += index_count;
                     vertex_offset += m.vertices.len() as i32;
@@ -385,7 +412,7 @@ impl EguiRenderer {
             .handle_platform_output(window, platform_output);
 
         if !textures_delta.free.is_empty() {
-            self.textures_to_free = Some(textures_delta.free.clone());
+            self.free_textures(&textures_delta.free);
         }
 
         if !textures_delta.set.is_empty() {
@@ -405,11 +432,10 @@ impl EguiRenderer {
         render_area: Extent2D,
     ) {
         Self::cmd_draw(
-            &self.gui_ppl,
             device,
             &mut self.frames,
             &self.gui_ppl,
-            &mut self.managed_textures,
+            &self.managed_texture_descriptor_sets,
             &mut self.allocator,
             cmdbuf,
             render_area,
