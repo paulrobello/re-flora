@@ -97,6 +97,17 @@ impl Device {
         }
     }
 
+    pub fn cmd_bind_pipeline_compute_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        pipeline: vk::Pipeline,
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::COMPUTE, pipeline);
+        }
+    }
+
     pub fn cmd_set_viewport_raw(
         &self,
         command_buffer: vk::CommandBuffer,
@@ -185,6 +196,25 @@ impl Device {
         }
     }
 
+    pub fn cmd_bind_descriptor_sets_compute_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        layout: vk::PipelineLayout,
+        first_set: u32,
+        descriptor_sets: &[vk::DescriptorSet],
+    ) {
+        unsafe {
+            self.as_raw().cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::COMPUTE,
+                layout,
+                first_set,
+                descriptor_sets,
+                &[],
+            );
+        }
+    }
+
     pub fn cmd_draw_indexed_raw(
         &self,
         command_buffer: vk::CommandBuffer,
@@ -203,6 +233,53 @@ impl Device {
                 vertex_offset,
                 first_instance,
             );
+        }
+    }
+
+    pub fn cmd_dispatch_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        group_count_x: u32,
+        group_count_y: u32,
+        group_count_z: u32,
+    ) {
+        unsafe {
+            self.as_raw().cmd_dispatch(
+                command_buffer,
+                group_count_x,
+                group_count_y,
+                group_count_z,
+            );
+        }
+    }
+
+    pub fn cmd_dispatch_indirect_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        buffer: vk::Buffer,
+        offset: vk::DeviceSize,
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_dispatch_indirect(command_buffer, buffer, offset);
+        }
+    }
+
+    pub fn cmd_begin_render_pass_raw(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        begin_info: &vk::RenderPassBeginInfo,
+        contents: vk::SubpassContents,
+    ) {
+        unsafe {
+            self.as_raw()
+                .cmd_begin_render_pass(command_buffer, begin_info, contents);
+        }
+    }
+
+    pub fn cmd_end_render_pass_raw(&self, command_buffer: vk::CommandBuffer) {
+        unsafe {
+            self.as_raw().cmd_end_render_pass(command_buffer);
         }
     }
 }

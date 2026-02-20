@@ -120,47 +120,35 @@ impl ComputePipeline {
             .map(|s| s.as_raw())
             .collect::<Vec<_>>();
 
-        unsafe {
-            self.0.device.cmd_bind_descriptor_sets(
-                cmdbuf.as_raw(),
-                vk::PipelineBindPoint::COMPUTE,
-                self.0.pipeline_layout.as_raw(),
-                first_set,
-                &descriptor_sets,
-                &[],
-            );
-        }
+        self.0.device.cmd_bind_descriptor_sets_compute_raw(
+            cmdbuf.as_raw(),
+            self.0.pipeline_layout.as_raw(),
+            first_set,
+            &descriptor_sets,
+        );
     }
 
     fn record_bind(&self, cmdbuf: &CommandBuffer) {
-        unsafe {
-            self.0.device.cmd_bind_pipeline(
-                cmdbuf.as_raw(),
-                vk::PipelineBindPoint::COMPUTE,
-                self.0.pipeline,
-            );
-        }
+        self.0
+            .device
+            .cmd_bind_pipeline_compute_raw(cmdbuf.as_raw(), self.0.pipeline);
     }
 
     fn record_push_constants(&self, cmdbuf: &CommandBuffer, push_constants: &[u8]) {
-        unsafe {
-            self.0.device.cmd_push_constants(
-                cmdbuf.as_raw(),
-                self.0.pipeline_layout.as_raw(),
-                vk::ShaderStageFlags::COMPUTE,
-                0,
-                push_constants,
-            );
-        }
+        self.0.device.cmd_push_constants_raw(
+            cmdbuf.as_raw(),
+            self.0.pipeline_layout.as_raw(),
+            vk::ShaderStageFlags::COMPUTE,
+            0,
+            push_constants,
+        );
     }
 
     fn record_dispatch(&self, cmdbuf: &CommandBuffer, dispatch_size: [u32; 3]) {
         let x = (dispatch_size[0] as f32 / self.0.workgroup_size[0] as f32).ceil() as u32;
         let y = (dispatch_size[1] as f32 / self.0.workgroup_size[1] as f32).ceil() as u32;
         let z = (dispatch_size[2] as f32 / self.0.workgroup_size[2] as f32).ceil() as u32;
-        unsafe {
-            self.0.device.cmd_dispatch(cmdbuf.as_raw(), x, y, z);
-        }
+        self.0.device.cmd_dispatch_raw(cmdbuf.as_raw(), x, y, z);
     }
 
     /// Record the compute pipeline into the command buffer.
@@ -209,10 +197,8 @@ impl ComputePipeline {
     }
 
     fn record_dispatch_indirect(&self, cmdbuf: &CommandBuffer, buffer: &Buffer) {
-        unsafe {
-            self.0
-                .device
-                .cmd_dispatch_indirect(cmdbuf.as_raw(), buffer.as_raw(), 0);
-        }
+        self.0
+            .device
+            .cmd_dispatch_indirect_raw(cmdbuf.as_raw(), buffer.as_raw(), 0);
     }
 }

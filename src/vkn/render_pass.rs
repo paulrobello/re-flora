@@ -239,22 +239,18 @@ impl RenderPass {
             })
             .clear_values(clear_values);
 
-        unsafe {
-            self.0.device.cmd_begin_render_pass(
-                cmdbuf.as_raw(),
-                &render_pass_begin_info,
-                vk::SubpassContents::INLINE,
-            );
-        }
+        self.0.device.cmd_begin_render_pass_raw(
+            cmdbuf.as_raw(),
+            &render_pass_begin_info,
+            vk::SubpassContents::INLINE,
+        );
     }
 
     /// TODO: refactor this so format transition is handled here
     /// Ends the render pass. The caller is responsible for transitioning image layouts
     /// to their final state as specified in the `RenderPassDesc`.
     pub fn record_end(&self, cmdbuf: &CommandBuffer) {
-        unsafe {
-            self.0.device.cmd_end_render_pass(cmdbuf.as_raw());
-        }
+        self.0.device.cmd_end_render_pass_raw(cmdbuf.as_raw());
     }
 
     pub fn get_desc(&self) -> &RenderPassDesc {

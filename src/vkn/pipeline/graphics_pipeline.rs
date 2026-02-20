@@ -250,16 +250,12 @@ impl GraphicsPipeline {
             .map(|s| s.as_raw())
             .collect::<Vec<_>>();
 
-        unsafe {
-            self.0.device.cmd_bind_descriptor_sets(
-                cmdbuf.as_raw(),
-                vk::PipelineBindPoint::GRAPHICS,
-                self.0.pipeline_layout.as_raw(),
-                first_set,
-                &descriptor_sets,
-                &[],
-            );
-        }
+        self.0.device.cmd_bind_descriptor_sets_graphics_raw(
+            cmdbuf.as_raw(),
+            self.0.pipeline_layout.as_raw(),
+            first_set,
+            &descriptor_sets,
+        );
     }
 
     fn create_pipeline(
@@ -279,25 +275,19 @@ impl GraphicsPipeline {
     }
 
     fn record_push_constants(&self, cmdbuf: &CommandBuffer, push_constants: &PushConstantInfo) {
-        unsafe {
-            self.0.device.cmd_push_constants(
-                cmdbuf.as_raw(),
-                self.0.pipeline_layout.as_raw(),
-                push_constants.shader_stage,
-                0,
-                &push_constants.push_constants,
-            );
-        }
+        self.0.device.cmd_push_constants_raw(
+            cmdbuf.as_raw(),
+            self.0.pipeline_layout.as_raw(),
+            push_constants.shader_stage,
+            0,
+            &push_constants.push_constants,
+        );
     }
 
     pub fn record_bind(&self, cmdbuf: &CommandBuffer) {
-        unsafe {
-            self.0.device.cmd_bind_pipeline(
-                cmdbuf.as_raw(),
-                vk::PipelineBindPoint::GRAPHICS,
-                self.0.pipeline,
-            );
-        }
+        self.0
+            .device
+            .cmd_bind_pipeline_graphics_raw(cmdbuf.as_raw(), self.0.pipeline);
     }
 
     pub fn record_viewport_scissor(
@@ -306,14 +296,12 @@ impl GraphicsPipeline {
         viewport: Viewport,
         scissor: vk::Rect2D,
     ) {
-        unsafe {
-            self.0
-                .device
-                .cmd_set_viewport(cmdbuf.as_raw(), 0, &[viewport.as_raw()]);
-            self.0
-                .device
-                .cmd_set_scissor(cmdbuf.as_raw(), 0, &[scissor]);
-        }
+        self.0
+            .device
+            .cmd_set_viewport_raw(cmdbuf.as_raw(), 0, &[viewport.as_raw()]);
+        self.0
+            .device
+            .cmd_set_scissor_raw(cmdbuf.as_raw(), 0, &[scissor]);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -353,16 +341,14 @@ impl GraphicsPipeline {
         vertex_offset: i32,
         first_instance: u32,
     ) {
-        unsafe {
-            self.0.device.cmd_draw_indexed(
-                cmdbuf.as_raw(),
-                index_count,
-                instance_count,
-                first_index,
-                vertex_offset,
-                first_instance,
-            );
-        }
+        self.0.device.cmd_draw_indexed_raw(
+            cmdbuf.as_raw(),
+            index_count,
+            instance_count,
+            first_index,
+            vertex_offset,
+            first_instance,
+        );
     }
 
     pub fn write_descriptor_set(&self, set_no: u32, write: WriteDescriptorSet) {
