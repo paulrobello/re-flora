@@ -5,6 +5,7 @@ use crate::app::world_edits::{
     BuildEdit, ClearVoxelRegionEdit, CubePlacementEdit, FencePostPlacementEdit, TerrainRemovalEdit,
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldBuildBackend, WorldEditPlan,
 };
+use crate::app::world_ops;
 use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{
@@ -473,69 +474,6 @@ pub struct App {
     tree_audio_manager: TreeAudioManager,
 }
 
-struct BuilderOnlyWorldBackend<'a> {
-    plain_builder: &'a mut PlainBuilder,
-    surface_builder: &'a mut SurfaceBuilder,
-    contree_builder: &'a mut ContreeBuilder,
-    scene_accel_builder: &'a mut SceneAccelBuilder,
-}
-
-impl WorldBuildBackend for BuilderOnlyWorldBackend<'_> {
-    fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()> {
-        match edit {
-            VoxelEdit::ClearVoxelRegion(edit) => {
-                self.plain_builder.chunk_init(edit.offset, edit.dim)
-            }
-            VoxelEdit::StampRoundCones {
-                bvh_nodes,
-                round_cones,
-                voxel_type,
-            } => {
-                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
-                    self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)
-                } else {
-                    self.plain_builder.chunk_modify_with_voxel_type(
-                        &bvh_nodes,
-                        &round_cones,
-                        voxel_type,
-                    )
-                }
-            }
-            VoxelEdit::StampCuboids {
-                bvh_nodes,
-                cuboids,
-                voxel_type,
-            } => {
-                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
-                    self.plain_builder
-                        .chunk_modify_cuboids(&bvh_nodes, &cuboids)
-                } else {
-                    self.plain_builder
-                        .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
-                }
-            }
-            VoxelEdit::StampSurfaceSpheres {
-                bvh_nodes,
-                spheres,
-                voxel_type,
-            } => self
-                .plain_builder
-                .chunk_modify_surface_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
-        }
-    }
-
-    fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()> {
-        match edit {
-            BuildEdit::RebuildMesh(bound) => App::mesh_generate(
-                self.surface_builder,
-                self.contree_builder,
-                self.scene_accel_builder,
-                bound,
-            ),
-        }
-    }
-}
-
 impl Drop for App {
     fn drop(&mut self) {
         // Ensure GPU work is done before resources begin destructing
@@ -545,57 +483,17 @@ impl Drop for App {
 
 impl WorldBuildBackend for App {
     fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()> {
-        match edit {
-            VoxelEdit::ClearVoxelRegion(edit) => {
-                self.plain_builder.chunk_init(edit.offset, edit.dim)
-            }
-            VoxelEdit::StampRoundCones {
-                bvh_nodes,
-                round_cones,
-                voxel_type,
-            } => {
-                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
-                    self.plain_builder.chunk_modify(&bvh_nodes, &round_cones)
-                } else {
-                    self.plain_builder.chunk_modify_with_voxel_type(
-                        &bvh_nodes,
-                        &round_cones,
-                        voxel_type,
-                    )
-                }
-            }
-            VoxelEdit::StampCuboids {
-                bvh_nodes,
-                cuboids,
-                voxel_type,
-            } => {
-                if voxel_type == VOXEL_TYPE_CHERRY_WOOD {
-                    self.plain_builder
-                        .chunk_modify_cuboids(&bvh_nodes, &cuboids)
-                } else {
-                    self.plain_builder
-                        .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
-                }
-            }
-            VoxelEdit::StampSurfaceSpheres {
-                bvh_nodes,
-                spheres,
-                voxel_type,
-            } => self
-                .plain_builder
-                .chunk_modify_surface_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
-        }
+        world_ops::apply_voxel_edit(&mut self.plain_builder, edit)
     }
 
     fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()> {
-        match edit {
-            BuildEdit::RebuildMesh(bound) => Self::mesh_generate(
-                &mut self.surface_builder,
-                &mut self.contree_builder,
-                &mut self.scene_accel_builder,
-                bound,
-            ),
-        }
+        world_ops::apply_build_edit(
+            &mut self.surface_builder,
+            &mut self.contree_builder,
+            &mut self.scene_accel_builder,
+            VOXEL_DIM_PER_CHUNK,
+            edit,
+        )
     }
 }
 
@@ -1400,11 +1298,12 @@ impl App {
     ) -> Result<()> {
         let world_dim = VOXEL_DIM_PER_CHUNK * CHUNK_DIM;
         let world_bound = UAabb3::new(UVec3::ZERO, world_dim - UVec3::ONE);
-        Self::execute_edit_plan_on_builders(
+        world_ops::execute_edit_plan_on_builders(
             plain_builder,
             surface_builder,
             contree_builder,
             scene_accel_builder,
+            VOXEL_DIM_PER_CHUNK,
             WorldEditPlan {
                 voxel_edits: vec![VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
                     offset: UVec3::ZERO,
@@ -1569,38 +1468,7 @@ impl App {
     }
 
     fn execute_edit_plan(&mut self, plan: WorldEditPlan) -> Result<()> {
-        Self::execute_edit_plan_on_backend(self, plan)
-    }
-
-    fn execute_edit_plan_on_builders(
-        plain_builder: &mut PlainBuilder,
-        surface_builder: &mut SurfaceBuilder,
-        contree_builder: &mut ContreeBuilder,
-        scene_accel_builder: &mut SceneAccelBuilder,
-        plan: WorldEditPlan,
-    ) -> Result<()> {
-        let mut backend = BuilderOnlyWorldBackend {
-            plain_builder,
-            surface_builder,
-            contree_builder,
-            scene_accel_builder,
-        };
-        Self::execute_edit_plan_on_backend(&mut backend, plan)
-    }
-
-    fn execute_edit_plan_on_backend<B: WorldBuildBackend>(
-        backend: &mut B,
-        plan: WorldEditPlan,
-    ) -> Result<()> {
-        for edit in plan.voxel_edits {
-            backend.apply_voxel_edit(edit)?;
-        }
-
-        for edit in plan.build_edits {
-            backend.apply_build_edit(edit)?;
-        }
-
-        Ok(())
+        world_ops::execute_edit_plan_on_backend(self, plan)
     }
 
     fn apply_fence_post_placement(&mut self, edit: FencePostPlacementEdit) -> Result<()> {
@@ -2247,63 +2115,6 @@ impl App {
         }
     }
 
-    fn mesh_generate(
-        surface_builder: &mut SurfaceBuilder,
-        contree_builder: &mut ContreeBuilder,
-        scene_accel_builder: &mut SceneAccelBuilder,
-        bound: UAabb3,
-    ) -> Result<()> {
-        let affected_chunk_indices = get_affected_chunk_indices(bound.min(), bound.max());
-
-        for chunk_id in affected_chunk_indices {
-            let atlas_offset = chunk_id * VOXEL_DIM_PER_CHUNK;
-
-            let now = Instant::now();
-            let res = surface_builder.build_surface(chunk_id);
-            if let Err(e) = res {
-                log::error!("Failed to build surface for chunk {}: {}", chunk_id, e);
-                continue;
-            }
-            // we don't use the active_voxel_len here
-
-            BENCH.lock().unwrap().record("build_surface", now.elapsed());
-
-            let now = Instant::now();
-            let res = contree_builder.build_and_alloc(atlas_offset).unwrap();
-            BENCH
-                .lock()
-                .unwrap()
-                .record("build_and_alloc", now.elapsed());
-
-            if let Some(res) = res {
-                let (node_buffer_offset, leaf_buffer_offset) = res;
-                scene_accel_builder.update_scene_tex(
-                    chunk_id,
-                    node_buffer_offset,
-                    leaf_buffer_offset,
-                )?;
-            } else {
-                log::debug!("Don't need to update scene tex because the chunk is empty");
-            }
-        }
-        return Ok(());
-
-        fn get_affected_chunk_indices(min_bound: UVec3, max_bound: UVec3) -> Vec<UVec3> {
-            let min_chunk_idx = min_bound / VOXEL_DIM_PER_CHUNK;
-            let max_chunk_idx = max_bound / VOXEL_DIM_PER_CHUNK;
-
-            let mut affacted = Vec::new();
-            for x in min_chunk_idx.x..=max_chunk_idx.x {
-                for y in min_chunk_idx.y..=max_chunk_idx.y {
-                    for z in min_chunk_idx.z..=max_chunk_idx.z {
-                        affacted.push(UVec3::new(x, y, z));
-                    }
-                }
-            }
-            affacted
-        }
-    }
-
     pub fn on_window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -2762,11 +2573,12 @@ impl App {
                                             if x_changed || z_changed {
 // clean up existing tree chunks before querying to avoid blocking the ray
                                                 let prev_bound = self.prev_bound;
-                                                if let Err(e) = Self::execute_edit_plan_on_builders(
+                                                if let Err(e) = world_ops::execute_edit_plan_on_builders(
                                                     &mut self.plain_builder,
                                                     &mut self.surface_builder,
                                                     &mut self.contree_builder,
                                                     &mut self.scene_accel_builder,
+                                                    VOXEL_DIM_PER_CHUNK,
                                                     WorldEditPlan {
                                                         voxel_edits: vec![VoxelEdit::ClearVoxelRegion(
                                                             ClearVoxelRegionEdit {
