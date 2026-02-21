@@ -1,4 +1,5 @@
 use super::App;
+use crate::audio::SpatialSoundManager;
 use crate::geom::UAabb3;
 use crate::particles::{
     BirdEmitter, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter,
@@ -9,6 +10,87 @@ use crate::util::ClusterResult;
 use egui::Color32;
 use glam::{Vec2, Vec3, Vec4};
 use rand::Rng;
+use std::collections::{HashMap, HashSet};
+use uuid::Uuid;
+
+const BIRD_AUDIO_PATH: &str = "assets/sfx/SA_EuropeanBirds2_44.1k_v1.2_OneShots/Audio/House Sparrow/Call A/BIRDSong_House Sparrow, Call A 01_SARM_EB2.wav";
+const BIRD_AUDIO_VOLUME_DB: f32 = -24.0;
+
+#[derive(Default)]
+pub(super) struct BirdAudioBinding {
+    sources: HashMap<ParticleHandle, Uuid>,
+    active_handles: HashSet<ParticleHandle>,
+    positions: Vec<(ParticleHandle, Vec3)>,
+}
+
+impl BirdAudioBinding {
+    fn clear(&mut self, spatial_sound_manager: &SpatialSoundManager) {
+        for source_uuid in self.sources.values().copied() {
+            spatial_sound_manager.remove_source(source_uuid);
+        }
+        self.sources.clear();
+        self.active_handles.clear();
+        self.positions.clear();
+    }
+
+    fn sync(
+        &mut self,
+        emitters: &mut [BirdEmitter],
+        particle_system: &ParticleSystem,
+        spatial_sound_manager: &SpatialSoundManager,
+    ) {
+        self.positions.clear();
+        for emitter in emitters {
+            emitter.collect_audio_positions(particle_system, &mut self.positions);
+        }
+
+        if self.positions.is_empty() {
+            self.clear(spatial_sound_manager);
+            return;
+        }
+
+        self.active_handles.clear();
+        for (handle, position) in self.positions.iter().copied() {
+            self.active_handles.insert(handle);
+
+            if let Some(source_uuid) = self.sources.get(&handle).copied() {
+                if let Err(err) = spatial_sound_manager.update_source_pos(source_uuid, position) {
+                    log::warn!("Failed to update bird audio source position: {}", err);
+                    spatial_sound_manager.remove_source(source_uuid);
+                    self.sources.remove(&handle);
+                }
+                continue;
+            }
+
+            match spatial_sound_manager.add_looping_spatial_source(
+                BIRD_AUDIO_PATH,
+                BIRD_AUDIO_VOLUME_DB,
+                position,
+                true,
+            ) {
+                Ok(source_uuid) => {
+                    self.sources.insert(handle, source_uuid);
+                }
+                Err(err) => {
+                    log::warn!("Failed to spawn bird audio source: {}", err);
+                }
+            }
+        }
+
+        let stale_handles: Vec<ParticleHandle> = self
+            .sources
+            .keys()
+            .copied()
+            .filter(|handle| !self.active_handles.contains(handle))
+            .collect();
+
+        for handle in stale_handles {
+            if let Some(source_uuid) = self.sources.remove(&handle) {
+                spatial_sound_manager.remove_source(source_uuid);
+            }
+        }
+    }
+}
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
@@ -240,6 +322,11 @@ impl App {
         );
 
         self.particle_system.update(dt, self.particle_forces);
+        self.bird_audio_binding.sync(
+            &mut self.bird_emitters,
+            &self.particle_system,
+            &self.spatial_sound_manager,
+        );
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
 

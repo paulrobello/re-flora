@@ -8,7 +8,7 @@ mod particles;
 mod ui_style;
 mod vegetation;
 
-use self::particles::TreeLeafEmitter;
+use self::particles::{BirdAudioBinding, TreeLeafEmitter};
 use self::vegetation::{TreeRecord, TreeVariationConfig};
 use crate::app::environment;
 use crate::app::world_edits::{
@@ -118,6 +118,7 @@ pub struct App {
     bird_emitter_desc: BirdEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
+    bird_audio_binding: BirdAudioBinding,
 
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
@@ -304,6 +305,7 @@ impl App {
             linear_damping: 0.08,
             ..ParticleForces::default()
         };
+        let bird_audio_binding = BirdAudioBinding::default();
 
         let mut app = Self {
             vulkan_ctx,
@@ -360,6 +362,7 @@ impl App {
             bird_emitter_desc,
             particle_snapshots,
             particle_forces,
+            bird_audio_binding,
 
             spatial_sound_manager,
             tree_audio_manager,

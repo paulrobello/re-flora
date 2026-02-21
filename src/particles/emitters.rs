@@ -629,6 +629,19 @@ impl BirdEmitter {
         self.color_high = desc.color_high;
     }
 
+    pub fn collect_audio_positions(
+        &mut self,
+        system: &ParticleSystem,
+        out_positions: &mut Vec<(ParticleHandle, Vec3)>,
+    ) {
+        self.prune_handles(system);
+        for handle in &self.active_handles {
+            if let Some(pos) = system.position(*handle) {
+                out_positions.push((*handle, pos));
+            }
+        }
+    }
+
     fn normalize_bounds(min: Vec2, max: Vec2) -> (Vec2, Vec2) {
         let min_x = min.x.min(max.x);
         let max_x = min.x.max(max.x);
