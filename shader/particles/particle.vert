@@ -90,7 +90,7 @@ void main() {
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
-    vec3 linear_color = srgb_to_linear(in_instance_color.rgb);
-    vec3 lighting     = sun_light * shadow_weight + shading_info.ambient_light;
-    vert_color        = vec4(linear_color * lighting, in_instance_color.a);
+    vec3 linear_color   = srgb_to_linear(in_instance_color.rgb);
+    vec3 lighting       = sun_light * shadow_weight + shading_info.ambient_light;
+    vert_color          = vec4(linear_color * lighting, in_instance_color.a);
 }

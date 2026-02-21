@@ -86,14 +86,14 @@ flora_growth_info;
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
-const float scaling_factor         = 1.0 / 256.0;
-const uint grass_min_height_voxels = 3u;
-const uint grass_max_height_voxels = 8u;
+const float scaling_factor             = 1.0 / 256.0;
+const uint grass_min_height_voxels     = 3u;
+const uint grass_max_height_voxels     = 8u;
 const float grass_height_mean_voxels   = 6.0;
 const float grass_height_stddev_voxels = 1.0;
 
 float sample_standard_normal(uint seed) {
-    float sum = 0.0;
+    float sum  = 0.0;
     uint state = seed ^ 0xA511E9B3u;
     for (uint i = 0u; i < 12u; ++i) {
         state = wellons_hash(state + i * 0x9E3779B9u);
@@ -105,8 +105,8 @@ float sample_standard_normal(uint seed) {
 uint sample_grass_height(uint seed) {
     float sampled_height =
         grass_height_mean_voxels + sample_standard_normal(seed) * grass_height_stddev_voxels;
-    sampled_height = clamp(sampled_height, float(grass_min_height_voxels),
-                           float(grass_max_height_voxels));
+    sampled_height =
+        clamp(sampled_height, float(grass_min_height_voxels), float(grass_max_height_voxels));
     return uint(round(sampled_height));
 }
 
@@ -157,9 +157,9 @@ void main() {
     bool should_trim_voxel      = false;
 
     if (is_grass) {
-        float growth_factor = grass_growth_factor(in_instance_growth_start_tick);
+        float growth_factor         = grass_growth_factor(in_instance_growth_start_tick);
         float grown_height_voxels_f = floor(grass_height_voxels_f * growth_factor + 0.001);
-        should_trim_voxel = float(vox_local_pos.y) >= grown_height_voxels_f;
+        should_trim_voxel           = float(vox_local_pos.y) >= grown_height_voxels_f;
     }
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
@@ -197,5 +197,5 @@ void main() {
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
-    vert_color     = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
+    vert_color          = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
 }

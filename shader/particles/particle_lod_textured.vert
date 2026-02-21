@@ -2,8 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "../foliage/unpacker.glsl"
 #include "../foliage/billboard.glsl"
+#include "../foliage/unpacker.glsl"
 #include "../include/core/color.glsl"
 #include "../include/depth_offset.glsl"
 #include "../include/sunlight.glsl"
@@ -83,8 +83,8 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
 
-    float scale = max(in_instance_size, 0.001) * 1.25;
-    vec3 instance_pos  = clamp_to_grid(vec3(in_instance_pos) * scaling_factor);
+    float scale       = max(in_instance_size, 0.001) * 1.25;
+    vec3 instance_pos = clamp_to_grid(vec3(in_instance_pos) * scaling_factor);
     vec3 vertex_pos =
         get_vert_pos_with_billboard(camera_info.view_mat, instance_pos, vert_offset_in_vox, scale);
 
@@ -100,7 +100,7 @@ void main() {
     vec3 lighting       = sun_light * shadow_weight + shading_info.ambient_light;
     vert_color          = vec4(lighting, 1.0);
 
-    vert_uv = vec2(float(vert_offset_in_vox.x), 1.0 - float(vert_offset_in_vox.y));
+    vert_uv            = vec2(float(vert_offset_in_vox.x), 1.0 - float(vert_offset_in_vox.y));
     bool flip_sprite_x = (in_instance_tex_index & SPRITE_FLIP_BIT) != 0u;
     if (flip_sprite_x) {
         vert_uv.x = 1.0 - vert_uv.x;

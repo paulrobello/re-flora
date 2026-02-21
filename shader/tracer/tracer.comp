@@ -105,8 +105,8 @@ layout(set = 3, binding = 12, r11f_g11f_b10f) uniform image2D denoiser_spatial_p
 #include "../include/pcss.glsl"
 #include "../include/ray.glsl"
 #include "../include/skylight.glsl"
-#include "../include/voxel_data.glsl"
 #include "../include/voxel_colors.glsl"
+#include "../include/voxel_data.glsl"
 #include "../include/voxel_types.glsl"
 
 bool scene_hit(inout MarchingResult o_res, vec3 o, vec3 d, ivec3 map_pos, uvec4 scene_tex_read) {

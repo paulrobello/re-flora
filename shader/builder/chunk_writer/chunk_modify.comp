@@ -112,26 +112,24 @@ void main() {
         uint udata = fetch_data(node);
 
         if (is_leaf(node)) {
-            uint ci      = udata;
+            uint ci  = udata;
             bool hit = false;
 
             if (chunk_modify_info.primitive_kind == PRIMITIVE_KIND_ROUND_CONE) {
                 RoundCone rc = round_cones.data[ci];
-                float dst = sd_round_cone(
-                    world_voxel_pos_f, rc.center_a, rc.center_b, rc.radius_a, rc.radius_b
-                );
-                hit = dst < 0.0;
+                float dst = sd_round_cone(world_voxel_pos_f, rc.center_a, rc.center_b, rc.radius_a,
+                                          rc.radius_b);
+                hit       = dst < 0.0;
             } else if (chunk_modify_info.primitive_kind == PRIMITIVE_KIND_CUBOID) {
                 Cuboid c = cuboids.data[ci];
-                hit = in_aabb(world_voxel_pos_f, c.min_corner, c.max_corner);
+                hit      = in_aabb(world_voxel_pos_f, c.min_corner, c.max_corner);
             } else if (chunk_modify_info.primitive_kind == PRIMITIVE_KIND_SPHERE) {
                 Sphere s = spheres.data[ci];
-                hit = length(world_voxel_pos_f - s.center) < s.radius;
+                hit      = length(world_voxel_pos_f - s.center) < s.radius;
             }
 
             if (hit) {
-                if (chunk_modify_info.surface_only != 0u &&
-                    !is_surface_voxel(world_voxel_pos)) {
+                if (chunk_modify_info.surface_only != 0u && !is_surface_voxel(world_voxel_pos)) {
                     return;
                 }
                 imageStore(chunk_atlas, world_voxel_pos,

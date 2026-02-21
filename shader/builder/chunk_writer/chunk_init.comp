@@ -36,7 +36,7 @@ float compute_noise(vec3 p, ivec3 atlas_uvi, ivec3 atlas_dim) {
     state.lacunarity   = 2.6;
     state.gain         = 0.2;
     // its return value is automatically
-    float noise_01 = fnlGetNoise3D(state, p.x, p.y, p.z) * 0.5 + 0.5;
+    float noise_01         = fnlGetNoise3D(state, p.x, p.y, p.z) * 0.5 + 0.5;
     float variation_factor = border_falloff(atlas_uvi, atlas_dim);
 
     // Keep the average terrain height stable while reducing variation near borders.

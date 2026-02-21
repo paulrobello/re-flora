@@ -9,15 +9,20 @@ const uint VOXEL_HASH_SHIFT        = 30u;
 
 uint voxel_type_from_data(uint voxel_data) { return voxel_data & VOXEL_TYPE_MASK; }
 
-uint voxel_normal_bits_from_data(uint voxel_data) { return (voxel_data >> 8u) & VOXEL_NORMAL_BITS_MASK; }
+uint voxel_normal_bits_from_data(uint voxel_data) {
+    return (voxel_data >> 8u) & VOXEL_NORMAL_BITS_MASK;
+}
 
 bool voxel_normal_valid_from_data(uint voxel_data) {
     return (voxel_data & VOXEL_NORMAL_VALID_MASK) != 0u;
 }
 
-uint voxel_hash_from_data(uint voxel_data) { return (voxel_data >> VOXEL_HASH_SHIFT) & VOXEL_HASH_MASK; }
+uint voxel_hash_from_data(uint voxel_data) {
+    return (voxel_data >> VOXEL_HASH_SHIFT) & VOXEL_HASH_MASK;
+}
 
-uint pack_voxel_surface_data(uint voxel_type, uint normal_bits, bool is_normal_valid, uint hash_id) {
+uint pack_voxel_surface_data(uint voxel_type, uint normal_bits, bool is_normal_valid,
+                             uint hash_id) {
     uint voxel_data = 0u;
     voxel_data |= voxel_type & VOXEL_TYPE_MASK;
     voxel_data |= (normal_bits & VOXEL_NORMAL_BITS_MASK) << 8u;

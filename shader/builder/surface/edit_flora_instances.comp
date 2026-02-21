@@ -39,24 +39,24 @@ bool is_valid_support(ivec3 base_pos, ivec3 stem_pos) {
 }
 
 void main() {
-    uint idx = gl_GlobalInvocationID.x;
+    uint idx       = gl_GlobalInvocationID.x;
     uint input_len = edit_flora_info.meta.x;
     if (idx >= input_len) {
         return;
     }
 
     Instance instance = manual_flora_instances_in.data[idx];
-    ivec3 stem_pos = ivec3(get_instance_pos(instance));
-    ivec3 base_pos = stem_pos + ivec3(0, -1, 0);
+    ivec3 stem_pos    = ivec3(get_instance_pos(instance));
+    ivec3 base_pos    = stem_pos + ivec3(0, -1, 0);
 
     if (!is_valid_support(base_pos, stem_pos)) {
         return;
     }
 
     vec3 base_center = vec3(base_pos) + vec3(0.5);
-    vec3 delta = base_center - edit_flora_info.edit_center_radius_vox.xyz;
-    bool in_edit = dot(delta, delta) <= edit_flora_info.edit_center_radius_vox.w *
-        edit_flora_info.edit_center_radius_vox.w;
+    vec3 delta       = base_center - edit_flora_info.edit_center_radius_vox.xyz;
+    bool in_edit     = dot(delta, delta) <= edit_flora_info.edit_center_radius_vox.w *
+                                            edit_flora_info.edit_center_radius_vox.w;
 
     uint instance_ty = decode_instance_ty(instance.ty_seed);
     if (in_edit) {
@@ -66,6 +66,6 @@ void main() {
         instance.growth_start_tick = edit_flora_info.meta.y;
     }
 
-    uint write_idx = atomicAdd(edit_flora_result.out_instance_len, 1);
+    uint write_idx                             = atomicAdd(edit_flora_result.out_instance_len, 1);
     manual_flora_instances_out.data[write_idx] = instance;
 }

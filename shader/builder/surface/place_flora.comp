@@ -78,9 +78,7 @@ void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
     o_allow_grass     = rng_placement < grass_placement_threshold;
 }
 
-bool is_surface_plantable(uint voxel_type) {
-    return voxel_type == VOXEL_TYPE_DIRT;
-}
+bool is_surface_plantable(uint voxel_type) { return voxel_type == VOXEL_TYPE_DIRT; }
 
 // Check if surface is suitable for planting with probabilistic stiffness
 bool check_surface_plantability(uint voxel_type, vec3 normal, bool is_normal_valid,

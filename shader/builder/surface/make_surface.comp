@@ -165,7 +165,8 @@ void main() {
     vec3 normal;
     bool is_normal_valid;
     calculate_normal(normal, is_normal_valid, uvi);
-    uint properties = compress_voxel_type_and_normal(voxel_type, normal, is_normal_valid, world_pos);
+    uint properties =
+        compress_voxel_type_and_normal(voxel_type, normal, is_normal_valid, world_pos);
 
     atomicAdd(make_surface_result.active_voxel_len, 1);
     imageStore(surface, uvi, uvec4(properties, 0, 0, 0));
