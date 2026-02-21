@@ -554,8 +554,8 @@ impl ParticleEmitter for ButterflyEmitter {
 
 pub type BirdEmitterDesc = ButterflyEmitterDesc;
 
-const BIRD_COUNT: usize = 5;
-const BIRD_FLIGHT_SPEED: f32 = 2.6;
+const BIRD_COUNT: usize = 50;
+const BIRD_FLIGHT_SPEED: f32 = 0.52;
 const BIRD_GROUND_IDLE_MIN_SEC: f32 = 4.0;
 const BIRD_GROUND_IDLE_MAX_SEC: f32 = 10.0;
 const BIRD_LANDING_RADIUS: f32 = 0.08;
