@@ -3,6 +3,7 @@ use crate::app::world_edits::{
     BuildEdit, ClearVoxelRegionEdit, CubePlacementEdit, FencePostPlacementEdit, TerrainRemovalEdit,
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldEditPlan,
 };
+use crate::app::world_ops;
 use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_OAK_WOOD};
 use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
@@ -658,10 +659,17 @@ impl App {
 
     pub(super) fn apply_surface_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
-            self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
-                compiled.voxel_edit,
-                BuildEdit::RebuildMesh(compiled.rebuild_bound),
-            ))?;
+            self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.voxel_edit))?;
+            world_ops::mesh_generate_preserve_flora_for_sphere_edit(
+                &mut self.surface_builder,
+                &mut self.contree_builder,
+                &mut self.scene_accel_builder,
+                super::VOXEL_DIM_PER_CHUNK,
+                compiled.rebuild_bound,
+                edit.center,
+                edit.radius,
+                self.flora_tick,
+            )?;
         }
         Ok(())
     }

@@ -12,7 +12,7 @@ use crate::{
 };
 use anyhow::Result;
 use ash::vk;
-use glam::UVec3;
+use glam::{UVec3, Vec3};
 pub use resources::*;
 
 pub struct SurfaceBuilder {
@@ -24,6 +24,7 @@ pub struct SurfaceBuilder {
 
     make_surface_ppl: ComputePipeline,
     place_flora_ppl: ComputePipeline,
+    edit_flora_ppl: ComputePipeline,
 
     chunk_bound: UAabb3,
     voxel_dim_per_chunk: UVec3,
@@ -59,12 +60,21 @@ impl SurfaceBuilder {
         )
         .unwrap();
 
+        let edit_flora_sm = ShaderModule::from_glsl(
+            device,
+            shader_compiler,
+            "shader/builder/surface/edit_flora_instances.comp",
+            "main",
+        )
+        .unwrap();
+
         let resources = SurfaceResources::new(
             device.clone(),
             allocator,
             voxel_dim_per_chunk,
             &make_surface_sm,
             &place_flora_sm,
+            &edit_flora_sm,
             chunk_bound,
         );
 
@@ -84,12 +94,20 @@ impl SurfaceBuilder {
             &[&resources, plain_builder_resources],
         );
 
+        let edit_flora_ppl = ComputePipeline::new(
+            device,
+            &edit_flora_sm,
+            &pool,
+            &[&resources, plain_builder_resources],
+        );
+
         Self {
             vulkan_ctx,
             resources,
             pool,
             make_surface_ppl,
             place_flora_ppl,
+            edit_flora_ppl,
             chunk_bound,
             voxel_dim_per_chunk,
             flora_species_count,
@@ -116,7 +134,7 @@ impl SurfaceBuilder {
     }
 
     /// Returns active_voxel_len
-    pub fn build_surface(&mut self, chunk_id: UVec3) -> Result<u32> {
+    pub fn build_surface(&mut self, chunk_id: UVec3, place_flora: bool) -> Result<u32> {
         if !self.chunk_bound.in_bound(chunk_id) {
             return Err(anyhow::anyhow!("Chunk ID out of bounds"));
         }
@@ -133,16 +151,16 @@ impl SurfaceBuilder {
             true,
         )?;
 
-        update_place_flora_info(
-            &self.resources.place_flora_info,
-            atlas_read_offset,
-            atlas_read_dim,
-        )?;
-
         cleanup_make_surface_result(&self.resources.make_surface_result)?;
-        cleanup_place_flora_result(&self.resources.place_flora_result)?;
-
-        self.update_flora_instance_set(chunk_id);
+        if place_flora {
+            update_place_flora_info(
+                &self.resources.place_flora_info,
+                atlas_read_offset,
+                atlas_read_dim,
+            )?;
+            cleanup_place_flora_result(&self.resources.place_flora_result)?;
+            self.update_flora_instance_set(chunk_id);
+        }
 
         let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
         cmdbuf.begin(true);
@@ -161,16 +179,17 @@ impl SurfaceBuilder {
         };
 
         self.make_surface_ppl.record(&cmdbuf, extent, None);
+        if place_flora {
+            // Barrier to ensure make_surface writes complete before place_flora reads
+            let barrier = PipelineBarrier::new(
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![MemoryBarrier::new_shader_access()],
+            );
+            barrier.record_insert(&device, &cmdbuf);
 
-        // Barrier to ensure make_surface writes complete before place_flora reads
-        let barrier = PipelineBarrier::new(
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![MemoryBarrier::new_shader_access()],
-        );
-        barrier.record_insert(&device, &cmdbuf);
-
-        self.place_flora_ppl.record(&cmdbuf, extent, None);
+            self.place_flora_ppl.record(&cmdbuf, extent, None);
+        }
 
         cmdbuf.end();
 
@@ -179,18 +198,20 @@ impl SurfaceBuilder {
         device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
 
         let active_voxel_len = get_make_surface_result(&self.resources.make_surface_result);
-        let flora_instance_lengths =
-            get_flora_result(&self.resources.place_flora_result, self.flora_species_count);
+        if place_flora {
+            let flora_instance_lengths =
+                get_flora_result(&self.resources.place_flora_result, self.flora_species_count);
 
-        let chunk_resources = self
-            .resources
-            .instances
-            .chunk_flora_instances
-            .iter_mut()
-            .find(|(_, resources)| resources.chunk_id == chunk_id)
-            .unwrap();
-        for (species_idx, instances_len) in flora_instance_lengths.iter().enumerate() {
-            chunk_resources.1.get_mut(species_idx).instances_len = *instances_len;
+            let chunk_resources = self
+                .resources
+                .instances
+                .chunk_flora_instances
+                .iter_mut()
+                .find(|(_, resources)| resources.chunk_id == chunk_id)
+                .unwrap();
+            for (species_idx, instances_len) in flora_instance_lengths.iter().enumerate() {
+                chunk_resources.1.get_mut(species_idx).instances_len = *instances_len;
+            }
         }
 
         return Ok(active_voxel_len);
@@ -283,6 +304,144 @@ impl SurfaceBuilder {
             let mut flora_instance_lengths = Vec::with_capacity(species_count);
             flora_instance_lengths.extend_from_slice(&data[0..species_count]);
             flora_instance_lengths
+        }
+    }
+
+    pub fn edit_flora_instances(
+        &mut self,
+        chunk_id: UVec3,
+        edit_center: Vec3,
+        edit_radius: f32,
+        flora_tick: u32,
+    ) -> Result<()> {
+        if !self.chunk_bound.in_bound(chunk_id) {
+            return Err(anyhow::anyhow!("Chunk ID out of bounds"));
+        }
+
+        let chunk_resources = self
+            .resources
+            .instances
+            .chunk_flora_instances
+            .iter_mut()
+            .find(|(_, resources)| resources.chunk_id == chunk_id)
+            .unwrap();
+
+        let device = self.vulkan_ctx.device();
+        let edit_center_vox = edit_center * 256.0;
+        let edit_radius_vox = edit_radius * 256.0;
+
+        for species_idx in 0..self.flora_species_count {
+            let instance_resource = chunk_resources.1.get_mut(species_idx);
+            let input_len = instance_resource.instances_len;
+            if input_len == 0 {
+                continue;
+            }
+
+            update_edit_flora_info(
+                &self.resources.edit_flora_info,
+                edit_center_vox,
+                edit_radius_vox,
+                input_len,
+                flora_tick,
+            )?;
+            cleanup_edit_flora_result(&self.resources.edit_flora_result)?;
+
+            self.edit_flora_ppl.write_descriptor_set(
+                1,
+                WriteDescriptorSet::new_buffer_write(0, &instance_resource.instances_buf),
+            );
+            self.edit_flora_ppl.write_descriptor_set(
+                1,
+                WriteDescriptorSet::new_buffer_write(1, &self.resources.flora_instance_scratch),
+            );
+
+            let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
+            cmdbuf.begin(true);
+
+            self.edit_flora_ppl.record(
+                &cmdbuf,
+                Extent3D {
+                    width: input_len,
+                    height: 1,
+                    depth: 1,
+                },
+                None,
+            );
+
+            let compute_to_transfer = PipelineBarrier::new(
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::TRANSFER,
+                vec![MemoryBarrier::new(
+                    vk::AccessFlags::SHADER_WRITE,
+                    vk::AccessFlags::TRANSFER_READ | vk::AccessFlags::TRANSFER_WRITE,
+                )],
+            );
+            compute_to_transfer.record_insert(device, &cmdbuf);
+
+            let copy_size = instance_resource.instances_buf.get_size_bytes();
+            self.resources.flora_instance_scratch.record_copy_to_buffer(
+                &cmdbuf,
+                &instance_resource.instances_buf,
+                copy_size,
+                0,
+                0,
+            );
+
+            cmdbuf.end();
+            cmdbuf.submit(&self.vulkan_ctx.get_general_queue(), None);
+            device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
+
+            let output_len = get_edit_flora_result(&self.resources.edit_flora_result);
+            instance_resource.instances_len = output_len;
+        }
+
+        return Ok(());
+
+        fn update_edit_flora_info(
+            edit_flora_info: &Buffer,
+            edit_center_vox: Vec3,
+            edit_radius_vox: f32,
+            input_len: u32,
+            flora_tick: u32,
+        ) -> Result<()> {
+            let data = StructMemberDataBuilder::from_buffer(edit_flora_info)
+                .set_field(
+                    "edit_center_radius_vox",
+                    PlainMemberTypeWithData::Vec4([
+                        edit_center_vox.x,
+                        edit_center_vox.y,
+                        edit_center_vox.z,
+                        edit_radius_vox,
+                    ]),
+                )
+                .set_field(
+                    "meta",
+                    PlainMemberTypeWithData::UVec4([input_len, flora_tick, 0, 0]),
+                )
+                .build()?;
+            edit_flora_info.fill_with_raw_u8(&data)?;
+            Ok(())
+        }
+
+        fn cleanup_edit_flora_result(edit_flora_result: &Buffer) -> Result<()> {
+            let layout = edit_flora_result.get_layout().unwrap();
+            let buffer_size = layout.root_member.get_size_bytes() as usize;
+            let zeroed = vec![0u8; buffer_size];
+            edit_flora_result.fill_with_raw_u8(&zeroed)?;
+            Ok(())
+        }
+
+        fn get_edit_flora_result(edit_flora_result: &Buffer) -> u32 {
+            let raw_data = edit_flora_result.read_back().unwrap();
+            let total_u32 = raw_data.len() / std::mem::size_of::<u32>();
+            let data =
+                unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
+            assert!(
+                total_u32 >= 1,
+                "edit_flora_result buffer too small: expected at least 1 u32, got {}",
+                total_u32
+            );
+            data[0]
         }
     }
 

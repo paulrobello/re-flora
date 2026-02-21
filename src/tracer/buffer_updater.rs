@@ -157,6 +157,27 @@ impl BufferUpdater {
         Ok(())
     }
 
+    pub fn update_flora_growth_info(
+        resources: &TracerResources,
+        flora_tick: u32,
+        sprout_delay_ticks: u32,
+        full_growth_ticks: u32,
+    ) -> Result<()> {
+        let data = StructMemberDataBuilder::from_buffer(&resources.flora_growth_info)
+            .set_field("flora_tick", PlainMemberTypeWithData::UInt(flora_tick))
+            .set_field(
+                "sprout_delay_ticks",
+                PlainMemberTypeWithData::UInt(sprout_delay_ticks),
+            )
+            .set_field(
+                "full_growth_ticks",
+                PlainMemberTypeWithData::UInt(full_growth_ticks),
+            )
+            .build()?;
+        resources.flora_growth_info.fill_with_raw_u8(&data)?;
+        Ok(())
+    }
+
     pub fn update_sun_info(
         resources: &TracerResources,
         sun_dir: Vec3,

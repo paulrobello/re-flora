@@ -197,6 +197,7 @@ impl Tracer {
             &shader_modules.post_processing_sm,
             &shader_modules.player_collider_sm,
             &shader_modules.terrain_query_sm,
+            &shader_modules.flora_vert_sm,
             render_extent,
             screen_extent,
             Extent2D::new(1024, 1024),
@@ -435,6 +436,9 @@ impl Tracer {
         debug_uint: u32,
         flora_instance_hsv_offset_max: Vec3,
         flora_voxel_hsv_offset_max: Vec3,
+        flora_tick: u32,
+        sprout_delay_ticks: u32,
+        full_growth_ticks: u32,
         sun_dir: Vec3,
         sun_size: f32,
         sun_color: Vec3,
@@ -528,6 +532,13 @@ impl Tracer {
             debug_uint,
             flora_instance_hsv_offset_max,
             flora_voxel_hsv_offset_max,
+        )?;
+
+        BufferUpdater::update_flora_growth_info(
+            &self.resources,
+            flora_tick,
+            sprout_delay_ticks,
+            full_growth_ticks,
         )?;
 
         BufferUpdater::update_sun_info(
@@ -1683,8 +1694,11 @@ impl Tracer {
             let seed = leaf_seed(voxel_pos, 0) & 0xFFFFF;
             let ty_seed = (LEAF_INSTANCE_TYPE & 0x0FFF) | (seed << 12);
             let instance = Instance {
-                pos: [voxel_pos.x, voxel_pos.y, voxel_pos.z],
+                pos_x: voxel_pos.x,
+                pos_y: voxel_pos.y,
+                pos_z: voxel_pos.z,
                 ty_seed,
+                growth_start_tick: 0,
             };
 
             instances_data.push(instance);

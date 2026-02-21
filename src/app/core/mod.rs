@@ -95,6 +95,9 @@ pub struct App {
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
 
+    flora_tick: u32,
+    flora_tick_accumulator: f32,
+
     debug_tree_desc: TreeDesc,
     tree_variation_config: TreeVariationConfig,
     regenerate_trees_requested: bool,
@@ -155,6 +158,9 @@ const MAX_FRAMES_IN_FLIGHT: usize = 1;
 const SHOVEL_REMOVE_RADIUS: f32 = 0.08;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
+const FLORA_TICK_RATE_HZ: f32 = 1.0;
+const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
+const FLORA_FULL_GROWTH_TICKS: u32 = 30;
 
 impl App {
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
@@ -337,6 +343,8 @@ impl App {
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
+            flora_tick: FLORA_FULL_GROWTH_TICKS,
+            flora_tick_accumulator: 0.0,
 
             // multi-tree management
             next_tree_id: 1, // Start from 1, use 0 for GUI single tree
@@ -579,6 +587,11 @@ impl App {
                 }
                 let frame_delta_time = self.time_info.delta_time();
                 let time_since_start = self.time_info.time_since_start();
+                self.flora_tick_accumulator += frame_delta_time * FLORA_TICK_RATE_HZ;
+                while self.flora_tick_accumulator >= 1.0 {
+                    self.flora_tick = self.flora_tick.wrapping_add(1);
+                    self.flora_tick_accumulator -= 1.0;
+                }
                 if let Err(err) = self.tree_audio_manager.update(time_since_start) {
                     log::warn!("Failed to update tree audio sources: {}", err);
                 }
@@ -1877,6 +1890,9 @@ impl App {
                             self.gui_adjustables.flora_voxel_saturation_offset.value,
                             self.gui_adjustables.flora_voxel_value_offset.value,
                         ),
+                        self.flora_tick,
+                        FLORA_SPROUT_DELAY_TICKS,
+                        FLORA_FULL_GROWTH_TICKS,
                         get_sun_dir(
                             self.gui_adjustables.sun_altitude.value.asin().to_degrees(),
                             self.gui_adjustables.sun_azimuth.value * 360.0,

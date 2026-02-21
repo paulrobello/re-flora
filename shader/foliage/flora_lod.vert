@@ -17,6 +17,7 @@ layout(location = 0) in uvec2 in_packed_data;
 // these are instance-rate attributes
 layout(location = 1) in uvec3 in_instance_pos;
 layout(location = 2) in uint in_instance_ty_seed;
+layout(location = 3) in uint in_instance_growth_start_tick;
 
 layout(location = 0) out vec3 vert_color;
 
@@ -66,6 +67,13 @@ shadow_camera_info;
 
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
+layout(set = 0, binding = 6) uniform U_FloraGrowthInfo {
+    uint flora_tick;
+    uint sprout_delay_ticks;
+    uint full_growth_ticks;
+}
+flora_growth_info;
+
 #include "../include/core/color.glsl"
 #include "../include/core/hash.glsl"
 #include "../include/flora_registry.glsl"
@@ -100,6 +108,15 @@ uint sample_grass_height(uint seed) {
     sampled_height = clamp(sampled_height, float(grass_min_height_voxels),
                            float(grass_max_height_voxels));
     return uint(round(sampled_height));
+}
+
+float grass_growth_factor(uint growth_start_tick) {
+    if (flora_growth_info.full_growth_ticks <= flora_growth_info.sprout_delay_ticks) {
+        return 1.0;
+    }
+    uint age_ticks = flora_growth_info.flora_tick - growth_start_tick;
+    return smoothstep(float(flora_growth_info.sprout_delay_ticks),
+                      float(flora_growth_info.full_growth_ticks), float(age_ticks));
 }
 
 float get_shadow_weight(ivec3 vox_local_pos) {
@@ -137,7 +154,9 @@ void main() {
     uint grass_height_voxels =
         is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
-    bool should_trim_voxel      = is_grass && (float(vox_local_pos.y) >= grass_height_voxels_f);
+    float growth_factor         = is_grass ? grass_growth_factor(in_instance_growth_start_tick) : 1.0;
+    float grown_height_voxels_f = floor(grass_height_voxels_f * growth_factor + 0.001);
+    bool should_trim_voxel      = is_grass && (float(vox_local_pos.y) >= grown_height_voxels_f);
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 

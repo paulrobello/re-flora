@@ -15,9 +15,12 @@ const MAX_FLORA_INSTANCES_PER_SPECIES: u64 = 20_000;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Instance {
-    pub pos: [u32; 3],
+    pub pos_x: u32,
+    pub pos_y: u32,
+    pub pos_z: u32,
     /// Lower 12 bits: type, upper 20 bits: seed
     pub ty_seed: u32,
+    pub growth_start_tick: u32,
 }
 
 pub struct InstanceResource {
@@ -32,7 +35,9 @@ impl InstanceResource {
             device,
             allocator,
             BufferUsage::from_flags(
-                vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
+                vk::BufferUsageFlags::VERTEX_BUFFER
+                    | vk::BufferUsageFlags::STORAGE_BUFFER
+                    | vk::BufferUsageFlags::TRANSFER_DST,
             ),
             gpu_allocator::MemoryLocation::CpuToGpu,
             instance_size as u64 * max_instances,
@@ -162,6 +167,9 @@ pub struct SurfaceResources {
     pub make_surface_result: Resource<Buffer>,
     pub place_flora_info: Resource<Buffer>,
     pub place_flora_result: Resource<Buffer>,
+    pub edit_flora_info: Resource<Buffer>,
+    pub edit_flora_result: Resource<Buffer>,
+    pub flora_instance_scratch: Resource<Buffer>,
     pub instances: InstanceResources,
 }
 
@@ -172,6 +180,7 @@ impl SurfaceResources {
         voxel_dim_per_chunk: UVec3,
         make_surface_sm: &ShaderModule,
         place_flora_sm: &ShaderModule,
+        edit_flora_sm: &ShaderModule,
         chunk_dim: UAabb3,
     ) -> Self {
         let surface_desc = ImageDesc {
@@ -233,6 +242,38 @@ impl SurfaceResources {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
+        let edit_flora_info_layout = edit_flora_sm.get_buffer_layout("U_EditFloraInfo").unwrap();
+        let edit_flora_info = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            edit_flora_info_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
+        let edit_flora_result_layout = edit_flora_sm
+            .get_buffer_layout("B_EditFloraResult")
+            .unwrap();
+        let edit_flora_result = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            edit_flora_result_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
+        let flora_instance_scratch = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(
+                vk::BufferUsageFlags::STORAGE_BUFFER
+                    | vk::BufferUsageFlags::TRANSFER_SRC
+                    | vk::BufferUsageFlags::TRANSFER_DST,
+            ),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            std::mem::size_of::<Instance>() as u64 * MAX_FLORA_INSTANCES_PER_SPECIES,
+        );
+
         let instances = InstanceResources::new(device.clone(), allocator.clone(), chunk_dim);
 
         Self {
@@ -241,6 +282,9 @@ impl SurfaceResources {
             make_surface_result: Resource::new(make_surface_result),
             place_flora_info: Resource::new(place_flora_info),
             place_flora_result: Resource::new(place_flora_result),
+            edit_flora_info: Resource::new(edit_flora_info),
+            edit_flora_result: Resource::new(edit_flora_result),
+            flora_instance_scratch: Resource::new(flora_instance_scratch),
             instances,
         }
     }

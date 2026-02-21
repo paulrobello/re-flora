@@ -2,10 +2,23 @@
 #define INSTANCE_GLSL
 
 struct Instance {
-    uvec3 pos;
+    uint pos_x;
+    uint pos_y;
+    uint pos_z;
     // Lower 12 bits: type, upper 20 bits: seed
     uint ty_seed;
+    uint growth_start_tick;
 };
+
+uvec3 get_instance_pos(Instance instance) {
+    return uvec3(instance.pos_x, instance.pos_y, instance.pos_z);
+}
+
+void set_instance_pos(inout Instance instance, uvec3 pos) {
+    instance.pos_x = pos.x;
+    instance.pos_y = pos.y;
+    instance.pos_z = pos.z;
+}
 
 const uint INSTANCE_TY_BITS   = 12u;
 const uint INSTANCE_SEED_BITS = 20u;

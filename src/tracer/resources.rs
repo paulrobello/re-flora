@@ -229,6 +229,7 @@ pub struct TracerResources {
     pub camera_info: Resource<Buffer>,
     pub camera_info_prev_frame: Resource<Buffer>,
     pub shadow_camera_info: Resource<Buffer>,
+    pub flora_growth_info: Resource<Buffer>,
     pub env_info: Resource<Buffer>,
     pub starlight_info: Resource<Buffer>,
     pub voxel_colors: Resource<Buffer>,
@@ -278,6 +279,7 @@ impl TracerResources {
         post_processing_sm: &ShaderModule,
         player_collider_sm: &ShaderModule,
         terrain_query_sm: &ShaderModule,
+        flora_vert_sm: &ShaderModule,
         rendering_extent: Extent2D,
         screen_extent: Extent2D,
         shadow_map_extent: Extent2D,
@@ -339,6 +341,17 @@ impl TracerResources {
             device.clone(),
             allocator.clone(),
             shadow_camera_info_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
+        let flora_growth_info_layout = flora_vert_sm
+            .get_buffer_layout("U_FloraGrowthInfo")
+            .unwrap();
+        let flora_growth_info = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            flora_growth_info_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
@@ -536,6 +549,7 @@ impl TracerResources {
             camera_info: Resource::new(camera_info),
             camera_info_prev_frame: Resource::new(camera_info_prev_frame),
             shadow_camera_info: Resource::new(shadow_camera_info),
+            flora_growth_info: Resource::new(flora_growth_info),
             env_info: Resource::new(env_info),
             starlight_info: Resource::new(starlight_info),
             voxel_colors: Resource::new(voxel_colors),
