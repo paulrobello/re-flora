@@ -1,6 +1,10 @@
 #[allow(unused)]
 use crate::util::Timer;
 
+use crate::app::world_edits::{
+    BuildEdit, ClearVoxelRegionEdit, CubePlacementEdit, FencePostPlacementEdit, TerrainRemovalEdit,
+    TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldBuildBackend, WorldEditPlan,
+};
 use crate::app::GuiAdjustables;
 use crate::audio::{SpatialSoundManager, TreeAudioManager};
 use crate::builder::{
@@ -8,7 +12,7 @@ use crate::builder::{
     VOXEL_TYPE_EMPTY, VOXEL_TYPE_OAK_WOOD,
 };
 use crate::flora::species;
-use crate::geom::{build_bvh, BvhNode, Cuboid, RoundCone, Sphere, UAabb3};
+use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::particles::{
     BirdEmitter, BirdEmitterDesc, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter,
     LeafEmitterDesc, ParticleEmitter, ParticleForces, ParticleSnapshot, ParticleSystem,
@@ -183,121 +187,6 @@ impl TreeVariationConfig {
             .changed();
 
         changed
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-enum TreePlacement {
-    /// Place the tree at the given horizontal position and query terrain height.
-    Terrain(Vec2),
-    /// Place the tree at an exact world position (height already resolved).
-    World(Vec3),
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-struct TreeAddOptions {
-    clean_before_add: bool,
-    assign_new_id: bool,
-}
-
-impl TreeAddOptions {
-    fn with_cleanup(mut self) -> Self {
-        self.clean_before_add = true;
-        self
-    }
-
-    fn with_new_id(mut self) -> Self {
-        self.assign_new_id = true;
-        self
-    }
-}
-
-#[derive(Clone, Debug)]
-struct TreePlacementEdit {
-    tree_desc: TreeDesc,
-    placement: TreePlacement,
-    options: TreeAddOptions,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct FencePostPlacementEdit {
-    horizontal: Vec2,
-    height: f32,
-    half_width: f32,
-    half_depth: f32,
-}
-
-#[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
-struct CubePlacementEdit {
-    center: Vec3,
-    size: f32,
-    voxel_type: u32,
-}
-
-#[derive(Clone, Debug)]
-struct ClearVoxelRegionEdit {
-    offset: UVec3,
-    dim: UVec3,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct TerrainRemovalEdit {
-    center: Vec3,
-    radius: f32,
-}
-
-#[derive(Clone, Debug)]
-enum VoxelEdit {
-    StampRoundCones {
-        bvh_nodes: Vec<BvhNode>,
-        round_cones: Vec<RoundCone>,
-        voxel_type: u32,
-    },
-    StampCuboids {
-        bvh_nodes: Vec<BvhNode>,
-        cuboids: Vec<Cuboid>,
-        voxel_type: u32,
-    },
-    StampSurfaceSpheres {
-        bvh_nodes: Vec<BvhNode>,
-        spheres: Vec<Sphere>,
-        voxel_type: u32,
-    },
-    ClearVoxelRegion(ClearVoxelRegionEdit),
-}
-
-#[derive(Clone, Debug)]
-enum BuildEdit {
-    RebuildMesh(UAabb3),
-}
-
-#[derive(Clone, Debug, Default)]
-struct WorldEditPlan {
-    voxel_edits: Vec<VoxelEdit>,
-    build_edits: Vec<BuildEdit>,
-}
-
-impl WorldEditPlan {
-    fn with_voxel(edit: VoxelEdit) -> Self {
-        Self {
-            voxel_edits: vec![edit],
-            build_edits: vec![],
-        }
-    }
-
-    fn with_build(edit: BuildEdit) -> Self {
-        Self {
-            voxel_edits: vec![],
-            build_edits: vec![edit],
-        }
-    }
-
-    fn with_voxel_and_build(voxel_edit: VoxelEdit, build_edit: BuildEdit) -> Self {
-        Self {
-            voxel_edits: vec![voxel_edit],
-            build_edits: vec![build_edit],
-        }
     }
 }
 
@@ -487,11 +376,6 @@ impl TreePlacementService {
             world_leaf_positions,
         }
     }
-}
-
-trait WorldBuildBackend {
-    fn apply_voxel_edit(&mut self, edit: VoxelEdit) -> Result<()>;
-    fn apply_build_edit(&mut self, edit: BuildEdit) -> Result<()>;
 }
 
 #[derive(Clone, Debug)]
