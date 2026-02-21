@@ -1,6 +1,8 @@
 #[allow(unused)]
 use crate::util::Timer;
 
+mod ui_style;
+
 use crate::app::environment;
 use crate::app::world_edits::{
     BuildEdit, ClearVoxelRegionEdit, CubePlacementEdit, FencePostPlacementEdit, TerrainRemovalEdit,
@@ -33,7 +35,6 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use ash::vk;
-use egui::style::WidgetVisuals;
 use egui::{Color32, ColorImage, FontData, FontDefinitions, FontFamily, RichText, TextureHandle};
 use glam::{UVec3, Vec2, Vec3, Vec4};
 use gpu_allocator::vulkan::AllocatorCreateDesc;
@@ -41,6 +42,11 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use ui_style::{
+    apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
+    GOLD_ACCENT, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
+    ITEM_PANEL_SLOT_COUNT, PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR, SHOVEL_SLOT_INDEX,
+};
 use winit::event::DeviceEvent;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
@@ -50,23 +56,6 @@ use winit::{
 };
 
 const LEAF_CLUSTER_DISTANCE: f32 = 0.08;
-const CUSTOM_GUI_FONT_PATH: Option<&str> = Some("assets/font/ark-pixel-font-12px-monospaced-ttf-v2025.10.20/ark-pixel-12px-monospaced-zh_cn.ttf");
-const CUSTOM_GUI_FONT_NAME: &str = "re_flora_gui_font";
-
-const PANEL_BG: Color32 = Color32::from_rgb(35, 40, 40);
-const PANEL_LIGHT: Color32 = Color32::from_rgb(50, 58, 58);
-const PANEL_DARK: Color32 = Color32::from_rgb(25, 28, 28);
-const TEXT_COLOR: Color32 = Color32::from_rgb(235, 230, 215);
-const GOLD_ACCENT: Color32 = Color32::from_rgb(235, 165, 60);
-const FLOWER_ACCENT: Color32 = Color32::from_rgb(190, 160, 210);
-const SAGE_ACCENT: Color32 = Color32::from_rgb(110, 140, 120);
-const SHADOW_COLOR: Color32 = Color32::from_rgb(75, 60, 85);
-const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
-const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
-const ITEM_PANEL_SLOT_COUNT: usize = 5;
-const SHOVEL_SLOT_INDEX: usize = 0;
 
 #[derive(Debug, Clone)]
 pub struct TreeVariationConfig {
@@ -850,205 +839,6 @@ impl App {
         );
         self.item_panel_shovel_icon = Some(texture);
         Ok(())
-    }
-
-    fn draw_item_panel(
-        ctx: &egui::Context,
-        item_panel_shovel_icon: Option<&TextureHandle>,
-        selected_slot_idx: usize,
-    ) {
-        egui::Area::new("item_panel".into())
-            .anchor(egui::Align2::CENTER_BOTTOM, egui::Vec2::new(0.0, -16.0))
-            .show(ctx, |ui| {
-                let panel_frame = egui::containers::Frame {
-                    fill: PANEL_DARK,
-                    inner_margin: egui::Margin::symmetric(10, 8),
-                    corner_radius: egui::CornerRadius::same(0),
-                    shadow: egui::epaint::Shadow {
-                        offset: [4, 4],
-                        blur: 0,
-                        spread: 0,
-                        color: SHADOW_COLOR,
-                    },
-                    stroke: egui::Stroke::new(2.0, FLOWER_ACCENT),
-                    ..Default::default()
-                };
-
-                panel_frame.show(ui, |ui| {
-                    let slot_size = egui::Vec2::new(52.0, 52.0);
-                    let icon_size = egui::Vec2::new(32.0, 32.0);
-
-                    egui::Grid::new("item_panel_slots")
-                        .num_columns(ITEM_PANEL_SLOT_COUNT)
-                        .spacing(egui::Vec2::new(6.0, 0.0))
-                        .show(ui, |ui| {
-                            for slot_idx in 0..ITEM_PANEL_SLOT_COUNT {
-                                let is_selected = slot_idx == selected_slot_idx;
-                                let slot_frame = egui::containers::Frame {
-                                    fill: PANEL_LIGHT,
-                                    inner_margin: egui::Margin::same(6),
-                                    corner_radius: egui::CornerRadius::same(0),
-                                    stroke: if is_selected {
-                                        egui::Stroke::new(1.5, GOLD_ACCENT)
-                                    } else {
-                                        egui::Stroke::new(1.5, SAGE_ACCENT)
-                                    },
-                                    ..Default::default()
-                                };
-
-                                slot_frame.show(ui, |ui| {
-                                    ui.set_min_size(slot_size);
-                                    ui.with_layout(
-                                        egui::Layout::centered_and_justified(
-                                            egui::Direction::LeftToRight,
-                                        ),
-                                        |ui| {
-                                            if slot_idx == 0 {
-                                                if let Some(icon) = item_panel_shovel_icon {
-                                                    ui.add(
-                                                        egui::Image::new(icon)
-                                                            .fit_to_exact_size(icon_size),
-                                                    );
-                                                }
-                                            }
-                                        },
-                                    );
-                                });
-                            }
-                            ui.end_row();
-                        });
-                });
-            });
-    }
-
-    fn apply_gui_style(style: &mut egui::Style) {
-        // --- GENERAL VISUALS ---
-        style.visuals.override_text_color = Some(TEXT_COLOR);
-        style.visuals.hyperlink_color = GOLD_ACCENT;
-
-        // Selection (Text highlighting)
-        style.visuals.selection.bg_fill = FLOWER_ACCENT.linear_multiply(0.4);
-        style.visuals.selection.stroke = egui::Stroke::new(1.0, GOLD_ACCENT);
-
-        // Window/Panel Backgrounds
-        style.visuals.window_fill = PANEL_BG;
-        style.visuals.panel_fill = PANEL_BG;
-
-        // Input fields and deep backgrounds
-        style.visuals.extreme_bg_color = PANEL_DARK;
-        style.visuals.code_bg_color = PANEL_DARK;
-        style.visuals.text_edit_bg_color = Some(PANEL_DARK);
-        style.visuals.faint_bg_color = PANEL_DARK;
-
-        // Pixel-art UI: keep panel corners square
-        style.visuals.window_corner_radius = egui::CornerRadius::same(0);
-        style.visuals.menu_corner_radius = egui::CornerRadius::same(0);
-
-        // Border: Thinner and Earthy Green instead of Neon Cyan
-        style.visuals.window_stroke = egui::Stroke::new(1.5, SAGE_ACCENT);
-
-        // Shadows: Keep them to separate UI from the 3D world
-        style.visuals.popup_shadow = egui::epaint::Shadow {
-            offset: [4, 4],
-            blur: 10, // Increased blur for a softer shadow
-            spread: 0,
-            color: SHADOW_COLOR,
-        };
-        style.visuals.window_shadow = egui::epaint::Shadow {
-            offset: [6, 6],
-            blur: 12,
-            spread: 0,
-            color: SHADOW_COLOR,
-        };
-
-        style.visuals.window_highlight_topmost = false;
-        style.visuals.button_frame = true;
-        style.visuals.collapsing_header_frame = true;
-        style.visuals.slider_trailing_fill = true;
-
-        // Make handles slightly rounder/softer
-        style.visuals.handle_shape = egui::style::HandleShape::Rect { aspect_ratio: 0.6 };
-
-        // --- SPACING ---
-        style.spacing.item_spacing = egui::Vec2::new(10.0, 8.0);
-        style.spacing.button_padding = egui::Vec2::new(10.0, 6.0);
-        style.spacing.window_margin = egui::Margin::symmetric(14, 14);
-        style.spacing.menu_margin = egui::Margin::symmetric(10, 8);
-        style.spacing.indent = 20.0; // Slightly more indentation for hierarchy
-        style.spacing.interact_size = egui::Vec2::new(40.0, 24.0); // Wider sliders
-        style.spacing.slider_width = 200.0;
-        style.spacing.icon_spacing = 8.0;
-
-        // Scrollbars
-        style.spacing.scroll.floating = true;
-        style.spacing.scroll.bar_width = 8.0;
-        style.spacing.scroll.floating_width = 4.0;
-        style.spacing.scroll.foreground_color = true;
-        style.spacing.scroll.dormant_background_opacity = 0.0;
-        style.spacing.scroll.active_background_opacity = 0.4;
-        style.spacing.scroll.interact_background_opacity = 0.6;
-        style.spacing.scroll.dormant_handle_opacity = 0.6;
-        style.spacing.scroll.active_handle_opacity = 0.9;
-        style.spacing.scroll.interact_handle_opacity = 1.0;
-
-        // --- WIDGET STATES ---
-
-        // Non-interactive (Labels, etc)
-        style.visuals.widgets.noninteractive = Self::widget_visuals(
-            Color32::TRANSPARENT, // Transparent background for labels
-            Color32::TRANSPARENT,
-            SAGE_ACCENT, // Border color for separators
-            TEXT_COLOR,
-            1.0, // Thinner stroke
-        );
-
-        // Inactive (Buttons, Sliders not hovered)
-        style.visuals.widgets.inactive = Self::widget_visuals(
-            PANEL_LIGHT, // Slightly lighter than BG
-            PANEL_LIGHT,
-            Color32::TRANSPARENT, // No border when inactive for a cleaner look
-            TEXT_COLOR,
-            0.0,
-        );
-
-        // Hovered
-        style.visuals.widgets.hovered = Self::widget_visuals(
-            Color32::from_rgb(65, 75, 75), // Lighten up
-            Color32::from_rgb(65, 75, 75),
-            FLOWER_ACCENT, // Lavender border on hover
-            GOLD_ACCENT,   // Text turns Gold on hover
-            1.5,
-        );
-
-        // Active (Clicked / Dragging)
-        style.visuals.widgets.active = Self::widget_visuals(
-            GOLD_ACCENT, // Fill with Gold
-            GOLD_ACCENT,
-            GOLD_ACCENT,
-            Color32::from_rgb(30, 35, 30), // Dark text on Gold background
-            1.0,
-        );
-
-        // Open (Menu / Combo box open)
-        style.visuals.widgets.open =
-            Self::widget_visuals(PANEL_LIGHT, PANEL_LIGHT, GOLD_ACCENT, TEXT_COLOR, 1.5);
-    }
-
-    fn widget_visuals(
-        bg_fill: Color32,
-        weak_bg_fill: Color32,
-        stroke_color: Color32,
-        text_color: Color32,
-        stroke_width: f32,
-    ) -> WidgetVisuals {
-        WidgetVisuals {
-            bg_fill,
-            weak_bg_fill,
-            bg_stroke: egui::Stroke::new(stroke_width, stroke_color),
-            corner_radius: egui::CornerRadius::same(4), // Slightly rounded widgets
-            fg_stroke: egui::Stroke::new(1.5, text_color),
-            expansion: 0.0,
-        }
     }
 
     fn generate_procedural_trees(&mut self) -> Result<()> {
@@ -2234,7 +2024,7 @@ impl App {
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
-                        Self::apply_gui_style(&mut style);
+                        apply_gui_style(&mut style);
                         ctx.set_style(style);
 
                         let mut config_panel_open = self.config_panel_visible;
@@ -3363,7 +3153,7 @@ impl App {
                                 .show(ctx, |_ui| {});
                         }
 
-                        Self::draw_item_panel(
+                        draw_item_panel(
                             ctx,
                             item_panel_shovel_icon.as_ref(),
                             selected_item_panel_slot,
