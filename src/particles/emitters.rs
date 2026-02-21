@@ -308,17 +308,6 @@ impl ButterflyEmitter {
         )
     }
 
-    pub fn new_bird(center: Vec3, extent: Vec3, seed: u64, desc: &ButterflyEmitterDesc) -> Self {
-        Self::new_with_render_kind(
-            center,
-            extent,
-            seed,
-            desc,
-            ParticleRenderKind::Bird,
-            discover_bird_texture_variant_count(),
-        )
-    }
-
     fn new_with_render_kind(
         center: Vec3,
         extent: Vec3,
@@ -564,4 +553,371 @@ impl ParticleEmitter for ButterflyEmitter {
 }
 
 pub type BirdEmitterDesc = ButterflyEmitterDesc;
-pub type BirdEmitter = ButterflyEmitter;
+
+const BIRD_COUNT: usize = 5;
+const BIRD_FLIGHT_SPEED: f32 = 2.6;
+const BIRD_GROUND_IDLE_MIN_SEC: f32 = 4.0;
+const BIRD_GROUND_IDLE_MAX_SEC: f32 = 10.0;
+const BIRD_LANDING_RADIUS: f32 = 0.08;
+const BIRD_GROUND_OFFSET: f32 = 0.02;
+const BIRD_TARGET_PADDING: f32 = 0.02;
+
+#[derive(Clone, Copy, Debug)]
+enum BirdMode {
+    Grounded { next_takeoff_time: f32 },
+    AwaitingLanding { target_xz: Vec2 },
+    Flying { target: Vec3 },
+}
+
+pub struct BirdEmitter {
+    center: Vec3,
+    bounds_min: Vec2,
+    bounds_max: Vec2,
+    size: f32,
+    color_low: Vec4,
+    color_high: Vec4,
+    enabled: bool,
+    texture_variant_count: u32,
+    render_kind: ParticleRenderKind,
+    rng: SmallRng,
+    active_handles: Vec<ParticleHandle>,
+    smoothed_ground_height: HashMap<ParticleHandle, f32>,
+    states: HashMap<ParticleHandle, BirdMode>,
+}
+
+impl BirdEmitter {
+    pub fn new_bird(center: Vec3, extent: Vec3, seed: u64, desc: &BirdEmitterDesc) -> Self {
+        let bounds_min = Vec2::new(center.x - extent.x, center.z - extent.z);
+        let bounds_max = Vec2::new(center.x + extent.x, center.z + extent.z);
+        let (bounds_min, bounds_max) = Self::normalize_bounds(bounds_min, bounds_max);
+        Self {
+            center,
+            bounds_min,
+            bounds_max,
+            size: desc.size.max(0.001),
+            color_low: desc.color_low,
+            color_high: desc.color_high,
+            enabled: desc.enabled,
+            texture_variant_count: discover_bird_texture_variant_count(),
+            render_kind: ParticleRenderKind::Bird,
+            rng: SmallRng::seed_from_u64(seed),
+            active_handles: Vec::new(),
+            smoothed_ground_height: HashMap::new(),
+            states: HashMap::new(),
+        }
+    }
+
+    pub fn apply_desc(&mut self, desc: &BirdEmitterDesc) {
+        self.enabled = desc.enabled;
+        self.size = desc.size.max(0.001);
+        self.color_low = desc.color_low;
+        self.color_high = desc.color_high;
+    }
+
+    fn normalize_bounds(min: Vec2, max: Vec2) -> (Vec2, Vec2) {
+        let min_x = min.x.min(max.x);
+        let max_x = min.x.max(max.x);
+        let min_z = min.y.min(max.y);
+        let max_z = min.y.max(max.y);
+        (Vec2::new(min_x, min_z), Vec2::new(max_x, max_z))
+    }
+
+    fn prune_handles(&mut self, system: &ParticleSystem) {
+        self.active_handles
+            .retain(|handle| system.is_alive_handle(*handle));
+        self.smoothed_ground_height
+            .retain(|handle, _| system.is_alive_handle(*handle));
+        self.states
+            .retain(|handle, _| system.is_alive_handle(*handle));
+    }
+
+    fn enforce_size_on_active(&self, system: &mut ParticleSystem) {
+        for handle in &self.active_handles {
+            let _ = system.set_size(*handle, self.size);
+        }
+    }
+
+    fn trim_active_to_count(&mut self, system: &mut ParticleSystem, target_count: usize) {
+        while self.active_handles.len() > target_count {
+            if let Some(handle) = self.active_handles.pop() {
+                let _ = system.despawn(handle);
+                self.smoothed_ground_height.remove(&handle);
+                self.states.remove(&handle);
+            }
+        }
+    }
+
+    fn next_takeoff_time(&mut self, time: f32) -> f32 {
+        let delay = self
+            .rng
+            .random_range(BIRD_GROUND_IDLE_MIN_SEC..=BIRD_GROUND_IDLE_MAX_SEC);
+        time + delay
+    }
+
+    fn sample_target_xz(&mut self, origin: Vec2) -> Vec2 {
+        let min_x = (self.bounds_min.x + BIRD_TARGET_PADDING).min(self.bounds_max.x);
+        let max_x = (self.bounds_max.x - BIRD_TARGET_PADDING).max(min_x);
+        let min_z = (self.bounds_min.y + BIRD_TARGET_PADDING).min(self.bounds_max.y);
+        let max_z = (self.bounds_max.y - BIRD_TARGET_PADDING).max(min_z);
+
+        let mut target = Vec2::new(
+            self.rng.random_range(min_x..=max_x),
+            self.rng.random_range(min_z..=max_z),
+        );
+
+        let min_distance = 0.6;
+        if (target - origin).length_squared() < min_distance * min_distance {
+            let angle = self.rng.random_range(0.0..TAU);
+            let radius = self.rng.random_range(min_distance..=min_distance * 1.6);
+            let offset = Vec2::new(angle.cos(), angle.sin()) * radius;
+            target = origin + offset;
+            target.x = target.x.clamp(min_x, max_x);
+            target.y = target.y.clamp(min_z, max_z);
+        }
+
+        target
+    }
+
+    fn spawn_bird(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+        let spawn_xz = self.sample_target_xz(Vec2::new(self.center.x, self.center.z));
+        let position = Vec3::new(spawn_xz.x, self.center.y, spawn_xz.y);
+
+        let spawn = ParticleSpawn {
+            position,
+            velocity: Vec3::ZERO,
+            color: random_color(&mut self.rng, self.color_low, self.color_high),
+            size: self.size,
+            lifetime: f32::MAX,
+            wind_factor: 0.0,
+            gravity_factor: 0.0,
+            drift_direction: Vec3::ZERO,
+            drift_strength: 0.0,
+            drift_frequency: 1.0,
+            speed_noise_offset: self.rng.random_range(0.0..10_000.0),
+            motion_mode: MotionMode::Free,
+            sink_on_lifetime: false,
+            sink_speed: 0.0,
+            texture_variant: self.rng.random_range(0..self.texture_variant_count),
+            render_kind: self.render_kind,
+        };
+
+        system.spawn(spawn)
+    }
+
+    fn ensure_state(&mut self, handle: ParticleHandle, time: f32) {
+        if !self.states.contains_key(&handle) {
+            let next_time = self.next_takeoff_time(time);
+            self.states.insert(
+                handle,
+                BirdMode::Grounded {
+                    next_takeoff_time: next_time,
+                },
+            );
+        }
+    }
+
+    fn clamp_inside_bounds(&mut self, system: &mut ParticleSystem, handle: ParticleHandle) -> bool {
+        let Some(mut pos) = system.position(handle) else {
+            return false;
+        };
+
+        let mut clamped = false;
+        if pos.x < self.bounds_min.x {
+            pos.x = self.bounds_min.x;
+            clamped = true;
+        } else if pos.x > self.bounds_max.x {
+            pos.x = self.bounds_max.x;
+            clamped = true;
+        }
+
+        if pos.z < self.bounds_min.y {
+            pos.z = self.bounds_min.y;
+            clamped = true;
+        } else if pos.z > self.bounds_max.y {
+            pos.z = self.bounds_max.y;
+            clamped = true;
+        }
+
+        if clamped {
+            let _ = system.set_position(handle, pos);
+        }
+        clamped
+    }
+
+    pub fn collect_ground_queries(
+        &mut self,
+        system: &ParticleSystem,
+        out_positions_xz: &mut Vec<Vec2>,
+        out_handles: &mut Vec<ParticleHandle>,
+    ) {
+        self.prune_handles(system);
+        for handle in &self.active_handles {
+            if let Some(mode) = self.states.get(handle) {
+                if matches!(
+                    mode,
+                    BirdMode::Grounded { .. } | BirdMode::AwaitingLanding { .. }
+                ) {
+                    if let Some(pos) = system.position(*handle) {
+                        out_positions_xz.push(Vec2::new(pos.x, pos.z));
+                        out_handles.push(*handle);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn collect_landing_queries(
+        &mut self,
+        out_positions_xz: &mut Vec<Vec2>,
+        out_handles: &mut Vec<ParticleHandle>,
+    ) {
+        for (handle, mode) in self.states.iter() {
+            if let BirdMode::AwaitingLanding { target_xz } = mode {
+                out_positions_xz.push(*target_xz);
+                out_handles.push(*handle);
+            }
+        }
+    }
+
+    pub fn resample_landing_target(&mut self, system: &ParticleSystem, handle: ParticleHandle) {
+        let Some(pos) = system.position(handle) else {
+            return;
+        };
+        let origin = Vec2::new(pos.x, pos.z);
+        let target_xz = self.sample_target_xz(origin);
+        self.states
+            .insert(handle, BirdMode::AwaitingLanding { target_xz });
+    }
+
+    pub fn apply_landing_height(
+        &mut self,
+        system: &mut ParticleSystem,
+        handle: ParticleHandle,
+        ground_height: f32,
+    ) {
+        let Some(pos) = system.position(handle) else {
+            return;
+        };
+
+        let target = Vec3::new(pos.x, ground_height + BIRD_GROUND_OFFSET, pos.z);
+        if let Some(BirdMode::AwaitingLanding { target_xz }) = self.states.get(&handle) {
+            let landing = Vec3::new(target_xz.x, ground_height + BIRD_GROUND_OFFSET, target_xz.y);
+            self.states
+                .insert(handle, BirdMode::Flying { target: landing });
+        } else {
+            self.states.insert(handle, BirdMode::Flying { target });
+        }
+    }
+
+    pub fn apply_ground_height(
+        &mut self,
+        system: &mut ParticleSystem,
+        handle: ParticleHandle,
+        ground_height: f32,
+        dt: f32,
+    ) {
+        let Some(mut pos) = system.position(handle) else {
+            return;
+        };
+
+        const GROUND_TRACKING_TAU_SEC: f32 = 0.18;
+        const MAX_GROUND_STEP_PER_SEC: f32 = 4.5;
+
+        let clamped_dt = dt.max(1.0 / 240.0);
+        let tracked_ground = self
+            .smoothed_ground_height
+            .entry(handle)
+            .or_insert(ground_height);
+        let max_ground_step = MAX_GROUND_STEP_PER_SEC * clamped_dt;
+        let limited_measurement = *tracked_ground
+            + (ground_height - *tracked_ground).clamp(-max_ground_step, max_ground_step);
+        let alpha = 1.0 - (-clamped_dt / GROUND_TRACKING_TAU_SEC).exp();
+        *tracked_ground += (limited_measurement - *tracked_ground) * alpha;
+
+        pos.y = *tracked_ground + BIRD_GROUND_OFFSET;
+        let _ = system.set_position(handle, pos);
+    }
+}
+
+impl ParticleEmitter for BirdEmitter {
+    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
+        self.prune_handles(system);
+        let target_count = if self.enabled { BIRD_COUNT } else { 0 };
+        self.trim_active_to_count(system, target_count);
+        if target_count == 0 {
+            return;
+        }
+
+        self.enforce_size_on_active(system);
+
+        while self.active_handles.len() < target_count {
+            if let Some(handle) = self.spawn_bird(system) {
+                self.active_handles.push(handle);
+                let next_time = self.next_takeoff_time(time);
+                self.states.insert(
+                    handle,
+                    BirdMode::Grounded {
+                        next_takeoff_time: next_time,
+                    },
+                );
+            } else {
+                break;
+            }
+        }
+
+        let active_handles = self.active_handles.clone();
+        for handle in active_handles {
+            self.ensure_state(handle, time);
+
+            if self.clamp_inside_bounds(system, handle) {
+                let _ = system.set_velocity(handle, Vec3::ZERO);
+                let next_time = self.next_takeoff_time(time);
+                self.states.insert(
+                    handle,
+                    BirdMode::Grounded {
+                        next_takeoff_time: next_time,
+                    },
+                );
+                continue;
+            }
+
+            let Some(pos) = system.position(handle) else {
+                continue;
+            };
+
+            match self.states.get(&handle).copied() {
+                Some(BirdMode::Grounded { next_takeoff_time }) => {
+                    let _ = system.set_velocity(handle, Vec3::ZERO);
+                    if time >= next_takeoff_time {
+                        let origin = Vec2::new(pos.x, pos.z);
+                        let target_xz = self.sample_target_xz(origin);
+                        self.states
+                            .insert(handle, BirdMode::AwaitingLanding { target_xz });
+                    }
+                }
+                Some(BirdMode::AwaitingLanding { .. }) => {
+                    let _ = system.set_velocity(handle, Vec3::ZERO);
+                }
+                Some(BirdMode::Flying { target }) => {
+                    let to_target = target - pos;
+                    let distance = to_target.length();
+                    if distance <= BIRD_LANDING_RADIUS || distance <= BIRD_FLIGHT_SPEED * dt {
+                        let _ = system.set_position(handle, target);
+                        let _ = system.set_velocity(handle, Vec3::ZERO);
+                        let next_time = self.next_takeoff_time(time);
+                        self.states.insert(
+                            handle,
+                            BirdMode::Grounded {
+                                next_takeoff_time: next_time,
+                            },
+                        );
+                    } else {
+                        let desired = to_target / distance * BIRD_FLIGHT_SPEED;
+                        let _ = system.set_velocity(handle, desired);
+                    }
+                }
+                None => {}
+            }
+        }
+    }
+}

@@ -417,6 +417,24 @@ impl App {
                         BirdQueryTarget {
                             emitter_index,
                             handle,
+                            kind: BirdTerrainQueryKind::Ground,
+                        }
+                    }),
+            );
+
+            let mut landing_positions_xz = Vec::new();
+            let mut landing_handles = Vec::new();
+            emitter.collect_landing_queries(&mut landing_positions_xz, &mut landing_handles);
+            query_targets.extend(
+                landing_handles
+                    .into_iter()
+                    .zip(landing_positions_xz.into_iter())
+                    .map(|(handle, pos_xz)| {
+                        query_positions_xz.push(pos_xz);
+                        BirdQueryTarget {
+                            emitter_index,
+                            handle,
+                            kind: BirdTerrainQueryKind::Landing,
                         }
                     }),
             );
@@ -430,38 +448,23 @@ impl App {
         let map_size = super::CHUNK_DIM.as_vec3();
         let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
         let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        let mut border_despawn_count = 0usize;
-        let mut out_of_bounds_before_border = 0usize;
         for (idx, target) in query_targets.iter().enumerate() {
-            let Some(mut pos) = self.particle_system.position(target.handle) else {
-                continue;
-            };
+            let clamped_x = query_positions_xz[idx]
+                .x
+                .clamp(BORDER_PADDING_INWARD, max_x);
+            let clamped_z = query_positions_xz[idx]
+                .y
+                .clamp(BORDER_PADDING_INWARD, max_z);
+            if clamped_x != query_positions_xz[idx].x || clamped_z != query_positions_xz[idx].y {
+                query_positions_xz[idx] = Vec2::new(clamped_x, clamped_z);
 
-            let mut at_border = false;
-            if pos.x < 0.0 || pos.x > map_size.x || pos.z < 0.0 || pos.z > map_size.z {
-                out_of_bounds_before_border += 1;
-            }
-            if pos.x <= BORDER_PADDING_INWARD {
-                pos.x = BORDER_PADDING_INWARD;
-                at_border = true;
-            } else if pos.x >= max_x {
-                pos.x = max_x;
-                at_border = true;
-            }
-
-            if pos.z <= BORDER_PADDING_INWARD {
-                pos.z = BORDER_PADDING_INWARD;
-                at_border = true;
-            } else if pos.z >= max_z {
-                pos.z = max_z;
-                at_border = true;
-            }
-
-            if at_border {
-                border_despawn_count += 1;
-                let _ = self.particle_system.set_position(target.handle, pos);
-                let _ = self.particle_system.despawn(target.handle);
-                query_positions_xz[idx] = Vec2::new(pos.x, pos.z);
+                if matches!(target.kind, BirdTerrainQueryKind::Ground) {
+                    if let Some(mut pos) = self.particle_system.position(target.handle) {
+                        pos.x = clamped_x;
+                        pos.z = clamped_z;
+                        let _ = self.particle_system.set_position(target.handle, pos);
+                    }
+                }
             }
         }
 
@@ -476,69 +479,47 @@ impl App {
             }
         };
 
-        let total_sample_count = heights.len();
         let mut invalid_sample_count = 0usize;
-        for (idx, (target, sample)) in query_targets
+        for (_idx, (target, sample)) in query_targets
             .into_iter()
             .zip(heights.into_iter())
             .enumerate()
         {
             if !sample.is_valid {
                 invalid_sample_count += 1;
-                let query_pos = query_positions_xz[idx];
-                log::warn!(
-                    "Invalid bird terrain ray: origin_xz=({:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
-                    query_pos.x,
-                    query_pos.y,
-                    0.0f32,
-                    -1.0f32,
-                    0.0f32,
-                    target.emitter_index,
-                    target.handle
-                );
+                if matches!(target.kind, BirdTerrainQueryKind::Landing) {
+                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
+                        emitter.resample_landing_target(&self.particle_system, target.handle);
+                    }
+                }
                 continue;
             }
             if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
-                emitter.constrain_to_ground(
-                    &mut self.particle_system,
-                    target.handle,
-                    sample.height,
-                    dt,
-                );
+                match target.kind {
+                    BirdTerrainQueryKind::Ground => {
+                        emitter.apply_ground_height(
+                            &mut self.particle_system,
+                            target.handle,
+                            sample.height,
+                            dt,
+                        );
+                    }
+                    BirdTerrainQueryKind::Landing => {
+                        emitter.apply_landing_height(
+                            &mut self.particle_system,
+                            target.handle,
+                            sample.height,
+                        );
+                    }
+                }
             }
         }
 
         if invalid_sample_count > 0 {
-            let (min_qx, max_qx, min_qz, max_qz) = query_positions_xz.iter().fold(
-                (
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                ),
-                |(min_x, max_x_q, min_z, max_z_q), q| {
-                    (
-                        min_x.min(q.x),
-                        max_x_q.max(q.x),
-                        min_z.min(q.y),
-                        max_z_q.max(q.y),
-                    )
-                },
-            );
             log::warn!(
-                "Invalid bird terrain samples: {}/{}; border_despawns={} out_of_bounds_before_border={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
+                "Invalid bird terrain samples: {}/{}",
                 invalid_sample_count,
-                total_sample_count,
-                border_despawn_count,
-                out_of_bounds_before_border,
-                min_qx,
-                max_qx,
-                min_qz,
-                max_qz,
-                BORDER_PADDING_INWARD,
-                max_x,
-                BORDER_PADDING_INWARD,
-                max_z
+                query_positions_xz.len()
             );
         }
     }
@@ -565,4 +546,11 @@ struct ButterflyQueryTarget {
 struct BirdQueryTarget {
     emitter_index: usize,
     handle: ParticleHandle,
+    kind: BirdTerrainQueryKind,
+}
+
+#[derive(Clone, Copy)]
+enum BirdTerrainQueryKind {
+    Ground,
+    Landing,
 }
