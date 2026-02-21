@@ -28,7 +28,7 @@ fn backtrace_on() {
 
 fn init_env_logger() {
     env_logger::Builder::from_env(Env::default().default_filter_or(
-        "info,winit=warn,sctk=warn,wayland_client=warn,x11rb=warn,calloop=error",
+        "info,winit=warn,sctk=warn,wayland_client=warn,x11rb=warn,calloop=error,symphonia_format_riff=warn",
     ))
     .format(|buf, record| {
         use std::io::Write;
