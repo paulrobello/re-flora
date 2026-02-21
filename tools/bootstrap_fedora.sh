@@ -11,6 +11,9 @@ sudo dnf install clang
 # install clang-tools-extra
 sudo dnf install clang-tools-extra
 
+# install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 # vulkan sdk
 # <https://vulkan.lunarg.com/>
 
