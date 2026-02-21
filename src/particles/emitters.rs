@@ -943,9 +943,16 @@ impl ParticleEmitter for BirdEmitter {
                 }) => {
                     let to_target = current_target - pos;
                     let distance = to_target.length();
-                    if distance <= BIRD_LANDING_RADIUS || distance <= BIRD_FLIGHT_SPEED * dt {
-                        let _ = system.set_position(handle, current_target);
+                    let travel_distance = BIRD_FLIGHT_SPEED * dt;
+                    if distance <= BIRD_LANDING_RADIUS || distance <= travel_distance {
                         if let Some(next) = next_target {
+                            let to_next = next - pos;
+                            let desired = if to_next.length_squared() > 1.0e-6 {
+                                to_next.normalize() * BIRD_FLIGHT_SPEED
+                            } else {
+                                Vec3::ZERO
+                            };
+                            let _ = system.set_velocity(handle, desired);
                             self.states.insert(
                                 handle,
                                 BirdMode::Flying {
@@ -954,7 +961,12 @@ impl ParticleEmitter for BirdEmitter {
                                 },
                             );
                         } else {
-                            let _ = system.set_velocity(handle, Vec3::ZERO);
+                            if distance <= travel_distance && distance > 1.0e-6 {
+                                let clamped_dt = dt.max(1.0 / 240.0);
+                                let _ = system.set_velocity(handle, to_target / clamped_dt);
+                            } else {
+                                let _ = system.set_velocity(handle, Vec3::ZERO);
+                            }
                             let next_time = self.next_takeoff_time(time);
                             self.states.insert(
                                 handle,
