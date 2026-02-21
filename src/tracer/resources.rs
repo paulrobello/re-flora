@@ -1,6 +1,10 @@
 use crate::{
     flora::species,
-    particles::PARTICLE_CAPACITY,
+    particles::{
+        bird_spritesheet_sequence_def, BIRD_SPRITESHEET_HEIGHT, BIRD_SPRITESHEET_REL_PATH,
+        BIRD_SPRITESHEET_SEQUENCE_ORDER, BIRD_SPRITESHEET_WIDTH, BIRD_TOTAL_FRAME_COUNT,
+        BUTTERFLY_FRAMES_PER_VARIANT, PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM,
+    },
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, DenoiserResources,
@@ -662,15 +666,12 @@ impl TracerResources {
 
     fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
         const PARTICLE_LOD_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
-        const BIRD_TEXTURE_REL_PATH: &str = "assets/texture/Bird/Individual Sprites/BirdIdle1.png";
-        const LUT_DIM: u32 = 16;
         const LUT_LAYER_LEAF: u32 = 0;
-        const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
-        const BIRD_FRAMES_PER_VARIANT: u32 = 1;
+        let frame_dim = PARTICLE_SPRITE_FRAME_DIM;
 
         let white = [255u8, 255u8, 255u8, 255u8];
         let white_layer = white
-            .repeat((LUT_DIM * LUT_DIM) as usize)
+            .repeat((frame_dim * frame_dim) as usize)
             .into_iter()
             .collect::<Vec<u8>>();
         let dir_path = get_project_root() + "/" + PARTICLE_LOD_TEXTURE_DIR_REL_PATH;
@@ -708,55 +709,22 @@ impl TracerResources {
                 }
             };
             let rgba = image.to_rgba8();
-            let (width, height) = rgba.dimensions();
-            if width < LUT_DIM || height < LUT_DIM {
+            if let Some(frames) = Self::extract_row_sequence_layers(
+                &rgba,
+                0,
+                BUTTERFLY_FRAMES_PER_VARIANT,
+                &atlas_path_str,
+            ) {
+                butterfly_layers.extend(frames);
+            } else {
                 log::warn!(
-                    "Butterfly atlas '{}' is {}x{}; expected at least {}x{}; using resized fallback",
-                    atlas_path_str,
-                    width,
-                    height,
-                    LUT_DIM,
-                    LUT_DIM
+                    "Butterfly atlas '{}' is too small; using resized fallback",
+                    atlas_path_str
                 );
-                let mut frame = image::imageops::resize(
-                    &rgba,
-                    LUT_DIM,
-                    LUT_DIM,
-                    image::imageops::FilterType::Nearest,
-                );
-                for pixel in frame.pixels_mut() {
-                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                        pixel[3] = 0;
-                    }
-                }
-                let frame_data = frame.into_raw();
+                let fallback_frame = Self::resize_to_particle_frame(&rgba);
                 for _ in 0..BUTTERFLY_FRAMES_PER_VARIANT {
-                    butterfly_layers.push(frame_data.clone());
+                    butterfly_layers.push(fallback_frame.clone());
                 }
-                continue;
-            }
-
-            let available_frames = (width / LUT_DIM).max(1);
-            if width % LUT_DIM != 0 {
-                log::warn!(
-                    "Butterfly atlas '{}' width {} is not divisible by frame size {}; ignoring trailing pixels",
-                    atlas_path_str,
-                    width,
-                    LUT_DIM
-                );
-            }
-
-            for target_frame_idx in 0..BUTTERFLY_FRAMES_PER_VARIANT {
-                let src_frame_idx = target_frame_idx.min(available_frames - 1);
-                let mut frame =
-                    image::imageops::crop_imm(&rgba, src_frame_idx * LUT_DIM, 0, LUT_DIM, LUT_DIM)
-                        .to_image();
-                for pixel in frame.pixels_mut() {
-                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                        pixel[3] = 0;
-                    }
-                }
-                butterfly_layers.push(frame.into_raw());
             }
         }
 
@@ -765,39 +733,70 @@ impl TracerResources {
                 butterfly_layers.push(white_layer.clone());
             }
         }
-        let bird_path = get_project_root() + "/" + BIRD_TEXTURE_REL_PATH;
-        let mut bird_layers = Vec::new();
+        let bird_path = get_project_root() + "/" + BIRD_SPRITESHEET_REL_PATH;
+        let mut bird_layers = Vec::with_capacity(BIRD_TOTAL_FRAME_COUNT as usize);
         match image::open(&bird_path) {
             Ok(image) => {
-                let mut frame = image::imageops::resize(
-                    &image.to_rgba8(),
-                    LUT_DIM,
-                    LUT_DIM,
-                    image::imageops::FilterType::Nearest,
-                );
-                for pixel in frame.pixels_mut() {
-                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                        pixel[3] = 0;
-                    }
+                let rgba = image.to_rgba8();
+                let (sheet_width, sheet_height) = rgba.dimensions();
+                if sheet_width != BIRD_SPRITESHEET_WIDTH || sheet_height != BIRD_SPRITESHEET_HEIGHT
+                {
+                    log::warn!(
+                        "Bird spritesheet '{}' is {}x{}; expected {}x{}",
+                        bird_path,
+                        sheet_width,
+                        sheet_height,
+                        BIRD_SPRITESHEET_WIDTH,
+                        BIRD_SPRITESHEET_HEIGHT
+                    );
                 }
-                let frame_data = frame.into_raw();
-                for _ in 0..BIRD_FRAMES_PER_VARIANT {
-                    bird_layers.push(frame_data.clone());
+                for sequence in BIRD_SPRITESHEET_SEQUENCE_ORDER {
+                    let def = bird_spritesheet_sequence_def(sequence);
+                    let source_label = format!("{} ({:?})", bird_path, sequence);
+                    if let Some(frames) = Self::extract_row_sequence_layers(
+                        &rgba,
+                        def.row,
+                        def.frame_count,
+                        &source_label,
+                    ) {
+                        bird_layers.extend(frames);
+                    } else {
+                        log::warn!(
+                            "Bird sprite sequence {:?} could not be extracted; using fallback frames",
+                            sequence
+                        );
+                        for _ in 0..def.frame_count {
+                            bird_layers.push(white_layer.clone());
+                        }
+                    }
                 }
             }
             Err(e) => {
                 log::warn!(
-                    "Failed to open bird sprite '{}': {}; using fallback texture",
+                    "Failed to open bird spritesheet '{}': {}; using fallback texture",
                     bird_path,
                     e
                 );
-                for _ in 0..BIRD_FRAMES_PER_VARIANT {
+                for _ in 0..BIRD_TOTAL_FRAME_COUNT {
                     bird_layers.push(white_layer.clone());
                 }
             }
         }
+        if bird_layers.len() as u32 != BIRD_TOTAL_FRAME_COUNT {
+            log::warn!(
+                "Bird animation frame count mismatch (got {}, expected {}); padding with fallback",
+                bird_layers.len(),
+                BIRD_TOTAL_FRAME_COUNT
+            );
+        }
+        while (bird_layers.len() as u32) < BIRD_TOTAL_FRAME_COUNT {
+            bird_layers.push(white_layer.clone());
+        }
+        if (bird_layers.len() as u32) > BIRD_TOTAL_FRAME_COUNT {
+            bird_layers.truncate(BIRD_TOTAL_FRAME_COUNT as usize);
+        }
         if bird_layers.is_empty() {
-            for _ in 0..BIRD_FRAMES_PER_VARIANT {
+            for _ in 0..BIRD_TOTAL_FRAME_COUNT {
                 bird_layers.push(white_layer.clone());
             }
         }
@@ -805,7 +804,7 @@ impl TracerResources {
 
         let sam_desc = Default::default();
         let img_desc = ImageDesc {
-            extent: Extent3D::new(LUT_DIM, LUT_DIM, 1),
+            extent: Extent3D::new(frame_dim, frame_dim, 1),
             array_len: lut_layer_count,
             format: vk::Format::R8G8B8A8_SRGB,
             usage: vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::TRANSFER_DST,
@@ -835,6 +834,78 @@ impl TracerResources {
         }
 
         tex
+    }
+
+    fn extract_row_sequence_layers(
+        atlas: &image::RgbaImage,
+        row: u32,
+        target_frame_count: u32,
+        source_label: &str,
+    ) -> Option<Vec<Vec<u8>>> {
+        if target_frame_count == 0 {
+            return Some(Vec::new());
+        }
+
+        let frame_dim = PARTICLE_SPRITE_FRAME_DIM;
+        let (width, height) = atlas.dimensions();
+        let row_y = row.saturating_mul(frame_dim);
+        if width < frame_dim || height < row_y.saturating_add(frame_dim) {
+            log::warn!(
+                "Animated texture '{}' is {}x{}; row {} with {}x{} frames is unavailable",
+                source_label,
+                width,
+                height,
+                row,
+                frame_dim,
+                frame_dim
+            );
+            return None;
+        }
+
+        if width % frame_dim != 0 {
+            log::warn!(
+                "Animated texture '{}' width {} is not divisible by frame size {}; ignoring trailing pixels",
+                source_label,
+                width,
+                frame_dim
+            );
+        }
+
+        let available_frames = (width / frame_dim).max(1);
+        let mut frames = Vec::with_capacity(target_frame_count as usize);
+        for target_frame_idx in 0..target_frame_count {
+            let src_frame_idx = target_frame_idx.min(available_frames - 1);
+            let frame = image::imageops::crop_imm(
+                atlas,
+                src_frame_idx * frame_dim,
+                row_y,
+                frame_dim,
+                frame_dim,
+            )
+            .to_image();
+            frames.push(Self::to_particle_frame_bytes(frame));
+        }
+        Some(frames)
+    }
+
+    fn resize_to_particle_frame(image: &image::RgbaImage) -> Vec<u8> {
+        let frame_dim = PARTICLE_SPRITE_FRAME_DIM;
+        let frame = image::imageops::resize(
+            image,
+            frame_dim,
+            frame_dim,
+            image::imageops::FilterType::Nearest,
+        );
+        Self::to_particle_frame_bytes(frame)
+    }
+
+    fn to_particle_frame_bytes(mut frame: image::RgbaImage) -> Vec<u8> {
+        for pixel in frame.pixels_mut() {
+            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                pixel[3] = 0;
+            }
+        }
+        frame.into_raw()
     }
 
     fn fill_particle_lut_layer(vulkan_ctx: &VulkanContext, tex: &Texture, layer: u32, data: &[u8]) {

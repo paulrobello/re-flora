@@ -499,6 +499,16 @@ impl ParticleSystem {
     }
 
     #[allow(dead_code)]
+    pub fn set_texture_variant(&mut self, handle: ParticleHandle, texture_variant: u32) -> bool {
+        if let Some(idx) = self.validate_handle(handle) {
+            self.texture_variants[idx] = texture_variant;
+            true
+        } else {
+            false
+        }
+    }
+
+    #[allow(dead_code)]
     pub fn add_velocity(&mut self, handle: ParticleHandle, delta: Vec3) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
             self.velocities[idx] += delta;

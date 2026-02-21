@@ -3,7 +3,10 @@ use std::{collections::HashMap, f32::consts::TAU, ops::RangeInclusive};
 use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
-use super::{MotionMode, ParticleHandle, ParticleRenderKind, ParticleSpawn, ParticleSystem};
+use super::{
+    BirdSpriteSequence, MotionMode, ParticleHandle, ParticleRenderKind, ParticleSpawn,
+    ParticleSystem,
+};
 use crate::util::get_project_root;
 use crate::wind::Wind;
 
@@ -12,7 +15,7 @@ pub trait ParticleEmitter {
 }
 
 const BUTTERFLY_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
-const BIRD_TEXTURE_FILE_REL_PATH: &str = "assets/texture/Bird/Individual Sprites/BirdIdle1.png";
+const BIRD_SPRITESHEET_FILE_REL_PATH: &str = crate::particles::BIRD_SPRITESHEET_REL_PATH;
 
 fn discover_butterfly_texture_variant_count() -> u32 {
     let dir_path = get_project_root() + "/" + BUTTERFLY_TEXTURE_DIR_REL_PATH;
@@ -38,15 +41,14 @@ fn discover_butterfly_texture_variant_count() -> u32 {
     count.max(1)
 }
 
-fn discover_bird_texture_variant_count() -> u32 {
-    let path = get_project_root() + "/" + BIRD_TEXTURE_FILE_REL_PATH;
+fn warn_missing_bird_spritesheet() {
+    let path = get_project_root() + "/" + BIRD_SPRITESHEET_FILE_REL_PATH;
     if !std::path::Path::new(&path).exists() {
         log::warn!(
-            "Bird sprite texture '{}' is missing; defaulting to one variant",
+            "Bird sprite sheet '{}' is missing; defaulting to fallback texture",
             path
         );
     }
-    1
 }
 
 fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
@@ -584,7 +586,6 @@ pub struct BirdEmitter {
     color_low: Vec4,
     color_high: Vec4,
     enabled: bool,
-    texture_variant_count: u32,
     render_kind: ParticleRenderKind,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
@@ -594,6 +595,7 @@ pub struct BirdEmitter {
 
 impl BirdEmitter {
     pub fn new_bird(center: Vec3, extent: Vec3, seed: u64, desc: &BirdEmitterDesc) -> Self {
+        warn_missing_bird_spritesheet();
         let bounds_min = Vec2::new(center.x - extent.x, center.z - extent.z);
         let bounds_max = Vec2::new(center.x + extent.x, center.z + extent.z);
         let (bounds_min, bounds_max) = Self::normalize_bounds(bounds_min, bounds_max);
@@ -605,7 +607,6 @@ impl BirdEmitter {
             color_low: desc.color_low,
             color_high: desc.color_high,
             enabled: desc.enabled,
-            texture_variant_count: discover_bird_texture_variant_count(),
             render_kind: ParticleRenderKind::Bird,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
@@ -704,7 +705,7 @@ impl BirdEmitter {
             motion_mode: MotionMode::Free,
             sink_on_lifetime: false,
             sink_speed: 0.0,
-            texture_variant: self.rng.random_range(0..self.texture_variant_count),
+            texture_variant: BirdSpriteSequence::Idle.texture_variant(),
             render_kind: self.render_kind,
         };
 
@@ -720,6 +721,15 @@ impl BirdEmitter {
                     next_takeoff_time: next_time,
                 },
             );
+        }
+    }
+
+    fn mode_sequence(mode: BirdMode) -> BirdSpriteSequence {
+        match mode {
+            BirdMode::Grounded { .. } | BirdMode::AwaitingLanding { .. } => {
+                BirdSpriteSequence::Idle
+            }
+            BirdMode::Flying { .. } => BirdSpriteSequence::Flying,
         }
     }
 
@@ -917,6 +927,8 @@ impl ParticleEmitter for BirdEmitter {
                         next_takeoff_time: next_time,
                     },
                 );
+                let _ =
+                    system.set_texture_variant(handle, BirdSpriteSequence::Idle.texture_variant());
                 continue;
             }
 
@@ -981,6 +993,11 @@ impl ParticleEmitter for BirdEmitter {
                     }
                 }
                 None => {}
+            }
+
+            if let Some(mode) = self.states.get(&handle).copied() {
+                let sequence = Self::mode_sequence(mode);
+                let _ = system.set_texture_variant(handle, sequence.texture_variant());
             }
         }
     }

@@ -33,7 +33,11 @@ use crate::builder::{
 };
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
-use crate::particles::system::{ParticleSnapshot, PARTICLE_CAPACITY};
+use crate::particles::{
+    animated_sequence_layer, animated_variant_layer, bird_animation_sequence, BirdSpriteSequence,
+    ParticleSnapshot, BIRD_TOTAL_FRAME_COUNT, BUTTERFLY_ANIM_FRAME_DURATION_SEC,
+    BUTTERFLY_FRAMES_PER_VARIANT, PARTICLE_CAPACITY,
+};
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
 use crate::vkn::{
@@ -1571,30 +1575,19 @@ impl Tracer {
     ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
         let count = snapshots.len().min(capacity);
-        const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
-        const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
-        const BIRD_LAYER_COUNT: u32 = 1;
+        const LEAF_LAYER_COUNT: u32 = 1;
+        let bird_layer_count = BIRD_TOTAL_FRAME_COUNT;
         let butterfly_total_layer_count = self
             .resources
             .particle_lod_tex_lut
             .get_image()
             .get_desc()
             .array_len
-            .saturating_sub(1 + BIRD_LAYER_COUNT)
+            .saturating_sub(LEAF_LAYER_COUNT + bird_layer_count)
             .max(1);
         let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT.min(butterfly_total_layer_count);
         let butterfly_variant_count = (butterfly_total_layer_count / butterfly_frame_count).max(1);
-        let bird_tex_index = self
-            .resources
-            .particle_lod_tex_lut
-            .get_image()
-            .get_desc()
-            .array_len
-            .saturating_sub(1)
-            .max(1);
-        let animation_step =
-            (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
-        let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
+        let bird_base_layer = LEAF_LAYER_COUNT + butterfly_total_layer_count;
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
                 .normalize_or_zero();
@@ -1624,9 +1617,20 @@ impl Tracer {
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(count);
         for snap in snapshots.iter().take(capacity) {
-            let butterfly_variant = snap.texture_variant % butterfly_variant_count;
-            let butterfly_tex_index =
-                1 + butterfly_variant * butterfly_frame_count + butterfly_anim_frame;
+            let butterfly_tex_index = animated_variant_layer(
+                LEAF_LAYER_COUNT,
+                snap.texture_variant,
+                butterfly_variant_count,
+                butterfly_frame_count,
+                BUTTERFLY_ANIM_FRAME_DURATION_SEC,
+                time_since_start_sec,
+            );
+            let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
+            let bird_tex_index = animated_sequence_layer(
+                bird_base_layer,
+                bird_animation_sequence(bird_sequence),
+                time_since_start_sec,
+            );
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position.to_array(),
                 size: snap.size,
