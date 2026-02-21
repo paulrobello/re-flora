@@ -13,8 +13,9 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-const BIRD_AUDIO_PATH: &str = "assets/sfx/SA_EuropeanBirds2_44.1k_v1.2_OneShots/Audio/House Sparrow/Call A/BIRDSong_House Sparrow, Call A 01_SARM_EB2.wav";
-const BIRD_AUDIO_VOLUME_DB: f32 = -24.0;
+pub(super) const BIRD_AUDIO_PATH: &str =
+    "assets/sfx/birds/BIRDSong_House Sparrow, Call A 01_SARM_EB2.wav";
+pub(super) const BIRD_AUDIO_VOLUME_DB: f32 = 24.0;
 
 #[derive(Default)]
 pub(super) struct BirdAudioBinding {
