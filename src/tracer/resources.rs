@@ -662,9 +662,11 @@ impl TracerResources {
 
     fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
         const PARTICLE_LOD_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
+        const BIRD_TEXTURE_REL_PATH: &str = "assets/texture/Bird/Individual Sprites/BirdIdle1.png";
         const LUT_DIM: u32 = 16;
         const LUT_LAYER_LEAF: u32 = 0;
         const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
+        const BIRD_FRAMES_PER_VARIANT: u32 = 1;
 
         let white = [255u8, 255u8, 255u8, 255u8];
         let white_layer = white
@@ -763,7 +765,43 @@ impl TracerResources {
                 butterfly_layers.push(white_layer.clone());
             }
         }
-        let lut_layer_count = 1 + butterfly_layers.len() as u32;
+        let bird_path = get_project_root() + "/" + BIRD_TEXTURE_REL_PATH;
+        let mut bird_layers = Vec::new();
+        match image::open(&bird_path) {
+            Ok(image) => {
+                let mut frame = image::imageops::resize(
+                    &image.to_rgba8(),
+                    LUT_DIM,
+                    LUT_DIM,
+                    image::imageops::FilterType::Nearest,
+                );
+                for pixel in frame.pixels_mut() {
+                    if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
+                        pixel[3] = 0;
+                    }
+                }
+                let frame_data = frame.into_raw();
+                for _ in 0..BIRD_FRAMES_PER_VARIANT {
+                    bird_layers.push(frame_data.clone());
+                }
+            }
+            Err(e) => {
+                log::warn!(
+                    "Failed to open bird sprite '{}': {}; using fallback texture",
+                    bird_path,
+                    e
+                );
+                for _ in 0..BIRD_FRAMES_PER_VARIANT {
+                    bird_layers.push(white_layer.clone());
+                }
+            }
+        }
+        if bird_layers.is_empty() {
+            for _ in 0..BIRD_FRAMES_PER_VARIANT {
+                bird_layers.push(white_layer.clone());
+            }
+        }
+        let lut_layer_count = 1 + butterfly_layers.len() as u32 + bird_layers.len() as u32;
 
         let sam_desc = Default::default();
         let img_desc = ImageDesc {
@@ -783,6 +821,15 @@ impl TracerResources {
                 vulkan_ctx,
                 &tex,
                 (frame_idx as u32) + 1,
+                frame_data.as_slice(),
+            );
+        }
+        let bird_start_layer = 1 + butterfly_layers.len() as u32;
+        for (frame_idx, frame_data) in bird_layers.iter().enumerate() {
+            Self::fill_particle_lut_layer(
+                vulkan_ctx,
+                &tex,
+                bird_start_layer + frame_idx as u32,
                 frame_data.as_slice(),
             );
         }

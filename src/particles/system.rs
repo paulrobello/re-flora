@@ -58,6 +58,8 @@ pub struct ParticleSpawn {
     pub sink_speed: f32,
     /// Optional texture variant for render-time atlas selection.
     pub texture_variant: u32,
+    /// Render classification used by the particle texture LUT.
+    pub render_kind: ParticleRenderKind,
 }
 
 impl Default for ParticleSpawn {
@@ -78,6 +80,7 @@ impl Default for ParticleSpawn {
             sink_on_lifetime: false,
             sink_speed: 0.1,
             texture_variant: 0,
+            render_kind: ParticleRenderKind::Leaf,
         }
     }
 }
@@ -135,6 +138,7 @@ pub struct ParticleSnapshot {
 pub enum ParticleRenderKind {
     Leaf,
     Butterfly,
+    Bird,
 }
 
 /// Keeps particle data in a struct-of-arrays layout for cache-friendly updates.
@@ -161,6 +165,7 @@ pub struct ParticleSystem {
     max_particles: usize,
     speed_noise_offsets: Vec<f32>,
     texture_variants: Vec<u32>,
+    render_kinds: Vec<ParticleRenderKind>,
     speed_noise: FastNoiseLite,
 }
 
@@ -201,6 +206,7 @@ impl ParticleSystem {
             max_particles,
             speed_noise_offsets: vec![0.0; max_particles],
             texture_variants: vec![0; max_particles],
+            render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
             speed_noise,
         }
     }
@@ -266,6 +272,7 @@ impl ParticleSystem {
         self.alive_indices.push(slot);
         self.speed_noise_offsets[slot] = spawn.speed_noise_offset;
         self.texture_variants[slot] = spawn.texture_variant;
+        self.render_kinds[slot] = spawn.render_kind;
 
         Some(ParticleHandle {
             index: slot as u32,
@@ -408,16 +415,12 @@ impl ParticleSystem {
         out.clear();
         out.reserve(self.alive_indices.len());
         for slot in &self.alive_indices {
-            let kind = match self.motion_modes[*slot] {
-                MotionMode::Falling => ParticleRenderKind::Leaf,
-                MotionMode::Free => ParticleRenderKind::Butterfly,
-            };
             out.push(ParticleSnapshot {
                 position: Self::quantize_position(self.positions[*slot]),
                 velocity: self.velocities[*slot],
                 color: self.colors[*slot],
                 size: self.sizes[*slot],
-                kind,
+                kind: self.render_kinds[*slot],
                 texture_variant: self.texture_variants[*slot],
             });
         }

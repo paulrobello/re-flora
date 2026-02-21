@@ -455,9 +455,14 @@ fn update_spheres(resources: &PlainBuilderResources, spheres: &[Sphere]) -> Resu
                 "data.center",
                 PlainMemberTypeWithData::Vec3(sphere.center().to_array()),
             )
-            .set_field("data.radius", PlainMemberTypeWithData::Float(sphere.radius()))
+            .set_field(
+                "data.radius",
+                PlainMemberTypeWithData::Float(sphere.radius()),
+            )
             .build()?;
-        resources.spheres.fill_element_with_raw_u8(&data, i as u64)?;
+        resources
+            .spheres
+            .fill_element_with_raw_u8(&data, i as u64)?;
     }
     Ok(())
 }

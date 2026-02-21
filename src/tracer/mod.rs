@@ -1573,7 +1573,18 @@ impl Tracer {
         let count = snapshots.len().min(capacity);
         const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
         const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
+        const BIRD_LAYER_COUNT: u32 = 1;
         let butterfly_total_layer_count = self
+            .resources
+            .particle_lod_tex_lut
+            .get_image()
+            .get_desc()
+            .array_len
+            .saturating_sub(1 + BIRD_LAYER_COUNT)
+            .max(1);
+        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT.min(butterfly_total_layer_count);
+        let butterfly_variant_count = (butterfly_total_layer_count / butterfly_frame_count).max(1);
+        let bird_tex_index = self
             .resources
             .particle_lod_tex_lut
             .get_image()
@@ -1581,8 +1592,6 @@ impl Tracer {
             .array_len
             .saturating_sub(1)
             .max(1);
-        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT.min(butterfly_total_layer_count);
-        let butterfly_variant_count = (butterfly_total_layer_count / butterfly_frame_count).max(1);
         let animation_step =
             (time_since_start_sec.max(0.0) / BUTTERFLY_ANIM_FRAME_DURATION_SEC).floor() as u64;
         let butterfly_anim_frame = (animation_step % butterfly_frame_count as u64) as u32;
@@ -1626,6 +1635,10 @@ impl Tracer {
                     crate::particles::ParticleRenderKind::Leaf => 0,
                     crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
                         butterfly_tex_index,
+                        is_moving_right_relative_to_player(snap.velocity),
+                    ),
+                    crate::particles::ParticleRenderKind::Bird => pack_particle_tex_index(
+                        bird_tex_index,
                         is_moving_right_relative_to_player(snap.velocity),
                     ),
                 },
@@ -1800,7 +1813,11 @@ impl Tracer {
         Ok(hit_samples
             .into_iter()
             .map(|sample| TerrainHeightSample {
-                height: if sample.is_valid { sample.position.y } else { 0.0 },
+                height: if sample.is_valid {
+                    sample.position.y
+                } else {
+                    0.0
+                },
                 is_valid: sample.is_valid,
             })
             .collect())

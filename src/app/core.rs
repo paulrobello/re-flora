@@ -10,8 +10,9 @@ use crate::builder::{
 use crate::flora::species;
 use crate::geom::{build_bvh, BvhNode, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::particles::{
-    ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, LeafEmitterDesc, ParticleEmitter,
-    ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
+    BirdEmitter, BirdEmitterDesc, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter,
+    LeafEmitterDesc, ParticleEmitter, ParticleForces, ParticleSnapshot, ParticleSystem,
+    PARTICLE_CAPACITY,
 };
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tracer::{TerrainRayQuery, Tracer, TracerDesc};
@@ -574,6 +575,8 @@ pub struct App {
     leaf_emitter_desc: LeafEmitterDesc,
     butterfly_emitters: Vec<ButterflyEmitter>,
     butterfly_emitter_desc: ButterflyEmitterDesc,
+    bird_emitters: Vec<BirdEmitter>,
+    bird_emitter_desc: BirdEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
@@ -920,6 +923,8 @@ impl App {
         };
         let butterfly_emitters = Vec::new();
         let butterfly_emitter_desc = Self::butterfly_desc_from_gui_adjustables(&gui_adjustables);
+        let bird_emitters = Vec::new();
+        let bird_emitter_desc = butterfly_emitter_desc;
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             linear_damping: 0.08,
@@ -975,6 +980,8 @@ impl App {
             leaf_emitter_desc,
             butterfly_emitters,
             butterfly_emitter_desc,
+            bird_emitters,
+            bird_emitter_desc,
             particle_snapshots,
             particle_forces,
 
@@ -985,6 +992,7 @@ impl App {
         app.configure_gui_font()?;
         app.load_item_panel_icon()?;
         app.ensure_map_butterfly_emitter();
+        app.ensure_map_bird_emitter();
 
         app.add_tree(
             app.debug_tree_desc.clone(),
@@ -1745,10 +1753,7 @@ impl App {
         Ok(())
     }
 
-    fn query_camera_ray_terrain_intersection(
-        &mut self,
-        max_distance: f32,
-    ) -> Result<Option<Vec3>> {
+    fn query_camera_ray_terrain_intersection(&mut self, max_distance: f32) -> Result<Option<Vec3>> {
         if max_distance <= 0.0 {
             return Ok(None);
         }
@@ -1759,10 +1764,9 @@ impl App {
             return Ok(None);
         }
 
-        let sample = self.tracer.query_terrain_ray_with_validity(TerrainRayQuery {
-            origin,
-            direction,
-        })?;
+        let sample = self
+            .tracer
+            .query_terrain_ray_with_validity(TerrainRayQuery { origin, direction })?;
 
         let distance = if sample.is_valid {
             (sample.position - origin).length()
@@ -1988,6 +1992,20 @@ impl App {
         ));
     }
 
+    fn ensure_map_bird_emitter(&mut self) {
+        if !self.bird_emitters.is_empty() {
+            return;
+        }
+
+        let (center, extent) = Self::map_butterfly_region();
+        self.bird_emitters.push(BirdEmitter::new_bird(
+            center,
+            extent,
+            41_203,
+            &self.bird_emitter_desc,
+        ));
+    }
+
     fn map_butterfly_region() -> (Vec3, Vec3) {
         let map_size = CHUNK_DIM.as_vec3();
         let center = Vec3::new(map_size.x * 0.5, 0.5, map_size.z * 0.5);
@@ -2005,6 +2023,7 @@ impl App {
         }
 
         self.ensure_map_butterfly_emitter();
+        self.ensure_map_bird_emitter();
         let wind_time = self.time_info.time_since_start();
         Self::drive_emitters(
             &mut self.butterfly_emitters,
@@ -2013,6 +2032,13 @@ impl App {
             wind_time,
         );
         self.constrain_butterflies_to_terrain(dt);
+        Self::drive_emitters(
+            &mut self.bird_emitters,
+            &mut self.particle_system,
+            dt,
+            wind_time,
+        );
+        self.constrain_birds_to_terrain(dt);
         Self::drive_emitters(
             &mut self.leaf_emitters,
             &mut self.particle_system,
@@ -2163,6 +2189,153 @@ impl App {
             );
             log::warn!(
                 "Invalid butterfly terrain samples: {}/{}; border_despawns={} out_of_bounds_before_border={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
+                invalid_sample_count,
+                total_sample_count,
+                border_despawn_count,
+                out_of_bounds_before_border,
+                min_qx,
+                max_qx,
+                min_qz,
+                max_qz,
+                BORDER_PADDING_INWARD,
+                max_x,
+                BORDER_PADDING_INWARD,
+                max_z
+            );
+        }
+    }
+
+    fn constrain_birds_to_terrain(&mut self, dt: f32) {
+        let mut query_positions_xz = Vec::new();
+        let mut query_targets: Vec<BirdQueryTarget> = Vec::new();
+
+        for (emitter_index, emitter) in self.bird_emitters.iter_mut().enumerate() {
+            let mut emitter_positions_xz = Vec::new();
+            let mut emitter_handles = Vec::new();
+            emitter.collect_ground_queries(
+                &self.particle_system,
+                &mut emitter_positions_xz,
+                &mut emitter_handles,
+            );
+            query_targets.extend(
+                emitter_handles
+                    .into_iter()
+                    .zip(emitter_positions_xz.into_iter())
+                    .map(|(handle, pos_xz)| {
+                        query_positions_xz.push(pos_xz);
+                        BirdQueryTarget {
+                            emitter_index,
+                            handle,
+                        }
+                    }),
+            );
+        }
+
+        if query_targets.is_empty() {
+            return;
+        }
+
+        const BORDER_PADDING_INWARD: f32 = 0.001;
+        let map_size = CHUNK_DIM.as_vec3();
+        let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
+        let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
+        let mut border_despawn_count = 0usize;
+        let mut out_of_bounds_before_border = 0usize;
+        for (idx, target) in query_targets.iter().enumerate() {
+            let Some(mut pos) = self.particle_system.position(target.handle) else {
+                continue;
+            };
+
+            let mut at_border = false;
+            if pos.x < 0.0 || pos.x > map_size.x || pos.z < 0.0 || pos.z > map_size.z {
+                out_of_bounds_before_border += 1;
+            }
+            if pos.x <= BORDER_PADDING_INWARD {
+                pos.x = BORDER_PADDING_INWARD;
+                at_border = true;
+            } else if pos.x >= max_x {
+                pos.x = max_x;
+                at_border = true;
+            }
+
+            if pos.z <= BORDER_PADDING_INWARD {
+                pos.z = BORDER_PADDING_INWARD;
+                at_border = true;
+            } else if pos.z >= max_z {
+                pos.z = max_z;
+                at_border = true;
+            }
+
+            if at_border {
+                border_despawn_count += 1;
+                let _ = self.particle_system.set_position(target.handle, pos);
+                let _ = self.particle_system.despawn(target.handle);
+                query_positions_xz[idx] = Vec2::new(pos.x, pos.z);
+            }
+        }
+
+        let heights = match self
+            .tracer
+            .query_terrain_heights_batch_with_validity(&query_positions_xz)
+        {
+            Ok(heights) => heights,
+            Err(err) => {
+                log::error!("Failed terrain query for birds: {}", err);
+                return;
+            }
+        };
+
+        let total_sample_count = heights.len();
+        let mut invalid_sample_count = 0usize;
+        for (idx, (target, sample)) in query_targets
+            .into_iter()
+            .zip(heights.into_iter())
+            .enumerate()
+        {
+            if !sample.is_valid {
+                invalid_sample_count += 1;
+                let query_pos = query_positions_xz[idx];
+                log::warn!(
+                    "Invalid bird terrain ray: origin_xz=({:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
+                    query_pos.x,
+                    query_pos.y,
+                    0.0f32,
+                    -1.0f32,
+                    0.0f32,
+                    target.emitter_index,
+                    target.handle
+                );
+                continue;
+            }
+            if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
+                emitter.constrain_to_ground(
+                    &mut self.particle_system,
+                    target.handle,
+                    sample.height,
+                    dt,
+                );
+            }
+        }
+
+        if invalid_sample_count > 0 {
+            let (min_qx, max_qx, min_qz, max_qz) = query_positions_xz.iter().fold(
+                (
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                    f32::INFINITY,
+                    f32::NEG_INFINITY,
+                ),
+                |(min_x, max_x_q, min_z, max_z_q), q| {
+                    (
+                        min_x.min(q.x),
+                        max_x_q.max(q.x),
+                        min_z.min(q.y),
+                        max_z_q.max(q.y),
+                    )
+                },
+            );
+            log::warn!(
+                "Invalid bird terrain samples: {}/{}; border_despawns={} out_of_bounds_before_border={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
                 invalid_sample_count,
                 total_sample_count,
                 border_despawn_count,
@@ -3462,13 +3635,18 @@ impl App {
                                                 Self::butterfly_desc_from_gui_adjustables(
                                                     &self.gui_adjustables,
                                                 );
+                                            self.bird_emitter_desc = self.butterfly_emitter_desc;
                                             for emitter in &mut self.butterfly_emitters {
                                                 emitter.apply_desc(&self.butterfly_emitter_desc);
+                                            }
+                                            for emitter in &mut self.bird_emitters {
+                                                emitter.apply_desc(&self.bird_emitter_desc);
                                             }
                                         }
 
                                         if self.leaf_emitters.is_empty()
                                             && self.butterfly_emitters.is_empty()
+                                            && self.bird_emitters.is_empty()
                                         {
                                             ui.label("No active emitters");
                                         }
@@ -3912,6 +4090,12 @@ impl App {
 
 #[derive(Clone, Copy)]
 struct ButterflyQueryTarget {
+    emitter_index: usize,
+    handle: crate::particles::ParticleHandle,
+}
+
+#[derive(Clone, Copy)]
+struct BirdQueryTarget {
     emitter_index: usize,
     handle: crate::particles::ParticleHandle,
 }

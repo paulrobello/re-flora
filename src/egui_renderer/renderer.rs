@@ -277,7 +277,11 @@ impl EguiRenderer {
         let screen_width = extent.width as f32;
         let screen_height = extent.height as f32;
 
-        device.cmd_set_viewport_raw(cmdbuf.as_raw(), 0, &[Viewport::from_extent(extent).as_raw()]);
+        device.cmd_set_viewport_raw(
+            cmdbuf.as_raw(),
+            0,
+            &[Viewport::from_extent(extent).as_raw()],
+        );
 
         let projection = Mat4::orthographic_rh(
             0.0,

@@ -92,8 +92,11 @@ impl Device {
         pipeline: vk::Pipeline,
     ) {
         unsafe {
-            self.as_raw()
-                .cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::GRAPHICS, pipeline);
+            self.as_raw().cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                pipeline,
+            );
         }
     }
 
@@ -103,8 +106,11 @@ impl Device {
         pipeline: vk::Pipeline,
     ) {
         unsafe {
-            self.as_raw()
-                .cmd_bind_pipeline(command_buffer, vk::PipelineBindPoint::COMPUTE, pipeline);
+            self.as_raw().cmd_bind_pipeline(
+                command_buffer,
+                vk::PipelineBindPoint::COMPUTE,
+                pipeline,
+            );
         }
     }
 
@@ -244,12 +250,8 @@ impl Device {
         group_count_z: u32,
     ) {
         unsafe {
-            self.as_raw().cmd_dispatch(
-                command_buffer,
-                group_count_x,
-                group_count_y,
-                group_count_z,
-            );
+            self.as_raw()
+                .cmd_dispatch(command_buffer, group_count_x, group_count_y, group_count_z);
         }
     }
 

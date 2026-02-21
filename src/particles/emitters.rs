@@ -3,7 +3,7 @@ use std::{collections::HashMap, f32::consts::TAU, ops::RangeInclusive};
 use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
-use super::{MotionMode, ParticleHandle, ParticleSpawn, ParticleSystem};
+use super::{MotionMode, ParticleHandle, ParticleRenderKind, ParticleSpawn, ParticleSystem};
 use crate::util::get_project_root;
 use crate::wind::Wind;
 
@@ -12,6 +12,7 @@ pub trait ParticleEmitter {
 }
 
 const BUTTERFLY_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
+const BIRD_TEXTURE_FILE_REL_PATH: &str = "assets/texture/Bird/Individual Sprites/BirdIdle1.png";
 
 fn discover_butterfly_texture_variant_count() -> u32 {
     let dir_path = get_project_root() + "/" + BUTTERFLY_TEXTURE_DIR_REL_PATH;
@@ -35,6 +36,17 @@ fn discover_butterfly_texture_variant_count() -> u32 {
         .count() as u32;
 
     count.max(1)
+}
+
+fn discover_bird_texture_variant_count() -> u32 {
+    let path = get_project_root() + "/" + BIRD_TEXTURE_FILE_REL_PATH;
+    if !std::path::Path::new(&path).exists() {
+        log::warn!(
+            "Bird sprite texture '{}' is missing; defaulting to one variant",
+            path
+        );
+    }
+    1
 }
 
 fn random_in_range(rng: &mut SmallRng, range: &RangeInclusive<f32>) -> f32 {
@@ -172,6 +184,7 @@ impl FallenLeafEmitter {
             sink_on_lifetime: true,
             sink_speed: self.rng.random_range(0.08..=0.18),
             texture_variant: 0,
+            render_kind: ParticleRenderKind::Leaf,
         };
         let _ = system.spawn(spawn);
     }
@@ -277,6 +290,7 @@ pub struct ButterflyEmitter {
     pub enabled: bool,
     pub butterfly_count: u32,
     texture_variant_count: u32,
+    render_kind: ParticleRenderKind,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
     smoothed_ground_height: HashMap<ParticleHandle, f32>,
@@ -284,6 +298,35 @@ pub struct ButterflyEmitter {
 
 impl ButterflyEmitter {
     pub fn new(center: Vec3, extent: Vec3, seed: u64, desc: &ButterflyEmitterDesc) -> Self {
+        Self::new_with_render_kind(
+            center,
+            extent,
+            seed,
+            desc,
+            ParticleRenderKind::Butterfly,
+            discover_butterfly_texture_variant_count(),
+        )
+    }
+
+    pub fn new_bird(center: Vec3, extent: Vec3, seed: u64, desc: &ButterflyEmitterDesc) -> Self {
+        Self::new_with_render_kind(
+            center,
+            extent,
+            seed,
+            desc,
+            ParticleRenderKind::Bird,
+            discover_bird_texture_variant_count(),
+        )
+    }
+
+    fn new_with_render_kind(
+        center: Vec3,
+        extent: Vec3,
+        seed: u64,
+        desc: &ButterflyEmitterDesc,
+        render_kind: ParticleRenderKind,
+        texture_variant_count: u32,
+    ) -> Self {
         let min_wander_radius = desc
             .wander_radius
             .max(extent.x.max(extent.z) * 0.35)
@@ -306,7 +349,8 @@ impl ButterflyEmitter {
             color_high: desc.color_high,
             enabled: desc.enabled,
             butterfly_count: desc.butterfly_count,
-            texture_variant_count: discover_butterfly_texture_variant_count(),
+            texture_variant_count,
+            render_kind,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
             smoothed_ground_height: HashMap::new(),
@@ -431,6 +475,7 @@ impl ButterflyEmitter {
             sink_on_lifetime: false,
             sink_speed: 0.0,
             texture_variant: self.rng.random_range(0..self.texture_variant_count),
+            render_kind: self.render_kind,
         };
 
         system.spawn(spawn)
@@ -517,3 +562,6 @@ impl ParticleEmitter for ButterflyEmitter {
         self.steer_towards_home(system, dt, time);
     }
 }
+
+pub type BirdEmitterDesc = ButterflyEmitterDesc;
+pub type BirdEmitter = ButterflyEmitter;
