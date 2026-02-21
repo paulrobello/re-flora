@@ -1,6 +1,7 @@
 #[allow(unused)]
 use crate::util::Timer;
 
+mod boot;
 mod input;
 mod lifecycle;
 mod particles;
@@ -26,13 +27,13 @@ use crate::particles::{
 };
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::TreeDesc;
+use crate::util::TimeInfo;
 use crate::util::{get_sun_dir, ShaderCompiler};
-use crate::util::{TimeInfo, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
 use crate::{
     egui_renderer::EguiRenderer,
-    vkn::{Swapchain, VulkanContext, VulkanContextDesc},
-    window::{WindowMode, WindowState, WindowStateDesc},
+    vkn::{Swapchain, VulkanContext},
+    window::WindowState,
 };
 use anyhow::{Context, Result};
 use ash::vk;
@@ -441,60 +442,6 @@ impl App {
             environment::calculate_sun_position(time_of_day, latitude, season);
         self.gui_adjustables.sun_altitude.value = sun_altitude;
         self.gui_adjustables.sun_azimuth.value = sun_azimuth;
-    }
-
-    fn init(
-        plain_builder: &mut PlainBuilder,
-        surface_builder: &mut SurfaceBuilder,
-        contree_builder: &mut ContreeBuilder,
-        scene_accel_builder: &mut SceneAccelBuilder,
-    ) -> Result<()> {
-        let world_dim = VOXEL_DIM_PER_CHUNK * CHUNK_DIM;
-        let world_bound = UAabb3::new(UVec3::ZERO, world_dim - UVec3::ONE);
-        world_ops::execute_edit_plan_on_builders(
-            plain_builder,
-            surface_builder,
-            contree_builder,
-            scene_accel_builder,
-            VOXEL_DIM_PER_CHUNK,
-            WorldEditPlan {
-                voxel_edits: vec![VoxelEdit::ClearVoxelRegion(ClearVoxelRegionEdit {
-                    offset: UVec3::ZERO,
-                    dim: world_dim,
-                })],
-                build_edits: vec![BuildEdit::RebuildMesh(world_bound)],
-            },
-        )?;
-
-        BENCH.lock().unwrap().summary();
-        Ok(())
-    }
-
-    fn create_window_state(event_loop: &ActiveEventLoop) -> WindowState {
-        const WINDOW_TITLE_DEBUG: &str = "Re: Flora - debug build";
-        const WINDOW_TITLE_RELEASE: &str = "Re: Flora - release build";
-        let using_mode = if cfg!(debug_assertions) {
-            WINDOW_TITLE_DEBUG
-        } else {
-            WINDOW_TITLE_RELEASE
-        };
-        let window_descriptor = WindowStateDesc {
-            title: using_mode.to_owned(),
-            window_mode: WindowMode::BorderlessFullscreen,
-            cursor_locked: true,
-            cursor_visible: false,
-            ..Default::default()
-        };
-        WindowState::new(event_loop, &window_descriptor)
-    }
-
-    fn create_vulkan_context(window_state: &WindowState) -> VulkanContext {
-        VulkanContext::new(
-            &window_state.window(),
-            VulkanContextDesc {
-                name: "Re: Flora".into(),
-            },
-        )
     }
 
     fn execute_edit_plan(&mut self, plan: WorldEditPlan) -> Result<()> {
