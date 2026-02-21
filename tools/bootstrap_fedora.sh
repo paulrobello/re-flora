@@ -8,6 +8,9 @@ sudo dnf install alsa-lib-devel
 # install clang
 sudo dnf install clang
 
+# install clang-tools-extra
+sudo dnf install clang-tools-extra
+
 # vulkan sdk
 # <https://vulkan.lunarg.com/>
 
