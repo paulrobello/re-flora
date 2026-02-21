@@ -8,6 +8,7 @@ use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
 use egui::Color32;
 use glam::{Vec2, Vec3, Vec4};
+use rand::Rng;
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
@@ -552,8 +553,15 @@ impl App {
         const MAX_STEPS: usize = 160;
         const CLEARANCE_EPSILON: f32 = 0.05;
         let azimuth_dir = planar.normalize();
-        let altitude = std::f32::consts::FRAC_1_SQRT_2;
-        let t = Vec3::new(azimuth_dir.x * altitude, altitude, azimuth_dir.y * altitude);
+        let mut rng = rand::rng();
+        let altitude_rad = rng.random_range(30.0f32..=50.0f32).to_radians();
+        let horizontal = altitude_rad.cos();
+        let vertical = altitude_rad.sin();
+        let t = Vec3::new(
+            azimuth_dir.x * horizontal,
+            vertical,
+            azimuth_dir.y * horizontal,
+        );
 
         let mut last_p = src;
         for step_idx in 1..=MAX_STEPS {
