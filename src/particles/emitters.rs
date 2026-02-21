@@ -564,9 +564,16 @@ const BIRD_TARGET_PADDING: f32 = 0.02;
 
 #[derive(Clone, Copy, Debug)]
 enum BirdMode {
-    Grounded { next_takeoff_time: f32 },
-    AwaitingLanding { target_xz: Vec2 },
-    Flying { target: Vec3 },
+    Grounded {
+        next_takeoff_time: f32,
+    },
+    AwaitingLanding {
+        target_xz: Vec2,
+    },
+    Flying {
+        current_target: Vec3,
+        next_target: Option<Vec3>,
+    },
 }
 
 pub struct BirdEmitter {
@@ -791,9 +798,10 @@ impl BirdEmitter {
 
     pub fn apply_landing_height(
         &mut self,
-        system: &mut ParticleSystem,
+        system: &ParticleSystem,
         handle: ParticleHandle,
         ground_height: f32,
+        waypoint: Vec3,
     ) {
         let Some(pos) = system.position(handle) else {
             return;
@@ -802,10 +810,41 @@ impl BirdEmitter {
         let target = Vec3::new(pos.x, ground_height + BIRD_GROUND_OFFSET, pos.z);
         if let Some(BirdMode::AwaitingLanding { target_xz }) = self.states.get(&handle) {
             let landing = Vec3::new(target_xz.x, ground_height + BIRD_GROUND_OFFSET, target_xz.y);
-            self.states
-                .insert(handle, BirdMode::Flying { target: landing });
+            let path_start = if (waypoint - landing).length_squared() <= 1.0e-4 {
+                landing
+            } else {
+                waypoint
+            };
+            let next_target = if (path_start - landing).length_squared() <= 1.0e-4 {
+                None
+            } else {
+                Some(landing)
+            };
+            self.states.insert(
+                handle,
+                BirdMode::Flying {
+                    current_target: path_start,
+                    next_target,
+                },
+            );
         } else {
-            self.states.insert(handle, BirdMode::Flying { target });
+            let path_start = if (waypoint - target).length_squared() <= 1.0e-4 {
+                target
+            } else {
+                waypoint
+            };
+            let next_target = if (path_start - target).length_squared() <= 1.0e-4 {
+                None
+            } else {
+                Some(target)
+            };
+            self.states.insert(
+                handle,
+                BirdMode::Flying {
+                    current_target: path_start,
+                    next_target,
+                },
+            );
         }
     }
 
@@ -898,19 +937,32 @@ impl ParticleEmitter for BirdEmitter {
                 Some(BirdMode::AwaitingLanding { .. }) => {
                     let _ = system.set_velocity(handle, Vec3::ZERO);
                 }
-                Some(BirdMode::Flying { target }) => {
-                    let to_target = target - pos;
+                Some(BirdMode::Flying {
+                    current_target,
+                    next_target,
+                }) => {
+                    let to_target = current_target - pos;
                     let distance = to_target.length();
                     if distance <= BIRD_LANDING_RADIUS || distance <= BIRD_FLIGHT_SPEED * dt {
-                        let _ = system.set_position(handle, target);
-                        let _ = system.set_velocity(handle, Vec3::ZERO);
-                        let next_time = self.next_takeoff_time(time);
-                        self.states.insert(
-                            handle,
-                            BirdMode::Grounded {
-                                next_takeoff_time: next_time,
-                            },
-                        );
+                        let _ = system.set_position(handle, current_target);
+                        if let Some(next) = next_target {
+                            self.states.insert(
+                                handle,
+                                BirdMode::Flying {
+                                    current_target: next,
+                                    next_target: None,
+                                },
+                            );
+                        } else {
+                            let _ = system.set_velocity(handle, Vec3::ZERO);
+                            let next_time = self.next_takeoff_time(time);
+                            self.states.insert(
+                                handle,
+                                BirdMode::Grounded {
+                                    next_takeoff_time: next_time,
+                                },
+                            );
+                        }
                     } else {
                         let desired = to_target / distance * BIRD_FLIGHT_SPEED;
                         let _ = system.set_velocity(handle, desired);

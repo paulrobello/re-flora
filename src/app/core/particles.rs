@@ -4,6 +4,7 @@ use crate::particles::{
     BirdEmitter, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter,
     ParticleHandle, ParticleSystem,
 };
+use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
 use egui::Color32;
 use glam::{Vec2, Vec3, Vec4};
@@ -494,9 +495,9 @@ impl App {
                 }
                 continue;
             }
-            if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
-                match target.kind {
-                    BirdTerrainQueryKind::Ground => {
+            match target.kind {
+                BirdTerrainQueryKind::Ground => {
+                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
                         emitter.apply_ground_height(
                             &mut self.particle_system,
                             target.handle,
@@ -504,11 +505,28 @@ impl App {
                             dt,
                         );
                     }
-                    BirdTerrainQueryKind::Landing => {
+                }
+                BirdTerrainQueryKind::Landing => {
+                    let src = self
+                        .particle_system
+                        .position(target.handle)
+                        .unwrap_or(Vec3::new(
+                            query_positions_xz[_idx].x,
+                            sample.height,
+                            query_positions_xz[_idx].y,
+                        ));
+                    let dst = Vec3::new(
+                        query_positions_xz[_idx].x,
+                        sample.height + 0.02,
+                        query_positions_xz[_idx].y,
+                    );
+                    let waypoint = self.find_bird_flight_waypoint(src, dst, max_x, max_z);
+                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
                         emitter.apply_landing_height(
-                            &mut self.particle_system,
+                            &self.particle_system,
                             target.handle,
                             sample.height,
+                            waypoint,
                         );
                     }
                 }
@@ -522,6 +540,56 @@ impl App {
                 query_positions_xz.len()
             );
         }
+    }
+
+    fn find_bird_flight_waypoint(&mut self, src: Vec3, dst: Vec3, max_x: f32, max_z: f32) -> Vec3 {
+        let planar = Vec2::new(dst.x - src.x, dst.z - src.z);
+        if planar.length_squared() <= 1.0e-6 {
+            return dst;
+        }
+
+        const STEP_SIZE: f32 = 0.2;
+        const MAX_STEPS: usize = 160;
+        const CLEARANCE_EPSILON: f32 = 0.05;
+        let azimuth_dir = planar.normalize();
+        let altitude = std::f32::consts::FRAC_1_SQRT_2;
+        let t = Vec3::new(azimuth_dir.x * altitude, altitude, azimuth_dir.y * altitude);
+
+        let mut last_p = src;
+        for step_idx in 1..=MAX_STEPS {
+            let step_distance = step_idx as f32 * STEP_SIZE;
+            let mut p = src + t * step_distance;
+            p.x = p.x.clamp(0.001, max_x);
+            p.z = p.z.clamp(0.001, max_z);
+            last_p = p;
+
+            let to_dst = dst - p;
+            let to_dst_len = to_dst.length();
+            if to_dst_len <= 1.0e-6 {
+                return p;
+            }
+
+            let ray = TerrainRayQuery {
+                origin: p,
+                direction: to_dst / to_dst_len,
+            };
+
+            match self.tracer.query_terrain_ray_with_validity(ray) {
+                Ok(hit) => {
+                    let blocked = hit.is_valid
+                        && (hit.position - p).length() + CLEARANCE_EPSILON < to_dst_len;
+                    if !blocked {
+                        return p;
+                    }
+                }
+                Err(err) => {
+                    log::warn!("Failed bird path ray query: {}", err);
+                    return p;
+                }
+            }
+        }
+
+        last_p
     }
 
     pub(super) fn drive_emitters<E: ParticleEmitter>(
