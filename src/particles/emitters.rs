@@ -558,8 +558,12 @@ pub type BirdEmitterDesc = ButterflyEmitterDesc;
 
 const BIRD_COUNT: usize = 50;
 const BIRD_FLIGHT_SPEED: f32 = 0.52;
-const BIRD_GROUND_IDLE_MIN_SEC: f32 = 4.0;
-const BIRD_GROUND_IDLE_MAX_SEC: f32 = 10.0;
+const BIRD_GROUND_IDLE_MIN_SEC: f32 = 8.0;
+const BIRD_GROUND_IDLE_MAX_SEC: f32 = 20.0;
+const BIRD_GROUND_EAT_INTERVAL_MIN_SEC: f32 = 1.6;
+const BIRD_GROUND_EAT_INTERVAL_MAX_SEC: f32 = 3.8;
+const BIRD_GROUND_EAT_DURATION_MIN_SEC: f32 = 0.6;
+const BIRD_GROUND_EAT_DURATION_MAX_SEC: f32 = 1.4;
 const BIRD_LANDING_RADIUS: f32 = 0.08;
 const BIRD_GROUND_OFFSET: f32 = 0.02;
 const BIRD_TARGET_PADDING: f32 = 0.02;
@@ -568,6 +572,8 @@ const BIRD_TARGET_PADDING: f32 = 0.02;
 enum BirdMode {
     Grounded {
         next_takeoff_time: f32,
+        next_eat_time: f32,
+        eating_until_time: f32,
     },
     AwaitingLanding {
         target_xz: Vec2,
@@ -662,6 +668,20 @@ impl BirdEmitter {
         time + delay
     }
 
+    fn next_eat_time(&mut self, time: f32) -> f32 {
+        let delay = self
+            .rng
+            .random_range(BIRD_GROUND_EAT_INTERVAL_MIN_SEC..=BIRD_GROUND_EAT_INTERVAL_MAX_SEC);
+        time + delay
+    }
+
+    fn eating_until_time(&mut self, time: f32) -> f32 {
+        let duration = self
+            .rng
+            .random_range(BIRD_GROUND_EAT_DURATION_MIN_SEC..=BIRD_GROUND_EAT_DURATION_MAX_SEC);
+        time + duration
+    }
+
     fn sample_target_xz(&mut self, origin: Vec2) -> Vec2 {
         let min_x = (self.bounds_min.x + BIRD_TARGET_PADDING).min(self.bounds_max.x);
         let max_x = (self.bounds_max.x - BIRD_TARGET_PADDING).max(min_x);
@@ -715,20 +735,30 @@ impl BirdEmitter {
     fn ensure_state(&mut self, handle: ParticleHandle, time: f32) {
         if !self.states.contains_key(&handle) {
             let next_time = self.next_takeoff_time(time);
+            let next_eat_time = self.next_eat_time(time);
             self.states.insert(
                 handle,
                 BirdMode::Grounded {
                     next_takeoff_time: next_time,
+                    next_eat_time,
+                    eating_until_time: 0.0,
                 },
             );
         }
     }
 
-    fn mode_sequence(mode: BirdMode) -> BirdSpriteSequence {
+    fn mode_sequence(mode: BirdMode, time: f32) -> BirdSpriteSequence {
         match mode {
-            BirdMode::Grounded { .. } | BirdMode::AwaitingLanding { .. } => {
-                BirdSpriteSequence::Idle
+            BirdMode::Grounded {
+                eating_until_time, ..
+            } => {
+                if eating_until_time > time {
+                    BirdSpriteSequence::Eating
+                } else {
+                    BirdSpriteSequence::Idle
+                }
             }
+            BirdMode::AwaitingLanding { .. } => BirdSpriteSequence::Idle,
             BirdMode::Flying { .. } => BirdSpriteSequence::Flying,
         }
     }
@@ -903,10 +933,13 @@ impl ParticleEmitter for BirdEmitter {
             if let Some(handle) = self.spawn_bird(system) {
                 self.active_handles.push(handle);
                 let next_time = self.next_takeoff_time(time);
+                let next_eat_time = self.next_eat_time(time);
                 self.states.insert(
                     handle,
                     BirdMode::Grounded {
                         next_takeoff_time: next_time,
+                        next_eat_time,
+                        eating_until_time: 0.0,
                     },
                 );
             } else {
@@ -921,10 +954,13 @@ impl ParticleEmitter for BirdEmitter {
             if self.clamp_inside_bounds(system, handle) {
                 let _ = system.set_velocity(handle, Vec3::ZERO);
                 let next_time = self.next_takeoff_time(time);
+                let next_eat_time = self.next_eat_time(time);
                 self.states.insert(
                     handle,
                     BirdMode::Grounded {
                         next_takeoff_time: next_time,
+                        next_eat_time,
+                        eating_until_time: 0.0,
                     },
                 );
                 let _ =
@@ -937,8 +973,28 @@ impl ParticleEmitter for BirdEmitter {
             };
 
             match self.states.get(&handle).copied() {
-                Some(BirdMode::Grounded { next_takeoff_time }) => {
+                Some(BirdMode::Grounded {
+                    next_takeoff_time,
+                    next_eat_time,
+                    eating_until_time,
+                }) => {
                     let _ = system.set_velocity(handle, Vec3::ZERO);
+                    if eating_until_time > 0.0 && time >= eating_until_time {
+                        let refreshed = BirdMode::Grounded {
+                            next_takeoff_time,
+                            next_eat_time: self.next_eat_time(time),
+                            eating_until_time: 0.0,
+                        };
+                        self.states.insert(handle, refreshed);
+                    } else if eating_until_time <= time && time >= next_eat_time {
+                        let eating_until_time = self.eating_until_time(time);
+                        let refreshed = BirdMode::Grounded {
+                            next_takeoff_time,
+                            next_eat_time: self.next_eat_time(eating_until_time),
+                            eating_until_time,
+                        };
+                        self.states.insert(handle, refreshed);
+                    }
                     if time >= next_takeoff_time {
                         let origin = Vec2::new(pos.x, pos.z);
                         let target_xz = self.sample_target_xz(origin);
@@ -980,10 +1036,13 @@ impl ParticleEmitter for BirdEmitter {
                                 let _ = system.set_velocity(handle, Vec3::ZERO);
                             }
                             let next_time = self.next_takeoff_time(time);
+                            let next_eat_time = self.next_eat_time(time);
                             self.states.insert(
                                 handle,
                                 BirdMode::Grounded {
                                     next_takeoff_time: next_time,
+                                    next_eat_time,
+                                    eating_until_time: 0.0,
                                 },
                             );
                         }
@@ -996,7 +1055,7 @@ impl ParticleEmitter for BirdEmitter {
             }
 
             if let Some(mode) = self.states.get(&handle).copied() {
-                let sequence = Self::mode_sequence(mode);
+                let sequence = Self::mode_sequence(mode, time);
                 let _ = system.set_texture_variant(handle, sequence.texture_variant());
             }
         }
