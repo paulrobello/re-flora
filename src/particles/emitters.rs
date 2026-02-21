@@ -567,6 +567,7 @@ const BIRD_GROUND_EAT_DURATION_MAX_SEC: f32 = 1.4;
 const BIRD_LANDING_RADIUS: f32 = 0.08;
 const BIRD_GROUND_OFFSET: f32 = 0.02;
 const BIRD_TARGET_PADDING: f32 = 0.02;
+const BIRD_WAYPOINT_MIN_PLANAR_DISTANCE: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug)]
 enum BirdMode {
@@ -832,6 +833,15 @@ impl BirdEmitter {
         };
         let origin = Vec2::new(pos.x, pos.z);
         let target_xz = self.sample_target_xz(origin);
+        log::debug!(
+            "bird {:?} resample landing target: from=({:.3},{:.3},{:.3}) to=({:.3},{:.3})",
+            handle,
+            pos.x,
+            pos.y,
+            pos.z,
+            target_xz.x,
+            target_xz.y,
+        );
         self.states
             .insert(handle, BirdMode::AwaitingLanding { target_xz });
     }
@@ -850,16 +860,21 @@ impl BirdEmitter {
         let target = Vec3::new(pos.x, ground_height + BIRD_GROUND_OFFSET, pos.z);
         if let Some(BirdMode::AwaitingLanding { target_xz }) = self.states.get(&handle) {
             let landing = Vec3::new(target_xz.x, ground_height + BIRD_GROUND_OFFSET, target_xz.y);
-            let path_start = if (waypoint - landing).length_squared() <= 1.0e-4 {
-                landing
-            } else {
-                waypoint
-            };
-            let next_target = if (path_start - landing).length_squared() <= 1.0e-4 {
-                None
-            } else {
-                Some(landing)
-            };
+            let (path_start, next_target) = Self::landing_path_targets(waypoint, landing);
+            self.smoothed_ground_height.remove(&handle);
+            log::debug!(
+                "bird {:?} landing path: src=({:.3},{:.3},{:.3}) waypoint=({:.3},{:.3},{:.3}) landing=({:.3},{:.3},{:.3})",
+                handle,
+                pos.x,
+                pos.y,
+                pos.z,
+                path_start.x,
+                path_start.y,
+                path_start.z,
+                landing.x,
+                landing.y,
+                landing.z,
+            );
             self.states.insert(
                 handle,
                 BirdMode::Flying {
@@ -868,16 +883,8 @@ impl BirdEmitter {
                 },
             );
         } else {
-            let path_start = if (waypoint - target).length_squared() <= 1.0e-4 {
-                target
-            } else {
-                waypoint
-            };
-            let next_target = if (path_start - target).length_squared() <= 1.0e-4 {
-                None
-            } else {
-                Some(target)
-            };
+            let (path_start, next_target) = Self::landing_path_targets(waypoint, target);
+            self.smoothed_ground_height.remove(&handle);
             self.states.insert(
                 handle,
                 BirdMode::Flying {
@@ -913,8 +920,29 @@ impl BirdEmitter {
         let alpha = 1.0 - (-clamped_dt / GROUND_TRACKING_TAU_SEC).exp();
         *tracked_ground += (limited_measurement - *tracked_ground) * alpha;
 
-        pos.y = *tracked_ground + BIRD_GROUND_OFFSET;
+        let target_y = *tracked_ground + BIRD_GROUND_OFFSET;
+        if (pos.y - target_y).abs() > 0.08 {
+            log::debug!(
+                "bird {:?} ground correction: pos_y={:.3} target_y={:.3} tracked={:.3} sample={:.3}",
+                handle,
+                pos.y,
+                target_y,
+                *tracked_ground,
+                ground_height
+            );
+        }
+        pos.y = target_y;
         let _ = system.set_position(handle, pos);
+    }
+
+    fn landing_path_targets(waypoint: Vec3, landing: Vec3) -> (Vec3, Option<Vec3>) {
+        let waypoint_planar_distance =
+            Vec2::new(waypoint.x - landing.x, waypoint.z - landing.z).length();
+        if waypoint_planar_distance <= BIRD_WAYPOINT_MIN_PLANAR_DISTANCE {
+            (landing, None)
+        } else {
+            (waypoint, Some(landing))
+        }
     }
 }
 
@@ -998,6 +1026,16 @@ impl ParticleEmitter for BirdEmitter {
                     if time >= next_takeoff_time {
                         let origin = Vec2::new(pos.x, pos.z);
                         let target_xz = self.sample_target_xz(origin);
+                        self.smoothed_ground_height.remove(&handle);
+                        log::debug!(
+                            "bird {:?} takeoff: from=({:.3},{:.3},{:.3}) landing_target=({:.3},{:.3})",
+                            handle,
+                            pos.x,
+                            pos.y,
+                            pos.z,
+                            target_xz.x,
+                            target_xz.y,
+                        );
                         self.states
                             .insert(handle, BirdMode::AwaitingLanding { target_xz });
                     }
@@ -1021,6 +1059,16 @@ impl ParticleEmitter for BirdEmitter {
                                 Vec3::ZERO
                             };
                             let _ = system.set_velocity(handle, desired);
+                            log::debug!(
+                                "bird {:?} waypoint reached: waypoint=({:.3},{:.3},{:.3}) landing=({:.3},{:.3},{:.3})",
+                                handle,
+                                current_target.x,
+                                current_target.y,
+                                current_target.z,
+                                next.x,
+                                next.y,
+                                next.z
+                            );
                             self.states.insert(
                                 handle,
                                 BirdMode::Flying {
@@ -1037,6 +1085,16 @@ impl ParticleEmitter for BirdEmitter {
                             }
                             let next_time = self.next_takeoff_time(time);
                             let next_eat_time = self.next_eat_time(time);
+                            log::debug!(
+                                "bird {:?} landing complete: pos=({:.3},{:.3},{:.3}) target=({:.3},{:.3},{:.3})",
+                                handle,
+                                pos.x,
+                                pos.y,
+                                pos.z,
+                                current_target.x,
+                                current_target.y,
+                                current_target.z,
+                            );
                             self.states.insert(
                                 handle,
                                 BirdMode::Grounded {
