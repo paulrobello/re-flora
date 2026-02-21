@@ -1,6 +1,7 @@
 #[allow(unused)]
 use crate::util::Timer;
 
+mod input;
 mod lifecycle;
 mod particles;
 mod ui_style;
@@ -10,8 +11,8 @@ use self::particles::TreeLeafEmitter;
 use self::vegetation::{TreeRecord, TreeVariationConfig};
 use crate::app::environment;
 use crate::app::world_edits::{
-    BuildEdit, ClearVoxelRegionEdit, TerrainRemovalEdit, TreeAddOptions, TreePlacement, VoxelEdit,
-    WorldBuildBackend, WorldEditPlan,
+    BuildEdit, ClearVoxelRegionEdit, TreeAddOptions, TreePlacement, VoxelEdit, WorldBuildBackend,
+    WorldEditPlan,
 };
 use crate::app::world_ops;
 use crate::app::GuiAdjustables;
@@ -23,7 +24,7 @@ use crate::particles::{
     BirdEmitter, BirdEmitterDesc, ButterflyEmitter, ButterflyEmitterDesc, LeafEmitterDesc,
     ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
 };
-use crate::tracer::{TerrainRayQuery, Tracer, TracerDesc};
+use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::TreeDesc;
 use crate::util::{get_sun_dir, ShaderCompiler};
 use crate::util::{TimeInfo, BENCH};
@@ -44,9 +45,8 @@ use std::time::{Duration, Instant};
 use ui_style::{
     apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
     GOLD_ACCENT, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
-    ITEM_PANEL_SLOT_COUNT, PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR, SHOVEL_SLOT_INDEX,
+    ITEM_PANEL_SLOT_COUNT, PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
 };
-use winit::event::DeviceEvent;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
@@ -156,15 +156,6 @@ const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
 
 impl App {
-    fn sync_cursor_with_panels(&mut self) {
-        let any_panel_open = self.config_panel_visible || self.settings_panel_visible;
-        self.window_state.set_cursor_visibility(any_panel_open);
-        self.window_state.set_cursor_grab(!any_panel_open);
-        if any_panel_open {
-            self.shovel_dig_held = false;
-        }
-    }
-
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
         let window_state = Self::create_window_state(_event_loop);
@@ -508,69 +499,6 @@ impl App {
 
     fn execute_edit_plan(&mut self, plan: WorldEditPlan) -> Result<()> {
         world_ops::execute_edit_plan_on_backend(self, plan)
-    }
-
-    fn is_shovel_selected(&self) -> bool {
-        self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
-    }
-
-    fn query_camera_ray_terrain_intersection(&mut self, max_distance: f32) -> Result<Option<Vec3>> {
-        if max_distance <= 0.0 {
-            return Ok(None);
-        }
-
-        let origin = self.tracer.camera_position();
-        let direction = self.tracer.camera_front();
-        if direction.length_squared() <= f32::EPSILON {
-            return Ok(None);
-        }
-
-        let sample = self
-            .tracer
-            .query_terrain_ray_with_validity(TerrainRayQuery { origin, direction })?;
-
-        let distance = if sample.is_valid {
-            (sample.position - origin).length()
-        } else {
-            f32::INFINITY
-        };
-
-        if sample.is_valid && distance <= max_distance {
-            return Ok(Some(sample.position));
-        }
-
-        Ok(None)
-    }
-
-    fn try_shovel_dig(&mut self, now: Instant) {
-        if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
-            return;
-        }
-
-        if let Some(last_dig) = self.last_shovel_dig_time {
-            if now.duration_since(last_dig) < SHOVEL_DIG_INTERVAL {
-                return;
-            }
-        }
-
-        match self.query_camera_ray_terrain_intersection(SHOVEL_RAY_QUERY_DISTANCE) {
-            Ok(Some(center)) => {
-                if let Err(err) = self.apply_surface_terrain_removal(TerrainRemovalEdit {
-                    center,
-                    radius: SHOVEL_REMOVE_RADIUS,
-                }) {
-                    log::error!("Failed to apply terrain removal: {}", err);
-                    return;
-                }
-                self.last_shovel_dig_time = Some(now);
-            }
-            Ok(None) => {
-                self.last_shovel_dig_time = Some(now);
-            }
-            Err(err) => {
-                log::error!("Shovel carve attempt failed during terrain query: {}", err);
-            }
-        }
     }
 
     pub fn on_window_event(
@@ -2181,19 +2109,6 @@ impl App {
                     .update_camera(frame_delta_time, self.is_fly_mode);
             }
             _ => (),
-        }
-    }
-
-    pub fn on_device_event(
-        &mut self,
-        _event_loop: &ActiveEventLoop,
-        _device_id: winit::event::DeviceId,
-        event: winit::event::DeviceEvent,
-    ) {
-        if let DeviceEvent::MouseMotion { delta } = event {
-            if !self.window_state.is_cursor_visible() {
-                self.accumulated_mouse_delta += Vec2::new(delta.0 as f32, delta.1 as f32);
-            }
         }
     }
 }
