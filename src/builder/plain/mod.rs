@@ -252,7 +252,7 @@ impl PlainBuilder {
         self.chunk_modify_cuboids_with_voxel_type_impl(bvh_nodes, cuboids, fill_voxel_type)
     }
 
-    pub fn chunk_modify_spheres_with_voxel_type(
+    pub fn chunk_modify_surface_spheres_with_voxel_type(
         &mut self,
         bvh_nodes: &[BvhNode],
         spheres: &[Sphere],
@@ -265,6 +265,7 @@ impl PlainBuilder {
             dim,
             fill_voxel_type,
             PRIMITIVE_KIND_SPHERE,
+            true,
         )?;
         update_spheres(&self.resources, spheres)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -301,6 +302,7 @@ impl PlainBuilder {
             dim,
             fill_voxel_type,
             PRIMITIVE_KIND_ROUND_CONE,
+            false,
         )?;
         update_round_cones(&self.resources, round_cones)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -337,6 +339,7 @@ impl PlainBuilder {
             dim,
             fill_voxel_type,
             PRIMITIVE_KIND_CUBOID,
+            false,
         )?;
         update_cuboids(&self.resources, cuboids)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -375,6 +378,7 @@ fn update_chunk_modify_info(
     dim: UVec3,
     fill_voxel_type: u32,
     primitive_kind: u32,
+    surface_only: bool,
 ) -> Result<()> {
     let data = StructMemberDataBuilder::from_buffer(&resources.chunk_modify_info)
         .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
@@ -386,6 +390,10 @@ fn update_chunk_modify_info(
         .set_field(
             "primitive_kind",
             PlainMemberTypeWithData::UInt(primitive_kind),
+        )
+        .set_field(
+            "surface_only",
+            PlainMemberTypeWithData::UInt(if surface_only { 1 } else { 0 }),
         )
         .build()?;
     resources.chunk_modify_info.fill_with_raw_u8(&data)?;

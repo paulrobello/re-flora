@@ -27,6 +27,7 @@ layout(set = 0, binding = 0) readonly uniform U_ChunkModifyInfo {
     uvec3 dim;
     uint fill_voxel_type;
     uint primitive_kind;
+    uint surface_only;
 }
 chunk_modify_info;
 
@@ -39,7 +40,7 @@ layout(set = 0, binding = 3) readonly buffer B_Cuboids { Cuboid data[]; }
 cuboids;
 layout(set = 0, binding = 4) readonly buffer B_Spheres { Sphere data[]; }
 spheres;
-layout(set = 0, binding = 5, r8ui) writeonly uniform uimage3D chunk_atlas;
+layout(set = 0, binding = 5, r8ui) uniform uimage3D chunk_atlas;
 
 #include "../../include/config.glsl"
 #include "../../include/core/aabb.glsl"
@@ -51,6 +52,36 @@ vec3 center_position_of_voxel(ivec3 voxel_pos) { return vec3(voxel_pos) + vec3(0
 const uint PRIMITIVE_KIND_ROUND_CONE = 0u;
 const uint PRIMITIVE_KIND_CUBOID     = 1u;
 const uint PRIMITIVE_KIND_SPHERE     = 2u;
+
+bool is_solid(uint voxel_type) { return voxel_type != VOXEL_TYPE_EMPTY; }
+
+bool in_atlas_bound(ivec3 p) {
+    ivec3 atlas_dim = imageSize(chunk_atlas).xyz;
+    return all(greaterThanEqual(p, ivec3(0))) && all(lessThan(p, atlas_dim));
+}
+
+uint load_voxel_type(ivec3 p) {
+    if (!in_atlas_bound(p)) {
+        return VOXEL_TYPE_EMPTY;
+    }
+    return imageLoad(chunk_atlas, p).r;
+}
+
+bool is_surface_voxel(ivec3 p) {
+    if (!is_solid(load_voxel_type(p))) {
+        return false;
+    }
+    const ivec3 neighbours_to_check[6] = {
+        ivec3(1, 0, 0),  ivec3(-1, 0, 0), ivec3(0, 1, 0),
+        ivec3(0, -1, 0), ivec3(0, 0, 1),  ivec3(0, 0, -1),
+    };
+    for (int i = 0; i < 6; i++) {
+        if (!is_solid(load_voxel_type(p + neighbours_to_check[i]))) {
+            return true;
+        }
+    }
+    return false;
+}
 
 void main() {
     ivec3 uvi = ivec3(gl_GlobalInvocationID);
@@ -99,6 +130,10 @@ void main() {
             }
 
             if (hit) {
+                if (chunk_modify_info.surface_only != 0u &&
+                    !is_surface_voxel(world_voxel_pos)) {
+                    return;
+                }
                 imageStore(chunk_atlas, world_voxel_pos,
                            uvec4(chunk_modify_info.fill_voxel_type, 0, 0, 0));
                 return;

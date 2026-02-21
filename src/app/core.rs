@@ -258,7 +258,7 @@ enum VoxelEdit {
         cuboids: Vec<Cuboid>,
         voxel_type: u32,
     },
-    StampSpheres {
+    StampSurfaceSpheres {
         bvh_nodes: Vec<BvhNode>,
         spheres: Vec<Sphere>,
         voxel_type: u32,
@@ -305,7 +305,7 @@ struct CompiledFencePlacement {
     rebuild_bound: UAabb3,
 }
 
-struct CompiledTerrainRemoval {
+struct CompiledTerrainSurfaceRemoval {
     voxel_edit: VoxelEdit,
     rebuild_bound: UAabb3,
 }
@@ -369,10 +369,10 @@ impl CubePlacementService {
     }
 }
 
-struct TerrainRemovalService;
+struct TerrainSurfaceRemovalService;
 
-impl TerrainRemovalService {
-    fn compile(edit: TerrainRemovalEdit) -> Option<CompiledTerrainRemoval> {
+impl TerrainSurfaceRemovalService {
+    fn compile(edit: TerrainRemovalEdit) -> Option<CompiledTerrainSurfaceRemoval> {
         if edit.radius <= 0.0 {
             return None;
         }
@@ -418,8 +418,8 @@ impl TerrainRemovalService {
             bvh_nodes[0].aabb.max_uvec3().min(max_inclusive),
         );
 
-        Some(CompiledTerrainRemoval {
-            voxel_edit: VoxelEdit::StampSpheres {
+        Some(CompiledTerrainSurfaceRemoval {
+            voxel_edit: VoxelEdit::StampSurfaceSpheres {
                 bvh_nodes,
                 spheres: vec![sphere],
                 voxel_type: VOXEL_TYPE_EMPTY,
@@ -627,13 +627,13 @@ impl WorldBuildBackend for BuilderOnlyWorldBackend<'_> {
                         .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
                 }
             }
-            VoxelEdit::StampSpheres {
+            VoxelEdit::StampSurfaceSpheres {
                 bvh_nodes,
                 spheres,
                 voxel_type,
             } => self
                 .plain_builder
-                .chunk_modify_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
+                .chunk_modify_surface_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
         }
     }
 
@@ -690,13 +690,13 @@ impl WorldBuildBackend for App {
                         .chunk_modify_cuboids_with_voxel_type(&bvh_nodes, &cuboids, voxel_type)
                 }
             }
-            VoxelEdit::StampSpheres {
+            VoxelEdit::StampSurfaceSpheres {
                 bvh_nodes,
                 spheres,
                 voxel_type,
             } => self
                 .plain_builder
-                .chunk_modify_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
+                .chunk_modify_surface_spheres_with_voxel_type(&bvh_nodes, &spheres, voxel_type),
         }
     }
 
@@ -716,7 +716,7 @@ const VOXEL_DIM_PER_CHUNK: UVec3 = UVec3::new(256, 256, 256);
 const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
 const MAX_FRAMES_IN_FLIGHT: usize = 1;
-const SHOVEL_REMOVE_RADIUS: f32 = 0.04;
+const SHOVEL_REMOVE_RADIUS: f32 = 0.08;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
 
@@ -1735,8 +1735,8 @@ impl App {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
     }
 
-    fn apply_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
-        if let Some(compiled) = TerrainRemovalService::compile(edit) {
+    fn apply_surface_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
+        if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
             self.execute_edit_plan(WorldEditPlan::with_voxel_and_build(
                 compiled.voxel_edit,
                 BuildEdit::RebuildMesh(compiled.rebuild_bound),
@@ -1790,7 +1790,7 @@ impl App {
 
         match self.query_camera_ray_terrain_intersection(SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
-                if let Err(err) = self.apply_terrain_removal(TerrainRemovalEdit {
+                if let Err(err) = self.apply_surface_terrain_removal(TerrainRemovalEdit {
                     center,
                     radius: SHOVEL_REMOVE_RADIUS,
                 }) {
