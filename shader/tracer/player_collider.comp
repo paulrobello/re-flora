@@ -24,6 +24,7 @@ layout(set = 0, binding = 3, rg32ui) readonly uniform uimage3D scene_tex;
 
 layout(set = 0, binding = 4) writeonly buffer B_PlayerCollisionResult {
     float ground_distance;
+    float ceiling_distance;
     float ring_distances[NUM_RING_DISTANCES];
 }
 player_collision_result;
@@ -70,10 +71,12 @@ MarchingResult general_scene_marching(Ray ray) {
 
 #define KERNEL_DIM (2 * RAY_HALF_KERNAL_SIZE + 1)
 #define NUM_GROUND_RAYS (KERNEL_DIM * KERNEL_DIM)
+#define NUM_CEILING_RAYS (KERNEL_DIM * KERNEL_DIM)
 
-#define TOTAL_THREADS (NUM_GROUND_RAYS + NUM_RING_DISTANCES)
+#define TOTAL_THREADS (NUM_GROUND_RAYS + NUM_CEILING_RAYS + NUM_RING_DISTANCES)
 
 shared float ground_results[KERNEL_DIM][KERNEL_DIM];
+shared float ceiling_results[KERNEL_DIM][KERNEL_DIM];
 shared float ring_collision_distances[NUM_RING_DISTANCES];
 
 vec3 get_ring_direction(int ring_index) {
@@ -119,8 +122,24 @@ void main() {
 
         MarchingResult res = general_scene_marching(ray);
         ground_results[x + RAY_HALF_KERNAL_SIZE][y + RAY_HALF_KERNAL_SIZE] = res.t;
+    } else if (id < NUM_GROUND_RAYS + NUM_CEILING_RAYS) {
+        int ceiling_id = id - NUM_GROUND_RAYS;
+        int x          = ceiling_id % KERNEL_DIM - RAY_HALF_KERNAL_SIZE;
+        int y          = ceiling_id / KERNEL_DIM - RAY_HALF_KERNAL_SIZE;
+
+        vec2 offset     = vec2(float(x), float(y)) * RAY_OFFSET;
+        vec3 ray_origin = player_collider_info.player_pos + vec3(offset.x, 0.0, offset.y);
+
+        Ray ray;
+        ray.origin        = ray_origin;
+        ray.direction     = vec3(0.0, 1.0, 0.0);
+        ray.inv_direction = 1.0 / ray.direction;
+
+        MarchingResult res = general_scene_marching(ray);
+        float distance = res.is_hit ? min(res.t, COLLISION_RAY_DISTANCE) : COLLISION_RAY_DISTANCE;
+        ceiling_results[x + RAY_HALF_KERNAL_SIZE][y + RAY_HALF_KERNAL_SIZE] = distance;
     } else {
-        int ring_index = id - NUM_GROUND_RAYS; // 0 to NUM_RING_DISTANCES-1
+        int ring_index = id - NUM_GROUND_RAYS - NUM_CEILING_RAYS; // 0 to NUM_RING_DISTANCES-1
         vec3 direction = get_ring_direction(ring_index);
 
         Ray ray;
@@ -149,6 +168,14 @@ void main() {
         }
 
         player_collision_result.ground_distance = weighted_sum / max(sum_of_weights, 1e-8);
+
+        float min_ceiling_distance = COLLISION_RAY_DISTANCE;
+        for (int i = 0; i < KERNEL_DIM; ++i) {
+            for (int j = 0; j < KERNEL_DIM; ++j) {
+                min_ceiling_distance = min(min_ceiling_distance, ceiling_results[i][j]);
+            }
+        }
+        player_collision_result.ceiling_distance = min_ceiling_distance;
 
         for (int i = 0; i < NUM_RING_DISTANCES; ++i) {
             player_collision_result.ring_distances[i] = ring_collision_distances[i];

@@ -118,6 +118,7 @@ pub enum LodState {
 #[derive(Debug, Clone)]
 pub struct PlayerCollisionResult {
     pub ground_distance: f32,
+    pub ceiling_distance: f32,
     pub ring_distances: Vec<f32>,
 }
 
@@ -1572,8 +1573,17 @@ impl Tracer {
                 panic!("Expected Array type for ring_distances");
             };
 
+            let ceiling_distance = if let PlainMemberTypeWithData::Float(val) =
+                reader.get_field("ceiling_distance").unwrap()
+            {
+                val
+            } else {
+                panic!("Expected Float type for ceiling_distance");
+            };
+
             Ok(PlayerCollisionResult {
                 ground_distance,
+                ceiling_distance,
                 ring_distances,
             })
         }

@@ -271,6 +271,18 @@ impl Camera {
         self.rigidbody.velocity.x *= self.rigidbody.drag;
         self.rigidbody.velocity.z *= self.rigidbody.drag;
 
+        // prevent upward movement when there is no headroom
+        if self.rigidbody.velocity.y > 0.0 {
+            let max_upward_displacement =
+                (collision_result.ceiling_distance - COLLISION_THRESHOLD).max(0.0);
+            let max_upward_velocity = max_upward_displacement / frame_delta_time.max(f32::EPSILON);
+
+            if self.rigidbody.velocity.y > max_upward_velocity {
+                self.rigidbody.velocity.y = max_upward_velocity;
+                self.vertical_velocity = self.vertical_velocity.min(max_upward_velocity);
+            }
+        }
+
         // resolve horizontal collisions only (preserve vertical velocity for gravity)
         let mut horizontal_velocity =
             Vec3::new(self.rigidbody.velocity.x, 0.0, self.rigidbody.velocity.z);
