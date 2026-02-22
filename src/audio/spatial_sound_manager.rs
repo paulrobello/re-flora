@@ -76,7 +76,7 @@ impl SpatialSoundManager {
             sample_rate,
             block_size: frame_window_size,
             hrtf_path: Some(hrtf_path),
-            hrtf_gain: 20.0,
+            hrtf_gain: 0.0,
             distance_scaler: 15.0,
             ..Default::default()
         };
