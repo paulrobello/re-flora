@@ -1467,7 +1467,7 @@ impl App {
                                             .add(
                                                 egui::Slider::new(
                                                     &mut self.gui_adjustables.butterflies_per_chunk.value,
-                                                    0..=10,
+                                                    0.0..=2.0,
                                                 )
                                                 .text("Butterflies Per Chunk"),
                                             )

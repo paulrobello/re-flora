@@ -94,7 +94,7 @@ declare_gui_adjustables! {
 
     [Butterflies] {
         butterflies_enabled: crate::gui_adjustables::BoolParam = true, bool, "Enable Butterflies",
-        butterflies_per_chunk: crate::gui_adjustables::UintParam = 2, uint(0..=10), "Butterflies Per Chunk",
+        butterflies_per_chunk: crate::gui_adjustables::FloatParam = 0.5, float(0.0..=2.0), "Butterflies Per Chunk",
         butterfly_wander_radius: crate::gui_adjustables::FloatParam = 2.5, float(0.5..=8.0), "Wander Radius",
         butterfly_height_offset_min: crate::gui_adjustables::FloatParam = 0.06, float(0.0..=4.0), "Height Offset Min",
         butterfly_height_offset_max: crate::gui_adjustables::FloatParam = 0.14, float(0.0..=4.0), "Height Offset Max",

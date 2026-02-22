@@ -161,11 +161,11 @@ impl ParticleEmitter for TreeLeafEmitter {
 }
 
 impl App {
-    pub(super) fn butterfly_count_from_per_chunk(butterflies_per_chunk: u32) -> u32 {
-        super::CHUNK_DIM
-            .x
-            .saturating_mul(super::CHUNK_DIM.z)
-            .saturating_mul(butterflies_per_chunk)
+    pub(super) fn butterfly_count_from_per_chunk(butterflies_per_chunk: f32) -> u32 {
+        let total_chunks = super::CHUNK_DIM.x.saturating_mul(super::CHUNK_DIM.z) as f32;
+        (total_chunks * butterflies_per_chunk)
+            .round()
+            .clamp(0.0, u32::MAX as f32) as u32
     }
 
     pub(super) fn color32_to_vec4(color: Color32) -> Vec4 {
