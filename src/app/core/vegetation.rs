@@ -666,9 +666,11 @@ impl App {
                 &mut self.scene_accel_builder,
                 super::VOXEL_DIM_PER_CHUNK,
                 compiled.rebuild_bound,
-                edit.center,
-                edit.radius,
-                self.flora_tick,
+                world_ops::FloraSphereEdit {
+                    center: edit.center,
+                    radius: edit.radius,
+                    tick: self.flora_tick,
+                },
             )?;
         }
         Ok(())

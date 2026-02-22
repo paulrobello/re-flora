@@ -8,6 +8,12 @@ use anyhow::Result;
 use glam::{UVec3, Vec3};
 use std::time::Instant;
 
+pub(crate) struct FloraSphereEdit {
+    pub(crate) center: Vec3,
+    pub(crate) radius: f32,
+    pub(crate) tick: u32,
+}
+
 struct BuilderOnlyWorldBackend<'a> {
     plain_builder: &'a mut PlainBuilder,
     surface_builder: &'a mut SurfaceBuilder,
@@ -167,9 +173,7 @@ pub(crate) fn mesh_generate_preserve_flora_for_sphere_edit(
     scene_accel_builder: &mut SceneAccelBuilder,
     voxel_dim_per_chunk: UVec3,
     bound: UAabb3,
-    edit_center: Vec3,
-    edit_radius: f32,
-    flora_tick: u32,
+    flora_edit: FloraSphereEdit,
 ) -> Result<()> {
     let affected_chunk_indices =
         get_affected_chunk_indices(bound.min(), bound.max(), voxel_dim_per_chunk);
@@ -185,7 +189,12 @@ pub(crate) fn mesh_generate_preserve_flora_for_sphere_edit(
         }
         BENCH.lock().unwrap().record("build_surface", now.elapsed());
 
-        surface_builder.edit_flora_instances(chunk_id, edit_center, edit_radius, flora_tick)?;
+        surface_builder.edit_flora_instances(
+            chunk_id,
+            flora_edit.center,
+            flora_edit.radius,
+            flora_edit.tick,
+        )?;
 
         let now = Instant::now();
         let res = contree_builder.build_and_alloc(atlas_offset).unwrap();

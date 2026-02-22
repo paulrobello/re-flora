@@ -186,7 +186,7 @@ impl SurfaceBuilder {
                 vk::PipelineStageFlags::COMPUTE_SHADER,
                 vec![MemoryBarrier::new_shader_access()],
             );
-            barrier.record_insert(&device, &cmdbuf);
+            barrier.record_insert(device, &cmdbuf);
 
             self.place_flora_ppl.record(&cmdbuf, extent, None);
         }
