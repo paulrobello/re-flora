@@ -9,27 +9,50 @@ use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
 use egui::Color32;
 use glam::{Vec2, Vec3, Vec4};
-use rand::Rng;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 pub(super) const BIRD_AUDIO_PATH: &str =
     "assets/sfx/birds/BIRDSong_House Sparrow, Call A 01_SARM_EB2.wav";
 pub(super) const BIRD_AUDIO_VOLUME_DB: f32 = 24.0;
+const BIRD_SING_INTERVAL_MIN_SEC: f32 = 4.0;
+const BIRD_SING_INTERVAL_MAX_SEC: f32 = 14.0;
 
-#[derive(Default)]
 pub(super) struct BirdAudioBinding {
     sources: HashMap<ParticleHandle, Uuid>,
+    next_song_time: HashMap<ParticleHandle, f32>,
     active_handles: HashSet<ParticleHandle>,
     positions: Vec<(ParticleHandle, Vec3)>,
+    rng: SmallRng,
+}
+
+impl Default for BirdAudioBinding {
+    fn default() -> Self {
+        Self {
+            sources: HashMap::new(),
+            next_song_time: HashMap::new(),
+            active_handles: HashSet::new(),
+            positions: Vec::new(),
+            rng: SmallRng::seed_from_u64(rand::rng().random()),
+        }
+    }
 }
 
 impl BirdAudioBinding {
+    fn next_song_time(&mut self, time_seconds: f32) -> f32 {
+        let delay = self
+            .rng
+            .random_range(BIRD_SING_INTERVAL_MIN_SEC..=BIRD_SING_INTERVAL_MAX_SEC);
+        time_seconds + delay
+    }
+
     fn clear(&mut self, spatial_sound_manager: &SpatialSoundManager) {
         for source_uuid in self.sources.values().copied() {
             spatial_sound_manager.remove_source(source_uuid);
         }
         self.sources.clear();
+        self.next_song_time.clear();
         self.active_handles.clear();
         self.positions.clear();
     }
@@ -39,10 +62,11 @@ impl BirdAudioBinding {
         emitters: &mut [BirdEmitter],
         particle_system: &ParticleSystem,
         spatial_sound_manager: &SpatialSoundManager,
+        time_seconds: f32,
     ) {
         self.positions.clear();
         for emitter in emitters {
-            emitter.collect_audio_positions(particle_system, &mut self.positions);
+            emitter.collect_song_positions(particle_system, &mut self.positions);
         }
 
         if self.positions.is_empty() {
@@ -51,44 +75,66 @@ impl BirdAudioBinding {
         }
 
         self.active_handles.clear();
-        for (handle, position) in self.positions.iter().copied() {
+        let positions = self.positions.clone();
+        for (handle, position) in positions {
             self.active_handles.insert(handle);
 
-            if let Some(source_uuid) = self.sources.get(&handle).copied() {
-                if let Err(err) = spatial_sound_manager.update_source_pos(source_uuid, position) {
-                    log::warn!("Failed to update bird audio source position: {}", err);
-                    spatial_sound_manager.remove_source(source_uuid);
-                    self.sources.remove(&handle);
-                }
+            if !self.next_song_time.contains_key(&handle) {
+                let next_song_time = self.next_song_time(time_seconds);
+                self.next_song_time.insert(handle, next_song_time);
+            }
+
+            let should_sing = self
+                .next_song_time
+                .get(&handle)
+                .is_some_and(|next_song_time| time_seconds >= *next_song_time);
+            if !should_sing {
                 continue;
             }
 
-            match spatial_sound_manager.add_looping_spatial_source(
+            if let Some(source_uuid) = self.sources.remove(&handle) {
+                spatial_sound_manager.remove_source(source_uuid);
+            }
+
+            match spatial_sound_manager.add_spatial_source(
                 BIRD_AUDIO_PATH,
                 BIRD_AUDIO_VOLUME_DB,
                 position,
-                true,
             ) {
                 Ok(source_uuid) => {
                     self.sources.insert(handle, source_uuid);
+                    let next_song_time = self.next_song_time(time_seconds);
+                    self.next_song_time.insert(handle, next_song_time);
                 }
                 Err(err) => {
-                    log::warn!("Failed to spawn bird audio source: {}", err);
+                    log::warn!("Failed to play bird chirp: {}", err);
+                    self.next_song_time.insert(handle, time_seconds + 1.0);
                 }
             }
         }
 
-        let stale_handles: Vec<ParticleHandle> = self
+        let stale_source_handles: Vec<ParticleHandle> = self
             .sources
             .keys()
             .copied()
             .filter(|handle| !self.active_handles.contains(handle))
             .collect();
 
-        for handle in stale_handles {
+        for handle in stale_source_handles {
             if let Some(source_uuid) = self.sources.remove(&handle) {
                 spatial_sound_manager.remove_source(source_uuid);
             }
+        }
+
+        let stale_song_handles: Vec<ParticleHandle> = self
+            .next_song_time
+            .keys()
+            .copied()
+            .filter(|handle| !self.active_handles.contains(handle))
+            .collect();
+
+        for handle in stale_song_handles {
+            self.next_song_time.remove(&handle);
         }
     }
 }
@@ -327,6 +373,7 @@ impl App {
             &mut self.bird_emitters,
             &self.particle_system,
             &self.spatial_sound_manager,
+            wind_time,
         );
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);

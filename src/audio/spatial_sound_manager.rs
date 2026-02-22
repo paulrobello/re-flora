@@ -173,6 +173,11 @@ impl SpatialSoundManager {
         Ok(uuid)
     }
 
+    /// Add a one-shot spatial source at the given position.
+    pub fn add_spatial_source(&self, path: &str, volume_db: f32, position: Vec3) -> Result<Uuid> {
+        self.add_source(path, volume_db, position, LoopMode::Once)
+    }
+
     /// Compute a volume (in dB) for a clustered source.
     ///
     /// Uses a sublinear scaling so that many clustered emitters do not

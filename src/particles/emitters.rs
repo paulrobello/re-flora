@@ -629,13 +629,16 @@ impl BirdEmitter {
         self.color_high = desc.color_high;
     }
 
-    pub fn collect_audio_positions(
+    pub fn collect_song_positions(
         &mut self,
         system: &ParticleSystem,
         out_positions: &mut Vec<(ParticleHandle, Vec3)>,
     ) {
         self.prune_handles(system);
         for handle in &self.active_handles {
+            let Some(BirdMode::Grounded { .. }) = self.states.get(handle) else {
+                continue;
+            };
             if let Some(pos) = system.position(*handle) {
                 out_positions.push((*handle, pos));
             }
