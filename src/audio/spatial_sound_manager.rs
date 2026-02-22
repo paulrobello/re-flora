@@ -20,6 +20,7 @@ struct SourceInfo {
     source_id: SourceId,
     volume: f32,
     position: Option<Vec3>,
+    loop_mode: LoopMode,
 }
 
 /// Spatial sound manager using PetalSonic
@@ -139,6 +140,7 @@ impl SpatialSoundManager {
                 source_id,
                 volume,
                 position: Some(position),
+                loop_mode,
             },
         );
 
@@ -219,6 +221,7 @@ impl SpatialSoundManager {
                 source_id,
                 volume,
                 position: None,
+                loop_mode: LoopMode::Once,
             },
         );
 
@@ -335,8 +338,11 @@ impl SpatialSoundManager {
     #[allow(dead_code)]
     pub fn remove_source(&self, id: Uuid) {
         if let Some(source_info) = self.uuid_to_source.lock().unwrap().remove(&id) {
-            // Stop the source and remove from world
-            let _ = self.world.stop(source_info.source_id);
+            // One-shot sources are often already cleaned up by the mixer.
+            // Avoid issuing Stop for them to prevent noisy "not in active playback" warnings.
+            if matches!(source_info.loop_mode, LoopMode::Infinite) {
+                let _ = self.world.stop(source_info.source_id);
+            }
             let _ = self.world.remove_audio_data(source_info.source_id);
         }
     }
