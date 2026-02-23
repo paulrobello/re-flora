@@ -164,6 +164,9 @@ const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
 const TERRAIN_EDIT_LOOP_PATH: &str =
     "assets/sfx/ROCKMisc_Designed Rock Movement Loop A_SARM_RkBrck_Stereo-Loop.wav";
 const TERRAIN_EDIT_LOOP_VOLUME_DB: f32 = -10.0;
+const ITEM_PANEL_SCROLL_SFX_PATH: &str =
+    "assets/sfx/MECHSwtch_Game Boy Advance SP, B Button, On 05_SARM_BTNS.wav";
+const ITEM_PANEL_SCROLL_SFX_VOLUME_DB: f32 = -6.0;
 const FLORA_TICK_RATE_HZ: f32 = 1.0;
 const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
 const FLORA_FULL_GROWTH_TICKS: u32 = 30;
@@ -559,6 +562,7 @@ impl App {
                             .rem_euclid(ITEM_PANEL_SLOT_COUNT as i32)
                             as usize;
                         self.selected_item_panel_slot = next_slot;
+                        self.play_item_panel_scroll_sound();
                     }
                 }
             }

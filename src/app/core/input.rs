@@ -48,6 +48,15 @@ impl App {
         }
     }
 
+    pub(super) fn play_item_panel_scroll_sound(&self) {
+        if let Err(err) = self.spatial_sound_manager.add_non_spatial_source(
+            super::ITEM_PANEL_SCROLL_SFX_PATH,
+            super::ITEM_PANEL_SCROLL_SFX_VOLUME_DB,
+        ) {
+            log::error!("Failed to play item panel scroll sound: {}", err);
+        }
+    }
+
     fn query_camera_ray_terrain_intersection(
         &mut self,
         max_distance: f32,
