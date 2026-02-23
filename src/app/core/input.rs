@@ -33,6 +33,7 @@ impl App {
         match self.spatial_sound_manager.add_looping_non_spatial_source(
             super::TERRAIN_EDIT_LOOP_PATH,
             super::TERRAIN_EDIT_LOOP_VOLUME_DB,
+            true,
         ) {
             Ok(uuid) => {
                 self.terrain_edit_loop_sound = Some(uuid);
