@@ -229,6 +229,7 @@ impl SpatialSoundManager {
     }
 
     /// Add a looping non-spatial audio source (e.g., for continuous UI/interaction sounds)
+    #[allow(dead_code)]
     pub fn add_looping_non_spatial_source(
         &self,
         path: &str,

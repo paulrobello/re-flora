@@ -567,7 +567,6 @@ impl App {
                     match state {
                         ElementState::Pressed => {
                             self.shovel_dig_held = true;
-                            self.start_terrain_edit_loop_sound();
                             self.try_shovel_dig(Instant::now());
                         }
                         ElementState::Released => {

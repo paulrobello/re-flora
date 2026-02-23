@@ -22,17 +22,15 @@ impl App {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
     }
 
-    pub(super) fn start_terrain_edit_loop_sound(&mut self) {
-        if self.terrain_edit_loop_sound.is_some()
-            || self.window_state.is_cursor_visible()
-            || !self.is_shovel_selected()
-        {
+    pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
+        if self.terrain_edit_loop_sound.is_some() {
             return;
         }
 
-        match self.spatial_sound_manager.add_looping_non_spatial_source(
+        match self.spatial_sound_manager.add_looping_spatial_source(
             super::TERRAIN_EDIT_LOOP_PATH,
             super::TERRAIN_EDIT_LOOP_VOLUME_DB,
+            position,
             true,
         ) {
             Ok(uuid) => {
@@ -87,14 +85,22 @@ impl App {
             return;
         }
 
-        if let Some(last_dig) = self.last_shovel_dig_time {
-            if now.duration_since(last_dig) < super::SHOVEL_DIG_INTERVAL {
-                return;
-            }
-        }
-
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
+                if let Some(uuid) = self.terrain_edit_loop_sound {
+                    if let Err(err) = self.spatial_sound_manager.update_source_pos(uuid, center) {
+                        log::error!("Failed to update terrain edit loop sound position: {}", err);
+                    }
+                } else {
+                    self.start_terrain_edit_loop_sound(center);
+                }
+
+                if let Some(last_dig) = self.last_shovel_dig_time {
+                    if now.duration_since(last_dig) < super::SHOVEL_DIG_INTERVAL {
+                        return;
+                    }
+                }
+
                 if let Err(err) = self.apply_surface_terrain_removal(TerrainRemovalEdit {
                     center,
                     radius: super::SHOVEL_REMOVE_RADIUS,
@@ -105,6 +111,7 @@ impl App {
                 self.last_shovel_dig_time = Some(now);
             }
             Ok(None) => {
+                self.stop_terrain_edit_loop_sound();
                 self.last_shovel_dig_time = Some(now);
             }
             Err(err) => {
