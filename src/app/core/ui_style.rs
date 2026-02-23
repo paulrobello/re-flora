@@ -19,12 +19,18 @@ pub(crate) const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 pub(crate) const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
+pub(crate) const ITEM_PANEL_STAFF_ICON_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/4_Wooden_Staff.PNG";
+pub(crate) const ITEM_PANEL_STAFF_ICON_FALLBACK_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/4_Wooden_Staff.PNG";
 pub(crate) const ITEM_PANEL_SLOT_COUNT: usize = 5;
 pub(crate) const SHOVEL_SLOT_INDEX: usize = 0;
+pub(crate) const STAFF_SLOT_INDEX: usize = 1;
 
 pub(crate) fn draw_item_panel(
     ctx: &egui::Context,
     item_panel_shovel_icon: Option<&TextureHandle>,
+    item_panel_staff_icon: Option<&TextureHandle>,
     selected_slot_idx: usize,
 ) {
     egui::Area::new("item_panel".into())
@@ -75,6 +81,14 @@ pub(crate) fn draw_item_panel(
                                     |ui| {
                                         if slot_idx == SHOVEL_SLOT_INDEX {
                                             if let Some(icon) = item_panel_shovel_icon {
+                                                ui.add(
+                                                    egui::Image::new(icon)
+                                                        .fit_to_exact_size(icon_size),
+                                                );
+                                            }
+                                        }
+                                        if slot_idx == STAFF_SLOT_INDEX {
+                                            if let Some(icon) = item_panel_staff_icon {
                                                 ui.add(
                                                     egui::Image::new(icon)
                                                         .fit_to_exact_size(icon_size),

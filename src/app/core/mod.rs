@@ -46,7 +46,8 @@ use std::time::{Duration, Instant};
 use ui_style::{
     apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
     GOLD_ACCENT, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
-    ITEM_PANEL_SLOT_COUNT, PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
+    ITEM_PANEL_SLOT_COUNT, ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH,
+    PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
 };
 use uuid::Uuid;
 use winit::{
@@ -92,6 +93,7 @@ pub struct App {
     settings_panel_visible: bool,
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
+    item_panel_staff_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
@@ -350,6 +352,7 @@ impl App {
             settings_panel_visible: false,
             is_fly_mode: false,
             item_panel_shovel_icon: None,
+            item_panel_staff_icon: None,
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
@@ -378,7 +381,7 @@ impl App {
         };
 
         app.configure_gui_font()?;
-        app.load_item_panel_icon()?;
+        app.load_item_panel_icons()?;
         app.ensure_map_butterfly_emitter();
         app.ensure_map_bird_emitter();
 
@@ -427,8 +430,8 @@ impl App {
         Ok(())
     }
 
-    fn load_item_panel_icon(&mut self) -> Result<()> {
-        let icon_path = if std::path::Path::new(ITEM_PANEL_SHOVEL_ICON_PATH).exists() {
+    fn load_item_panel_icons(&mut self) -> Result<()> {
+        let shovel_path = if std::path::Path::new(ITEM_PANEL_SHOVEL_ICON_PATH).exists() {
             ITEM_PANEL_SHOVEL_ICON_PATH
         } else {
             log::warn!(
@@ -439,21 +442,48 @@ impl App {
             ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH
         };
 
-        let icon_bytes = std::fs::read(icon_path)
-            .with_context(|| format!("Failed to read item panel icon from {icon_path}"))?;
-        let icon_rgba = image::load_from_memory(&icon_bytes)
-            .with_context(|| format!("Failed to decode item panel icon from {icon_path}"))?
-            .to_rgba8();
-        let icon_size = [icon_rgba.width() as usize, icon_rgba.height() as usize];
-        let icon_pixels = icon_rgba.into_raw();
-        let icon_image = ColorImage::from_rgba_unmultiplied(icon_size, &icon_pixels);
+        let staff_path = if std::path::Path::new(ITEM_PANEL_STAFF_ICON_PATH).exists() {
+            ITEM_PANEL_STAFF_ICON_PATH
+        } else {
+            log::warn!(
+                "Item panel icon not found at {}. Falling back to {}",
+                ITEM_PANEL_STAFF_ICON_PATH,
+                ITEM_PANEL_STAFF_ICON_FALLBACK_PATH
+            );
+            ITEM_PANEL_STAFF_ICON_FALLBACK_PATH
+        };
 
-        let texture = self.egui_renderer.context().load_texture(
+        let shovel_bytes = std::fs::read(shovel_path)
+            .with_context(|| format!("Failed to read item panel icon from {shovel_path}"))?;
+        let shovel_rgba = image::load_from_memory(&shovel_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {shovel_path}"))?
+            .to_rgba8();
+        let shovel_size = [shovel_rgba.width() as usize, shovel_rgba.height() as usize];
+        let shovel_pixels = shovel_rgba.into_raw();
+        let shovel_image = ColorImage::from_rgba_unmultiplied(shovel_size, &shovel_pixels);
+
+        let shovel_texture = self.egui_renderer.context().load_texture(
             "item_panel_wooden_shovel",
-            icon_image,
+            shovel_image,
             egui::TextureOptions::NEAREST,
         );
-        self.item_panel_shovel_icon = Some(texture);
+        self.item_panel_shovel_icon = Some(shovel_texture);
+
+        let staff_bytes = std::fs::read(staff_path)
+            .with_context(|| format!("Failed to read item panel icon from {staff_path}"))?;
+        let staff_rgba = image::load_from_memory(&staff_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {staff_path}"))?
+            .to_rgba8();
+        let staff_size = [staff_rgba.width() as usize, staff_rgba.height() as usize];
+        let staff_pixels = staff_rgba.into_raw();
+        let staff_image = ColorImage::from_rgba_unmultiplied(staff_size, &staff_pixels);
+
+        let staff_texture = self.egui_renderer.context().load_texture(
+            "item_panel_wooden_staff",
+            staff_image,
+            egui::TextureOptions::NEAREST,
+        );
+        self.item_panel_staff_icon = Some(staff_texture);
         Ok(())
     }
 
@@ -624,6 +654,7 @@ impl App {
 
                 let mut tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
+                let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
@@ -1760,6 +1791,7 @@ impl App {
                         draw_item_panel(
                             ctx,
                             item_panel_shovel_icon.as_ref(),
+                            item_panel_staff_icon.as_ref(),
                             selected_item_panel_slot,
                         );
 
