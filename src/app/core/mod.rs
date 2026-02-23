@@ -48,6 +48,7 @@ use ui_style::{
     GOLD_ACCENT, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
     ITEM_PANEL_SLOT_COUNT, PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
 };
+use uuid::Uuid;
 use winit::{
     event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
@@ -94,6 +95,7 @@ pub struct App {
     selected_item_panel_slot: usize,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
+    terrain_edit_loop_sound: Option<Uuid>,
 
     flora_tick: u32,
     flora_tick_accumulator: f32,
@@ -159,6 +161,9 @@ const MAX_FRAMES_IN_FLIGHT: usize = 1;
 const SHOVEL_REMOVE_RADIUS: f32 = 0.08;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
+const TERRAIN_EDIT_LOOP_PATH: &str =
+    "assets/sfx/ROCKMisc_Designed Rock Movement Loop A_SARM_RkBrck_Stereo-Loop.wav";
+const TERRAIN_EDIT_LOOP_VOLUME_DB: f32 = -10.0;
 const FLORA_TICK_RATE_HZ: f32 = 1.0;
 const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
 const FLORA_FULL_GROWTH_TICKS: u32 = 30;
@@ -345,6 +350,7 @@ impl App {
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
+            terrain_edit_loop_sound: None,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
             flora_tick_accumulator: 0.0,
 
@@ -561,10 +567,12 @@ impl App {
                     match state {
                         ElementState::Pressed => {
                             self.shovel_dig_held = true;
+                            self.start_terrain_edit_loop_sound();
                             self.try_shovel_dig(Instant::now());
                         }
                         ElementState::Released => {
                             self.shovel_dig_held = false;
+                            self.stop_terrain_edit_loop_sound();
                         }
                     }
                 }

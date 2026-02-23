@@ -228,6 +228,45 @@ impl SpatialSoundManager {
         Ok(uuid)
     }
 
+    /// Add a looping non-spatial audio source (e.g., for continuous UI/interaction sounds)
+    pub fn add_looping_non_spatial_source(
+        &self,
+        path: &str,
+        volume: f32,
+        shuffle_phase: bool,
+    ) -> Result<Uuid> {
+        let audio_data = self
+            .clip_cache
+            .get(path)
+            .ok_or_else(|| anyhow::anyhow!("Audio clip not found in cache: {}", path))?;
+
+        let source_id = self
+            .world
+            .register_audio(audio_data, SourceConfig::non_spatial_with_volume_db(volume))?;
+
+        self.world.play(source_id, LoopMode::Infinite)?;
+
+        if shuffle_phase {
+            let random_phase = rand::rng().random_range(0.0..1.0);
+            self.world
+                .seek(source_id, random_phase)
+                .map_err(|e| anyhow::anyhow!("Failed to seek to random phase: {}", e))?;
+        }
+
+        let uuid = Uuid::new_v4();
+        self.uuid_to_source.lock().unwrap().insert(
+            uuid,
+            SourceInfo {
+                source_id,
+                volume,
+                position: None,
+                loop_mode: LoopMode::Infinite,
+            },
+        );
+
+        Ok(uuid)
+    }
+
     pub fn update_player_pos(
         &self,
         player_pos: Vec3,

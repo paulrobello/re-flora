@@ -14,11 +14,39 @@ impl App {
         self.window_state.set_cursor_grab(!any_panel_open);
         if any_panel_open {
             self.shovel_dig_held = false;
+            self.stop_terrain_edit_loop_sound();
         }
     }
 
     pub(super) fn is_shovel_selected(&self) -> bool {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
+    }
+
+    pub(super) fn start_terrain_edit_loop_sound(&mut self) {
+        if self.terrain_edit_loop_sound.is_some()
+            || self.window_state.is_cursor_visible()
+            || !self.is_shovel_selected()
+        {
+            return;
+        }
+
+        match self.spatial_sound_manager.add_looping_non_spatial_source(
+            super::TERRAIN_EDIT_LOOP_PATH,
+            super::TERRAIN_EDIT_LOOP_VOLUME_DB,
+        ) {
+            Ok(uuid) => {
+                self.terrain_edit_loop_sound = Some(uuid);
+            }
+            Err(err) => {
+                log::error!("Failed to start terrain edit loop sound: {}", err);
+            }
+        }
+    }
+
+    pub(super) fn stop_terrain_edit_loop_sound(&mut self) {
+        if let Some(uuid) = self.terrain_edit_loop_sound.take() {
+            self.spatial_sound_manager.remove_source(uuid);
+        }
     }
 
     fn query_camera_ray_terrain_intersection(
@@ -54,6 +82,7 @@ impl App {
 
     pub(super) fn try_shovel_dig(&mut self, now: Instant) {
         if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
+            self.stop_terrain_edit_loop_sound();
             return;
         }
 

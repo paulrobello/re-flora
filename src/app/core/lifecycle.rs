@@ -5,6 +5,7 @@ use winit::event_loop::ActiveEventLoop;
 
 impl App {
     pub fn on_terminate(&mut self, event_loop: &ActiveEventLoop) {
+        self.stop_terrain_edit_loop_sound();
         self.vulkan_ctx.device().wait_idle();
         event_loop.exit();
     }
