@@ -166,7 +166,7 @@ const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
 const TERRAIN_EDIT_LOOP_PATH: &str =
     "assets/sfx/ROCKMisc_Designed Rock Movement Loop A_SARM_RkBrck_Stereo-Loop.wav";
-const TERRAIN_EDIT_LOOP_VOLUME_DB: f32 = -10.0;
+const TERRAIN_EDIT_LOOP_VOLUME_DB: f32 = 20.0;
 const ITEM_PANEL_SCROLL_SFX_PATH: &str =
     "assets/sfx/MECHSwtch_Game Boy Advance SP, B Button, On 05_SARM_BTNS.wav";
 const ITEM_PANEL_SCROLL_SFX_VOLUME_DB: f32 = -6.0;
