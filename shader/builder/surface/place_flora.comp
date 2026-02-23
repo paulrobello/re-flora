@@ -11,6 +11,7 @@ layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = GROU
 layout(set = 0, binding = 0) readonly uniform U_PlaceFloraInfo {
     uvec3 atlas_read_offset;
     uvec3 atlas_read_dim;
+    uvec3 atlas_local_offset;
 }
 place_flora_info;
 
@@ -138,7 +139,8 @@ void main() {
     }
 
     // Read surface data
-    uint surface_data = imageLoad(surface, uvi).r;
+    ivec3 local_uvi = uvi + ivec3(place_flora_info.atlas_local_offset);
+    uint surface_data = imageLoad(surface, local_uvi).r;
     if (surface_data == 0) {
         return; // No surface voxel here
     }

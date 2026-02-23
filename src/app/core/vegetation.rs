@@ -681,10 +681,15 @@ impl App {
         edit: TerrainRemovalEdit,
     ) -> Result<()> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
+            log::info!(
+                "Flora regen compile success: center={:?}, radius={}, bound_min={:?}, bound_max={:?}",
+                edit.center,
+                edit.radius,
+                compiled.rebuild_bound.min(),
+                compiled.rebuild_bound.max()
+            );
             world_ops::mesh_regenerate_flora_for_sphere_edit(
                 &mut self.surface_builder,
-                &mut self.contree_builder,
-                &mut self.scene_accel_builder,
                 super::VOXEL_DIM_PER_CHUNK,
                 compiled.rebuild_bound,
                 world_ops::FloraSphereEdit {
@@ -693,6 +698,12 @@ impl App {
                     tick: self.flora_tick,
                 },
             )?;
+        } else {
+            log::info!(
+                "Flora regen compile skipped: center={:?}, radius={}",
+                edit.center,
+                edit.radius
+            );
         }
         Ok(())
     }

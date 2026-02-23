@@ -14,6 +14,14 @@ use anyhow::Result;
 use ash::vk;
 use glam::{UVec3, Vec3};
 pub use resources::*;
+
+pub struct FloraRegenStats {
+    pub candidate_total: u32,
+    pub appended_total: u32,
+    pub before_total: u32,
+    pub after_total: u32,
+    pub dispatch_dim: UVec3,
+}
 use std::collections::HashSet;
 
 pub struct SurfaceBuilder {
@@ -162,6 +170,7 @@ impl SurfaceBuilder {
                 &self.resources.place_flora_info,
                 atlas_read_offset,
                 atlas_read_dim,
+                UVec3::ZERO,
             )?;
             cleanup_place_flora_result(&self.resources.place_flora_result)?;
             self.update_flora_instance_set(chunk_id);
@@ -257,6 +266,7 @@ impl SurfaceBuilder {
             place_flora_info: &Buffer,
             atlas_read_offset: UVec3,
             atlas_read_dim: UVec3,
+            atlas_local_offset: UVec3,
         ) -> Result<()> {
             let data = StructMemberDataBuilder::from_buffer(place_flora_info)
                 .set_field(
@@ -266,6 +276,10 @@ impl SurfaceBuilder {
                 .set_field(
                     "atlas_read_dim",
                     PlainMemberTypeWithData::UVec3(atlas_read_dim.to_array()),
+                )
+                .set_field(
+                    "atlas_local_offset",
+                    PlainMemberTypeWithData::UVec3(atlas_local_offset.to_array()),
                 )
                 .build()?;
             place_flora_info.fill_with_raw_u8(&data)?;
@@ -456,18 +470,55 @@ impl SurfaceBuilder {
         edit_center: Vec3,
         edit_radius: f32,
         _flora_tick: u32,
-    ) -> Result<()> {
+    ) -> Result<FloraRegenStats> {
         if !self.chunk_bound.in_bound(chunk_id) {
             return Err(anyhow::anyhow!("Chunk ID out of bounds"));
         }
 
-        let atlas_read_offset = chunk_id * self.voxel_dim_per_chunk;
-        let atlas_read_dim = self.voxel_dim_per_chunk;
+        let edit_center_vox = edit_center * 256.0;
+        let edit_radius_vox = edit_radius * 256.0;
+        let chunk_min = chunk_id * self.voxel_dim_per_chunk;
+        let chunk_max = chunk_min + self.voxel_dim_per_chunk - UVec3::ONE;
+
+        let requested_min = Vec3::new(
+            (edit_center_vox.x - edit_radius_vox).floor(),
+            (edit_center_vox.y - edit_radius_vox).floor(),
+            (edit_center_vox.z - edit_radius_vox).floor(),
+        );
+        let requested_max = Vec3::new(
+            (edit_center_vox.x + edit_radius_vox).ceil(),
+            (edit_center_vox.y + edit_radius_vox).ceil(),
+            (edit_center_vox.z + edit_radius_vox).ceil(),
+        );
+
+        let atlas_read_offset = UVec3::new(
+            requested_min.x.max(chunk_min.x as f32).max(0.0) as u32,
+            requested_min.y.max(chunk_min.y as f32).max(0.0) as u32,
+            requested_min.z.max(chunk_min.z as f32).max(0.0) as u32,
+        );
+        let atlas_read_max = UVec3::new(
+            requested_max.x.min(chunk_max.x as f32).max(0.0) as u32,
+            requested_max.y.min(chunk_max.y as f32).max(0.0) as u32,
+            requested_max.z.min(chunk_max.z as f32).max(0.0) as u32,
+        );
+
+        if atlas_read_offset.cmpgt(atlas_read_max).any() {
+            return Ok(FloraRegenStats {
+                candidate_total: 0,
+                appended_total: 0,
+                before_total: 0,
+                after_total: 0,
+                dispatch_dim: UVec3::ZERO,
+            });
+        }
+
+        let atlas_read_dim = atlas_read_max - atlas_read_offset + UVec3::ONE;
 
         update_place_flora_info(
             &self.resources.place_flora_info,
             atlas_read_offset,
             atlas_read_dim,
+            atlas_read_offset - chunk_id * self.voxel_dim_per_chunk,
         )?;
         cleanup_place_flora_result(&self.resources.place_flora_result)?;
         self.update_flora_instance_set_with_resources(&self.resources.flora_regen_candidates);
@@ -478,9 +529,9 @@ impl SurfaceBuilder {
         self.place_flora_ppl.record(
             &cmdbuf,
             Extent3D {
-                width: self.voxel_dim_per_chunk.x,
-                height: self.voxel_dim_per_chunk.y,
-                depth: self.voxel_dim_per_chunk.z,
+                width: atlas_read_dim.x,
+                height: atlas_read_dim.y,
+                depth: atlas_read_dim.z,
             },
             None,
         );
@@ -490,6 +541,7 @@ impl SurfaceBuilder {
 
         let candidate_lengths =
             get_place_flora_result(&self.resources.place_flora_result, self.flora_species_count);
+        let candidate_total = candidate_lengths.iter().copied().sum();
 
         let chunk_resources = self
             .resources
@@ -499,12 +551,11 @@ impl SurfaceBuilder {
             .find(|(_, resources)| resources.chunk_id == chunk_id)
             .unwrap();
 
-        let edit_center_vox = edit_center * 256.0;
-        let edit_radius_vox = edit_radius * 256.0;
         let edit_radius_vox_sq = edit_radius_vox * edit_radius_vox;
 
         let mut occupied_positions = HashSet::<u64>::new();
         let mut species_instances = Vec::with_capacity(self.flora_species_count);
+        let mut before_total = 0_u32;
 
         for species_idx in 0..self.flora_species_count {
             let instance_resource = chunk_resources.1.get(species_idx);
@@ -512,6 +563,7 @@ impl SurfaceBuilder {
                 &instance_resource.instances_buf,
                 instance_resource.instances_len,
             );
+            before_total = before_total.saturating_add(instance_resource.instances_len);
             for instance in &instances {
                 occupied_positions.insert(pack_position_key(
                     instance.pos_x,
@@ -522,6 +574,7 @@ impl SurfaceBuilder {
             species_instances.push(instances);
         }
 
+        let mut appended_total = 0_u32;
         for species_idx in 0..self.flora_species_count {
             let candidate_len = candidate_lengths[species_idx];
             if candidate_len == 0 {
@@ -568,23 +621,33 @@ impl SurfaceBuilder {
                 candidate.growth_start_tick = 0;
                 occupied_positions.insert(key);
                 current_instances.push(candidate);
+                appended_total = appended_total.saturating_add(1);
             }
         }
 
+        let mut after_total = 0_u32;
         for species_idx in 0..self.flora_species_count {
             let instance_resource = chunk_resources.1.get_mut(species_idx);
             instance_resource
                 .instances_buf
                 .fill(&species_instances[species_idx])?;
             instance_resource.instances_len = species_instances[species_idx].len() as u32;
+            after_total = after_total.saturating_add(instance_resource.instances_len);
         }
 
-        return Ok(());
+        return Ok(FloraRegenStats {
+            candidate_total,
+            appended_total,
+            before_total,
+            after_total,
+            dispatch_dim: atlas_read_dim,
+        });
 
         fn update_place_flora_info(
             place_flora_info: &Buffer,
             atlas_read_offset: UVec3,
             atlas_read_dim: UVec3,
+            atlas_local_offset: UVec3,
         ) -> Result<()> {
             let data = StructMemberDataBuilder::from_buffer(place_flora_info)
                 .set_field(
@@ -594,6 +657,10 @@ impl SurfaceBuilder {
                 .set_field(
                     "atlas_read_dim",
                     PlainMemberTypeWithData::UVec3(atlas_read_dim.to_array()),
+                )
+                .set_field(
+                    "atlas_local_offset",
+                    PlainMemberTypeWithData::UVec3(atlas_local_offset.to_array()),
                 )
                 .build()?;
             place_flora_info.fill_with_raw_u8(&data)?;
