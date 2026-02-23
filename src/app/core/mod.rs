@@ -97,6 +97,7 @@ pub struct App {
     selected_item_panel_slot: usize,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
+    last_staff_regen_time: Option<Instant>,
     terrain_edit_loop_sound: Option<Uuid>,
 
     flora_tick: u32,
@@ -356,6 +357,7 @@ impl App {
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
+            last_staff_regen_time: None,
             terrain_edit_loop_sound: None,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
             flora_tick_accumulator: 0.0,
@@ -601,7 +603,12 @@ impl App {
                     match state {
                         ElementState::Pressed => {
                             self.shovel_dig_held = true;
-                            self.try_shovel_dig(Instant::now());
+                            let now = Instant::now();
+                            if self.is_shovel_selected() {
+                                self.try_shovel_dig(now);
+                            } else if self.is_staff_selected() {
+                                self.try_staff_regenerate(now);
+                            }
                         }
                         ElementState::Released => {
                             self.shovel_dig_held = false;
@@ -627,7 +634,14 @@ impl App {
 
                 self.time_info.update();
                 if self.shovel_dig_held {
-                    self.try_shovel_dig(Instant::now());
+                    let now = Instant::now();
+                    if self.is_shovel_selected() {
+                        self.try_shovel_dig(now);
+                    } else if self.is_staff_selected() {
+                        self.try_staff_regenerate(now);
+                    } else {
+                        self.stop_terrain_edit_loop_sound();
+                    }
                 }
                 let frame_delta_time = self.time_info.delta_time();
                 let time_since_start = self.time_info.time_since_start();

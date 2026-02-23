@@ -170,6 +170,7 @@ pub struct SurfaceResources {
     pub edit_flora_info: Resource<Buffer>,
     pub edit_flora_result: Resource<Buffer>,
     pub flora_instance_scratch: Resource<Buffer>,
+    pub flora_regen_candidates: Vec<InstanceResource>,
     pub instances: InstanceResources,
 }
 
@@ -274,6 +275,16 @@ impl SurfaceResources {
             std::mem::size_of::<Instance>() as u64 * MAX_FLORA_INSTANCES_PER_SPECIES,
         );
 
+        let species_count = species::species_count();
+        let mut flora_regen_candidates = Vec::with_capacity(species_count);
+        for _ in 0..species_count {
+            flora_regen_candidates.push(InstanceResource::new(
+                device.clone(),
+                allocator.clone(),
+                MAX_FLORA_INSTANCES_PER_SPECIES,
+            ));
+        }
+
         let instances = InstanceResources::new(device.clone(), allocator.clone(), chunk_dim);
 
         Self {
@@ -285,6 +296,7 @@ impl SurfaceResources {
             edit_flora_info: Resource::new(edit_flora_info),
             edit_flora_result: Resource::new(edit_flora_result),
             flora_instance_scratch: Resource::new(flora_instance_scratch),
+            flora_regen_candidates,
             instances,
         }
     }

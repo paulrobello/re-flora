@@ -676,6 +676,27 @@ impl App {
         Ok(())
     }
 
+    pub(super) fn apply_surface_flora_regeneration(
+        &mut self,
+        edit: TerrainRemovalEdit,
+    ) -> Result<()> {
+        if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
+            world_ops::mesh_regenerate_flora_for_sphere_edit(
+                &mut self.surface_builder,
+                &mut self.contree_builder,
+                &mut self.scene_accel_builder,
+                super::VOXEL_DIM_PER_CHUNK,
+                compiled.rebuild_bound,
+                world_ops::FloraSphereEdit {
+                    center: edit.center,
+                    radius: edit.radius,
+                    tick: self.flora_tick,
+                },
+            )?;
+        }
+        Ok(())
+    }
+
     pub(super) fn apply_tree_placement(&mut self, edit: TreePlacementEdit) -> Result<()> {
         let TreePlacementEdit {
             tree_desc,

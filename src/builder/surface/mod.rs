@@ -14,6 +14,7 @@ use anyhow::Result;
 use ash::vk;
 use glam::{UVec3, Vec3};
 pub use resources::*;
+use std::collections::HashSet;
 
 pub struct SurfaceBuilder {
     vulkan_ctx: VulkanContext,
@@ -124,7 +125,11 @@ impl SurfaceBuilder {
             .unwrap()
             .1;
 
-        for (species_index, instance_resource) in chunk_resources.iter().enumerate() {
+        self.update_flora_instance_set_with_resources(&chunk_resources.resources);
+    }
+
+    fn update_flora_instance_set_with_resources(&self, resources: &[InstanceResource]) {
+        for (species_index, instance_resource) in resources.iter().enumerate() {
             self.place_flora_ppl.write_descriptor_set(
                 1,
                 WriteDescriptorSet::new_buffer_write(0, &instance_resource.instances_buf)
@@ -442,6 +447,213 @@ impl SurfaceBuilder {
                 total_u32
             );
             data[0]
+        }
+    }
+
+    pub fn regenerate_flora_instances(
+        &mut self,
+        chunk_id: UVec3,
+        edit_center: Vec3,
+        edit_radius: f32,
+        _flora_tick: u32,
+    ) -> Result<()> {
+        if !self.chunk_bound.in_bound(chunk_id) {
+            return Err(anyhow::anyhow!("Chunk ID out of bounds"));
+        }
+
+        let atlas_read_offset = chunk_id * self.voxel_dim_per_chunk;
+        let atlas_read_dim = self.voxel_dim_per_chunk;
+
+        update_place_flora_info(
+            &self.resources.place_flora_info,
+            atlas_read_offset,
+            atlas_read_dim,
+        )?;
+        cleanup_place_flora_result(&self.resources.place_flora_result)?;
+        self.update_flora_instance_set_with_resources(&self.resources.flora_regen_candidates);
+
+        let device = self.vulkan_ctx.device();
+        let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
+        cmdbuf.begin(true);
+        self.place_flora_ppl.record(
+            &cmdbuf,
+            Extent3D {
+                width: self.voxel_dim_per_chunk.x,
+                height: self.voxel_dim_per_chunk.y,
+                depth: self.voxel_dim_per_chunk.z,
+            },
+            None,
+        );
+        cmdbuf.end();
+        cmdbuf.submit(&self.vulkan_ctx.get_general_queue(), None);
+        device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
+
+        let candidate_lengths =
+            get_place_flora_result(&self.resources.place_flora_result, self.flora_species_count);
+
+        let chunk_resources = self
+            .resources
+            .instances
+            .chunk_flora_instances
+            .iter_mut()
+            .find(|(_, resources)| resources.chunk_id == chunk_id)
+            .unwrap();
+
+        let edit_center_vox = edit_center * 256.0;
+        let edit_radius_vox = edit_radius * 256.0;
+        let edit_radius_vox_sq = edit_radius_vox * edit_radius_vox;
+
+        let mut occupied_positions = HashSet::<u64>::new();
+        let mut species_instances = Vec::with_capacity(self.flora_species_count);
+
+        for species_idx in 0..self.flora_species_count {
+            let instance_resource = chunk_resources.1.get(species_idx);
+            let instances = read_instances(
+                &instance_resource.instances_buf,
+                instance_resource.instances_len,
+            );
+            for instance in &instances {
+                occupied_positions.insert(pack_position_key(
+                    instance.pos_x,
+                    instance.pos_y,
+                    instance.pos_z,
+                ));
+            }
+            species_instances.push(instances);
+        }
+
+        for species_idx in 0..self.flora_species_count {
+            let candidate_len = candidate_lengths[species_idx];
+            if candidate_len == 0 {
+                continue;
+            }
+            let candidate_instances = read_instances(
+                &self.resources.flora_regen_candidates[species_idx].instances_buf,
+                candidate_len,
+            );
+            if candidate_instances.is_empty() {
+                continue;
+            }
+
+            let current_instances = &mut species_instances[species_idx];
+            let species_capacity = (chunk_resources
+                .1
+                .get(species_idx)
+                .instances_buf
+                .get_size_bytes()
+                / std::mem::size_of::<Instance>() as u64)
+                as usize;
+
+            for mut candidate in candidate_instances {
+                let stem_pos = Vec3::new(
+                    candidate.pos_x as f32,
+                    candidate.pos_y as f32,
+                    candidate.pos_z as f32,
+                );
+                let base_center = stem_pos + Vec3::new(0.5, -0.5, 0.5);
+                let delta = base_center - edit_center_vox;
+                let in_edit = delta.length_squared() <= edit_radius_vox_sq;
+                if !in_edit {
+                    continue;
+                }
+
+                let key = pack_position_key(candidate.pos_x, candidate.pos_y, candidate.pos_z);
+                if occupied_positions.contains(&key) {
+                    continue;
+                }
+                if current_instances.len() >= species_capacity {
+                    break;
+                }
+
+                candidate.growth_start_tick = 0;
+                occupied_positions.insert(key);
+                current_instances.push(candidate);
+            }
+        }
+
+        for species_idx in 0..self.flora_species_count {
+            let instance_resource = chunk_resources.1.get_mut(species_idx);
+            instance_resource
+                .instances_buf
+                .fill(&species_instances[species_idx])?;
+            instance_resource.instances_len = species_instances[species_idx].len() as u32;
+        }
+
+        return Ok(());
+
+        fn update_place_flora_info(
+            place_flora_info: &Buffer,
+            atlas_read_offset: UVec3,
+            atlas_read_dim: UVec3,
+        ) -> Result<()> {
+            let data = StructMemberDataBuilder::from_buffer(place_flora_info)
+                .set_field(
+                    "atlas_read_offset",
+                    PlainMemberTypeWithData::UVec3(atlas_read_offset.to_array()),
+                )
+                .set_field(
+                    "atlas_read_dim",
+                    PlainMemberTypeWithData::UVec3(atlas_read_dim.to_array()),
+                )
+                .build()?;
+            place_flora_info.fill_with_raw_u8(&data)?;
+            Ok(())
+        }
+
+        fn cleanup_place_flora_result(place_flora_result: &Buffer) -> Result<()> {
+            let layout = place_flora_result.get_layout().unwrap();
+            let buffer_size = layout.root_member.get_size_bytes() as usize;
+            let zeroed = vec![0u8; buffer_size];
+            place_flora_result.fill_with_raw_u8(&zeroed)?;
+            Ok(())
+        }
+
+        fn get_place_flora_result(place_flora_result: &Buffer, species_count: usize) -> Vec<u32> {
+            let raw_data = place_flora_result.read_back().unwrap();
+            let total_u32 = raw_data.len() / std::mem::size_of::<u32>();
+            let data =
+                unsafe { std::slice::from_raw_parts(raw_data.as_ptr() as *const u32, total_u32) };
+            assert!(
+                total_u32 >= species_count,
+                "place_flora_result buffer too small: expected at least {} u32s, got {}",
+                species_count,
+                total_u32
+            );
+            let mut flora_instance_lengths = Vec::with_capacity(species_count);
+            flora_instance_lengths.extend_from_slice(&data[0..species_count]);
+            flora_instance_lengths
+        }
+
+        fn read_instances(buffer: &Buffer, len: u32) -> Vec<Instance> {
+            if len == 0 {
+                return Vec::new();
+            }
+
+            let raw_data = buffer.read_back().unwrap();
+            let instance_size = std::mem::size_of::<Instance>();
+            let max_count = (raw_data.len() / instance_size).min(len as usize);
+            let mut out = Vec::with_capacity(max_count);
+
+            for chunk in raw_data.chunks_exact(instance_size).take(max_count) {
+                let pos_x = u32::from_ne_bytes(chunk[0..4].try_into().unwrap());
+                let pos_y = u32::from_ne_bytes(chunk[4..8].try_into().unwrap());
+                let pos_z = u32::from_ne_bytes(chunk[8..12].try_into().unwrap());
+                let ty_seed = u32::from_ne_bytes(chunk[12..16].try_into().unwrap());
+                let growth_start_tick = u32::from_ne_bytes(chunk[16..20].try_into().unwrap());
+                out.push(Instance {
+                    pos_x,
+                    pos_y,
+                    pos_z,
+                    ty_seed,
+                    growth_start_tick,
+                });
+            }
+
+            out
+        }
+
+        fn pack_position_key(x: u32, y: u32, z: u32) -> u64 {
+            ((x as u64) << 42) | ((y as u64) << 21) | (z as u64)
         }
     }
 

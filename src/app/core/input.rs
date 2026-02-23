@@ -1,4 +1,4 @@
-use super::ui_style::SHOVEL_SLOT_INDEX;
+use super::ui_style::{SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -20,6 +20,10 @@ impl App {
 
     pub(super) fn is_shovel_selected(&self) -> bool {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
+    }
+
+    pub(super) fn is_staff_selected(&self) -> bool {
+        self.selected_item_panel_slot == STAFF_SLOT_INDEX
     }
 
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
@@ -125,6 +129,50 @@ impl App {
             }
             Err(err) => {
                 log::error!("Shovel carve attempt failed during terrain query: {}", err);
+            }
+        }
+    }
+
+    pub(super) fn try_staff_regenerate(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_staff_selected() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
+            Ok(Some(center)) => {
+                if let Some(uuid) = self.terrain_edit_loop_sound {
+                    if let Err(err) = self.spatial_sound_manager.update_source_pos(uuid, center) {
+                        log::error!("Failed to update terrain edit loop sound position: {}", err);
+                    }
+                } else {
+                    self.start_terrain_edit_loop_sound(center);
+                }
+
+                if let Some(last_regen) = self.last_staff_regen_time {
+                    if now.duration_since(last_regen) < super::SHOVEL_DIG_INTERVAL {
+                        return;
+                    }
+                }
+
+                if let Err(err) = self.apply_surface_flora_regeneration(TerrainRemovalEdit {
+                    center,
+                    radius: super::SHOVEL_REMOVE_RADIUS,
+                }) {
+                    log::error!("Failed to apply flora regeneration: {}", err);
+                    return;
+                }
+                self.last_staff_regen_time = Some(now);
+            }
+            Ok(None) => {
+                self.stop_terrain_edit_loop_sound();
+                self.last_staff_regen_time = Some(now);
+            }
+            Err(err) => {
+                log::error!(
+                    "Staff regeneration attempt failed during terrain query: {}",
+                    err
+                );
             }
         }
     }
