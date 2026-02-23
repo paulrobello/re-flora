@@ -243,9 +243,8 @@ pub(crate) fn mesh_regenerate_flora_for_sphere_edit(
             flora_edit.tick,
         )?;
         log::info!(
-            "Flora regen chunk {:?}: candidates_total={}, appended_total={}, before_total={}, after_total={}, dispatch_dim={:?}",
+            "Flora regen chunk {:?}: appended_total={}, before_total={}, after_total={}, dispatch_dim={:?}",
             chunk_id,
-            regen_stats.candidate_total,
             regen_stats.appended_total,
             regen_stats.before_total,
             regen_stats.after_total,

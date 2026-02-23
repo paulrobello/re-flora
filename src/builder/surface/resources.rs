@@ -165,12 +165,12 @@ pub struct SurfaceResources {
     pub surface: Resource<Texture>,
     pub make_surface_info: Resource<Buffer>,
     pub make_surface_result: Resource<Buffer>,
-    pub place_flora_info: Resource<Buffer>,
-    pub place_flora_result: Resource<Buffer>,
-    pub edit_flora_info: Resource<Buffer>,
-    pub edit_flora_result: Resource<Buffer>,
-    pub flora_instance_scratch: Resource<Buffer>,
-    pub flora_regen_candidates: Vec<InstanceResource>,
+    pub clear_occupancy_info: Resource<Buffer>,
+    pub instances_to_occupancy_info: Resource<Buffer>,
+    pub edit_occupancy_info: Resource<Buffer>,
+    pub occupancy_to_instances_info: Resource<Buffer>,
+    pub occupancy_to_instances_result: Resource<Buffer>,
+    pub occupancy_data: Resource<Buffer>,
     pub instances: InstanceResources,
 }
 
@@ -180,8 +180,10 @@ impl SurfaceResources {
         allocator: Allocator,
         voxel_dim_per_chunk: UVec3,
         make_surface_sm: &ShaderModule,
-        place_flora_sm: &ShaderModule,
-        edit_flora_sm: &ShaderModule,
+        clear_occupancy_sm: &ShaderModule,
+        instances_to_occupancy_sm: &ShaderModule,
+        edit_occupancy_sm: &ShaderModule,
+        occupancy_to_instances_sm: &ShaderModule,
         chunk_dim: UAabb3,
     ) -> Self {
         let surface_desc = ImageDesc {
@@ -221,69 +223,71 @@ impl SurfaceResources {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let place_flora_info_layout = place_flora_sm
-            .get_buffer_layout("U_PlaceFloraInfo")
+        let clear_occupancy_info_layout = clear_occupancy_sm
+            .get_buffer_layout("U_ClearOccupancyInfo")
             .unwrap();
-        let place_flora_info = Buffer::from_buffer_layout(
+        let clear_occupancy_info = Buffer::from_buffer_layout(
             device.clone(),
             allocator.clone(),
-            place_flora_info_layout.clone(),
+            clear_occupancy_info_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let place_flora_result_layout = place_flora_sm
-            .get_buffer_layout("B_PlaceFloraResult")
+        let instances_to_occupancy_info_layout = instances_to_occupancy_sm
+            .get_buffer_layout("U_InstancesToOccupancyInfo")
             .unwrap();
-        let place_flora_result = Buffer::from_buffer_layout(
+        let instances_to_occupancy_info = Buffer::from_buffer_layout(
             device.clone(),
             allocator.clone(),
-            place_flora_result_layout.clone(),
+            instances_to_occupancy_info_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let edit_flora_info_layout = edit_flora_sm.get_buffer_layout("U_EditFloraInfo").unwrap();
-        let edit_flora_info = Buffer::from_buffer_layout(
-            device.clone(),
-            allocator.clone(),
-            edit_flora_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
-        let edit_flora_result_layout = edit_flora_sm
-            .get_buffer_layout("B_EditFloraResult")
+        let edit_occupancy_info_layout = edit_occupancy_sm
+            .get_buffer_layout("U_EditOccupancyInfo")
             .unwrap();
-        let edit_flora_result = Buffer::from_buffer_layout(
+        let edit_occupancy_info = Buffer::from_buffer_layout(
             device.clone(),
             allocator.clone(),
-            edit_flora_result_layout.clone(),
+            edit_occupancy_info_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let flora_instance_scratch = Buffer::new_sized(
+        let occupancy_to_instances_info_layout = occupancy_to_instances_sm
+            .get_buffer_layout("U_OccupancyToInstancesInfo")
+            .unwrap();
+        let occupancy_to_instances_info = Buffer::from_buffer_layout(
             device.clone(),
             allocator.clone(),
-            BufferUsage::from_flags(
-                vk::BufferUsageFlags::STORAGE_BUFFER
-                    | vk::BufferUsageFlags::TRANSFER_SRC
-                    | vk::BufferUsageFlags::TRANSFER_DST,
-            ),
+            occupancy_to_instances_info_layout.clone(),
+            BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
-            std::mem::size_of::<Instance>() as u64 * MAX_FLORA_INSTANCES_PER_SPECIES,
         );
 
-        let species_count = species::species_count();
-        let mut flora_regen_candidates = Vec::with_capacity(species_count);
-        for _ in 0..species_count {
-            flora_regen_candidates.push(InstanceResource::new(
-                device.clone(),
-                allocator.clone(),
-                MAX_FLORA_INSTANCES_PER_SPECIES,
-            ));
-        }
+        let occupancy_to_instances_result_layout = occupancy_to_instances_sm
+            .get_buffer_layout("B_OccupancyToInstancesResult")
+            .unwrap();
+        let occupancy_to_instances_result = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            occupancy_to_instances_result_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
+        let occupancy_len = voxel_dim_per_chunk.x as u64
+            * voxel_dim_per_chunk.y as u64
+            * voxel_dim_per_chunk.z as u64;
+        let occupancy_data = Buffer::new_sized(
+            device.clone(),
+            allocator.clone(),
+            BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+            occupancy_len * std::mem::size_of::<u32>() as u64,
+        );
 
         let instances = InstanceResources::new(device.clone(), allocator.clone(), chunk_dim);
 
@@ -291,12 +295,12 @@ impl SurfaceResources {
             surface: Resource::new(surface),
             make_surface_info: Resource::new(make_surface_info),
             make_surface_result: Resource::new(make_surface_result),
-            place_flora_info: Resource::new(place_flora_info),
-            place_flora_result: Resource::new(place_flora_result),
-            edit_flora_info: Resource::new(edit_flora_info),
-            edit_flora_result: Resource::new(edit_flora_result),
-            flora_instance_scratch: Resource::new(flora_instance_scratch),
-            flora_regen_candidates,
+            clear_occupancy_info: Resource::new(clear_occupancy_info),
+            instances_to_occupancy_info: Resource::new(instances_to_occupancy_info),
+            edit_occupancy_info: Resource::new(edit_occupancy_info),
+            occupancy_to_instances_info: Resource::new(occupancy_to_instances_info),
+            occupancy_to_instances_result: Resource::new(occupancy_to_instances_result),
+            occupancy_data: Resource::new(occupancy_data),
             instances,
         }
     }

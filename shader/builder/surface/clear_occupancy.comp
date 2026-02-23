@@ -1,0 +1,26 @@
+#version 450
+
+#define GROUP_SIZE 8
+layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = GROUP_SIZE) in;
+
+layout(set = 0, binding = 0) readonly uniform U_ClearOccupancyInfo {
+    uvec3 chunk_dim;
+}
+clear_occupancy_info;
+
+layout(set = 0, binding = 1) buffer B_OccupancyData { uint data[]; }
+occupancy_data;
+
+uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
+    return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
+}
+
+void main() {
+    uvec3 uvi = gl_GlobalInvocationID.xyz;
+    if (any(greaterThanEqual(uvi, clear_occupancy_info.chunk_dim))) {
+        return;
+    }
+
+    uint linear_idx             = flatten_stem_idx(uvi, clear_occupancy_info.chunk_dim);
+    occupancy_data.data[linear_idx] = 0u;
+}

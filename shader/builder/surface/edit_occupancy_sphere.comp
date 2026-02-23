@@ -1,0 +1,73 @@
+#version 450
+
+#extension GL_GOOGLE_include_directive : require
+
+#define GROUP_SIZE 8
+layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = GROUP_SIZE) in;
+
+layout(set = 0, binding = 0) readonly uniform U_EditOccupancyInfo {
+    vec4 edit_center_radius_vox;
+    uvec3 chunk_world_offset;
+    uvec3 chunk_dim;
+    uint mode;
+}
+edit_occupancy_info;
+
+layout(set = 0, binding = 1) buffer B_OccupancyData { uint data[]; }
+occupancy_data;
+
+layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D surface;
+
+#include "../../include/voxel_data.glsl"
+#include "../../include/voxel_types.glsl"
+
+const uint OCCUPANCY_MODE_REMOVE = 0u;
+const uint OCCUPANCY_MODE_ADD    = 1u;
+
+uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
+    return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
+}
+
+bool in_chunk_local_bound(ivec3 local_pos) {
+    return all(greaterThanEqual(local_pos, ivec3(0))) &&
+           all(lessThan(local_pos, ivec3(edit_occupancy_info.chunk_dim)));
+}
+
+bool is_surface_plantable(uint voxel_type) { return voxel_type == VOXEL_TYPE_DIRT; }
+
+void main() {
+    ivec3 base_local = ivec3(gl_GlobalInvocationID.xyz);
+    if (any(greaterThanEqual(base_local, ivec3(edit_occupancy_info.chunk_dim)))) {
+        return;
+    }
+
+    vec3 base_world_center = vec3(edit_occupancy_info.chunk_world_offset + uvec3(base_local)) + vec3(0.5);
+    vec3 delta             = base_world_center - edit_occupancy_info.edit_center_radius_vox.xyz;
+    float radius_sq        = edit_occupancy_info.edit_center_radius_vox.w *
+                      edit_occupancy_info.edit_center_radius_vox.w;
+    bool in_edit = dot(delta, delta) <= radius_sq;
+    if (!in_edit) {
+        return;
+    }
+
+    ivec3 stem_local = base_local + ivec3(0, 1, 0);
+    if (!in_chunk_local_bound(stem_local)) {
+        return;
+    }
+
+    uint linear_idx = flatten_stem_idx(uvec3(stem_local), edit_occupancy_info.chunk_dim);
+    if (edit_occupancy_info.mode == OCCUPANCY_MODE_REMOVE) {
+        occupancy_data.data[linear_idx] = 0u;
+        return;
+    }
+
+    if (edit_occupancy_info.mode == OCCUPANCY_MODE_ADD) {
+        uint surface_data = imageLoad(surface, base_local).r;
+        if (surface_data == 0u) {
+            return;
+        }
+        if (is_surface_plantable(voxel_type_from_data(surface_data))) {
+            occupancy_data.data[linear_idx] = 1u;
+        }
+    }
+}
