@@ -51,9 +51,9 @@ use ui_style::{
 };
 use uuid::Uuid;
 use winit::{
-    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{ElementState, MouseButton, WindowEvent},
     event_loop::ActiveEventLoop,
-    keyboard::KeyCode,
+    keyboard::{KeyCode, PhysicalKey},
     window::WindowId,
 };
 
@@ -574,31 +574,27 @@ impl App {
                 }
 
                 if !self.window_state.is_cursor_visible() {
-                    self.tracer.handle_keyboard(&event);
-                }
-            }
-            WindowEvent::MouseWheel { delta, .. } => {
-                if !self.window_state.is_cursor_visible() {
-                    let scroll_y = match delta {
-                        MouseScrollDelta::LineDelta(_, y) => y,
-                        MouseScrollDelta::PixelDelta(position) => position.y as f32,
-                    };
+                    if event.state == ElementState::Pressed {
+                        let target_slot = match event.physical_key {
+                            PhysicalKey::Code(KeyCode::Digit1) => Some(0),
+                            PhysicalKey::Code(KeyCode::Digit2) => Some(1),
+                            PhysicalKey::Code(KeyCode::Digit3) => Some(2),
+                            PhysicalKey::Code(KeyCode::Digit4) => Some(3),
+                            PhysicalKey::Code(KeyCode::Digit5) => Some(4),
+                            _ => None,
+                        };
 
-                    let step = if scroll_y > 0.0 {
-                        -1
-                    } else if scroll_y < 0.0 {
-                        1
-                    } else {
-                        0
-                    };
-
-                    if step != 0 {
-                        let next_slot = (self.selected_item_panel_slot as i32 + step)
-                            .rem_euclid(ITEM_PANEL_SLOT_COUNT as i32)
-                            as usize;
-                        self.selected_item_panel_slot = next_slot;
-                        self.play_item_panel_scroll_sound();
+                        if let Some(slot_idx) = target_slot {
+                            if slot_idx < ITEM_PANEL_SLOT_COUNT
+                                && slot_idx != self.selected_item_panel_slot
+                            {
+                                self.selected_item_panel_slot = slot_idx;
+                                self.play_item_panel_scroll_sound();
+                            }
+                        }
                     }
+
+                    self.tracer.handle_keyboard(&event);
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
