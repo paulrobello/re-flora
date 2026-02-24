@@ -43,7 +43,10 @@ void mark_stem_occupied(uint species_idx, uint idx, uint instance_len) {
 
     uvec3 stem_local = stem_world - instances_to_occupancy_info.chunk_world_offset;
     uint linear_idx  = flatten_stem_idx(stem_local, instances_to_occupancy_info.chunk_dim);
-    atomicOr(occupancy_data.data[linear_idx], 1u);
+    uint word_idx    = linear_idx >> 2u;
+    uint byte_shift  = (linear_idx & 3u) * 8u;
+    uint bit_mask    = 1u << byte_shift;
+    atomicOr(occupancy_data.data[word_idx], bit_mask);
 }
 
 void main() {

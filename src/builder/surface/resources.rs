@@ -278,15 +278,16 @@ impl SurfaceResources {
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
-        let occupancy_len = voxel_dim_per_chunk.x as u64
+        let occupancy_voxel_len = voxel_dim_per_chunk.x as u64
             * voxel_dim_per_chunk.y as u64
             * voxel_dim_per_chunk.z as u64;
+        let occupancy_word_len = occupancy_voxel_len.div_ceil(4);
         let occupancy_data = Buffer::new_sized(
             device.clone(),
             allocator.clone(),
             BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
             gpu_allocator::MemoryLocation::GpuOnly,
-            occupancy_len * std::mem::size_of::<u32>() as u64,
+            occupancy_word_len * std::mem::size_of::<u32>() as u64,
         );
 
         let instances = InstanceResources::new(device.clone(), allocator.clone(), chunk_dim);

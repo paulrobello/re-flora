@@ -41,6 +41,13 @@ uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
     return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
 }
 
+bool is_occupied(uint linear_idx) {
+    uint word_idx   = linear_idx >> 2u;
+    uint byte_shift = (linear_idx & 3u) * 8u;
+    uint bit_mask   = 1u << byte_shift;
+    return (occupancy_data.data[word_idx] & bit_mask) != 0u;
+}
+
 void unpack_surface_data(uint packed, out uint o_voxel_type, out vec3 o_normal,
                          out bool o_is_normal_valid) {
     o_voxel_type      = voxel_type_from_data(packed);
@@ -144,7 +151,7 @@ void main() {
     }
 
     uint linear_idx = flatten_stem_idx(uvec3(stem_local), occupancy_to_instances_info.chunk_dim);
-    if (occupancy_data.data[linear_idx] == 0u) {
+    if (!is_occupied(linear_idx)) {
         return;
     }
 

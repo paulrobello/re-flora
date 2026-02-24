@@ -21,6 +21,11 @@ void main() {
         return;
     }
 
-    uint linear_idx             = flatten_stem_idx(uvi, clear_occupancy_info.chunk_dim);
-    occupancy_data.data[linear_idx] = 0u;
+    uint linear_idx = flatten_stem_idx(uvi, clear_occupancy_info.chunk_dim);
+    if ((linear_idx & 3u) != 0u) {
+        return;
+    }
+
+    uint word_idx             = linear_idx >> 2u;
+    occupancy_data.data[word_idx] = 0u;
 }
