@@ -99,6 +99,7 @@ pub struct App {
     last_shovel_dig_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
     terrain_edit_loop_sound: Option<Uuid>,
+    terrain_edit_loop_sound_muted: bool,
 
     flora_tick: u32,
     flora_tick_accumulator: f32,
@@ -167,6 +168,7 @@ const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
 const TERRAIN_EDIT_LOOP_PATH: &str =
     "assets/sfx/ROCKMisc_Designed Rock Movement Loop A_SARM_RkBrck_Stereo-Loop.wav";
 const TERRAIN_EDIT_LOOP_VOLUME_DB: f32 = 20.0;
+const TERRAIN_EDIT_LOOP_MUTED_VOLUME_DB: f32 = -80.0;
 const ITEM_PANEL_SCROLL_SFX_PATH: &str =
     "assets/sfx/MECHSwtch_Game Boy Advance SP, B Button, On 05_SARM_BTNS.wav";
 const ITEM_PANEL_SCROLL_SFX_VOLUME_DB: f32 = -6.0;
@@ -359,6 +361,7 @@ impl App {
             last_shovel_dig_time: None,
             last_staff_regen_time: None,
             terrain_edit_loop_sound: None,
+            terrain_edit_loop_sound_muted: true,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
             flora_tick_accumulator: 0.0,
 

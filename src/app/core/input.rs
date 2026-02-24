@@ -27,7 +27,21 @@ impl App {
     }
 
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
-        if self.terrain_edit_loop_sound.is_some() {
+        if let Some(uuid) = self.terrain_edit_loop_sound {
+            if self.terrain_edit_loop_sound_muted {
+                if let Err(err) = self
+                    .spatial_sound_manager
+                    .update_source_volume(uuid, super::TERRAIN_EDIT_LOOP_VOLUME_DB)
+                {
+                    log::error!("Failed to unmute terrain edit loop sound: {}", err);
+                } else {
+                    self.terrain_edit_loop_sound_muted = false;
+                }
+            }
+
+            if let Err(err) = self.spatial_sound_manager.update_source_pos(uuid, position) {
+                log::error!("Failed to update terrain edit loop sound position: {}", err);
+            }
             return;
         }
 
@@ -39,6 +53,7 @@ impl App {
         ) {
             Ok(uuid) => {
                 self.terrain_edit_loop_sound = Some(uuid);
+                self.terrain_edit_loop_sound_muted = false;
             }
             Err(err) => {
                 log::error!("Failed to start terrain edit loop sound: {}", err);
@@ -47,8 +62,19 @@ impl App {
     }
 
     pub(super) fn stop_terrain_edit_loop_sound(&mut self) {
-        if let Some(uuid) = self.terrain_edit_loop_sound.take() {
-            self.spatial_sound_manager.remove_source(uuid);
+        if self.terrain_edit_loop_sound_muted {
+            return;
+        }
+
+        if let Some(uuid) = self.terrain_edit_loop_sound {
+            if let Err(err) = self
+                .spatial_sound_manager
+                .update_source_volume(uuid, super::TERRAIN_EDIT_LOOP_MUTED_VOLUME_DB)
+            {
+                log::error!("Failed to mute terrain edit loop sound: {}", err);
+            } else {
+                self.terrain_edit_loop_sound_muted = true;
+            }
         }
     }
 
@@ -100,13 +126,7 @@ impl App {
 
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
-                if let Some(uuid) = self.terrain_edit_loop_sound {
-                    if let Err(err) = self.spatial_sound_manager.update_source_pos(uuid, center) {
-                        log::error!("Failed to update terrain edit loop sound position: {}", err);
-                    }
-                } else {
-                    self.start_terrain_edit_loop_sound(center);
-                }
+                self.start_terrain_edit_loop_sound(center);
 
                 if let Some(last_dig) = self.last_shovel_dig_time {
                     if now.duration_since(last_dig) < super::SHOVEL_DIG_INTERVAL {
@@ -141,13 +161,7 @@ impl App {
 
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
-                if let Some(uuid) = self.terrain_edit_loop_sound {
-                    if let Err(err) = self.spatial_sound_manager.update_source_pos(uuid, center) {
-                        log::error!("Failed to update terrain edit loop sound position: {}", err);
-                    }
-                } else {
-                    self.start_terrain_edit_loop_sound(center);
-                }
+                self.start_terrain_edit_loop_sound(center);
 
                 if let Some(last_regen) = self.last_staff_regen_time {
                     if now.duration_since(last_regen) < super::SHOVEL_DIG_INTERVAL {
@@ -166,7 +180,6 @@ impl App {
             }
             Ok(None) => {
                 self.stop_terrain_edit_loop_sound();
-                log::info!("Staff regen skipped: no terrain hit");
                 self.last_staff_regen_time = Some(now);
             }
             Err(err) => {
