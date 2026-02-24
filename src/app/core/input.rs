@@ -162,11 +162,6 @@ impl App {
                     log::error!("Failed to apply flora regeneration: {}", err);
                     return;
                 }
-                log::info!(
-                    "Staff regen applied at {:?} r={}",
-                    center,
-                    super::SHOVEL_REMOVE_RADIUS
-                );
                 self.last_staff_regen_time = Some(now);
             }
             Ok(None) => {

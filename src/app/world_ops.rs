@@ -242,14 +242,6 @@ pub(crate) fn mesh_regenerate_flora_for_sphere_edit(
             flora_edit.radius,
             flora_edit.tick,
         )?;
-        log::info!(
-            "Flora regen chunk {:?}: appended_total={}, before_total={}, after_total={}, dispatch_dim={:?}",
-            chunk_id,
-            regen_stats.appended_total,
-            regen_stats.before_total,
-            regen_stats.after_total,
-            regen_stats.dispatch_dim
-        );
     }
 
     Ok(())

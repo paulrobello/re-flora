@@ -681,13 +681,6 @@ impl App {
         edit: TerrainRemovalEdit,
     ) -> Result<()> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
-            log::info!(
-                "Flora regen compile success: center={:?}, radius={}, bound_min={:?}, bound_max={:?}",
-                edit.center,
-                edit.radius,
-                compiled.rebuild_bound.min(),
-                compiled.rebuild_bound.max()
-            );
             world_ops::mesh_regenerate_flora_for_sphere_edit(
                 &mut self.surface_builder,
                 super::VOXEL_DIM_PER_CHUNK,
