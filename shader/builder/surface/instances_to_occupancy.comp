@@ -11,18 +11,13 @@ layout(set = 0, binding = 0) readonly uniform U_InstancesToOccupancyInfo {
 }
 instances_to_occupancy_info;
 
-layout(set = 0, binding = 1) buffer B_OccupancyData { uint data[]; }
-occupancy_data;
+layout(set = 0, binding = 1, r8ui) uniform uimage3D occupancy_data;
 
 #include "../../include/flora_registry.glsl"
 #include "../../include/instance.glsl"
 
 layout(set = 1, binding = 0) readonly buffer B_ManualFloraInstances { Instance data[]; }
 manual_flora_instances[MAX_FLORA_SPECIES];
-
-uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
-    return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
-}
 
 bool in_chunk_world_bound(uvec3 world_pos) {
     uvec3 min_bound = instances_to_occupancy_info.chunk_world_offset;
@@ -42,11 +37,7 @@ void mark_stem_occupied(uint species_idx, uint idx, uint instance_len) {
     }
 
     uvec3 stem_local = stem_world - instances_to_occupancy_info.chunk_world_offset;
-    uint linear_idx  = flatten_stem_idx(stem_local, instances_to_occupancy_info.chunk_dim);
-    uint word_idx    = linear_idx >> 2u;
-    uint byte_shift  = (linear_idx & 3u) * 8u;
-    uint bit_mask    = 1u << byte_shift;
-    atomicOr(occupancy_data.data[word_idx], bit_mask);
+    imageStore(occupancy_data, ivec3(stem_local), uvec4(1u, 0u, 0u, 0u));
 }
 
 void main() {

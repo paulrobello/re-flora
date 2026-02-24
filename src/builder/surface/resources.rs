@@ -170,7 +170,7 @@ pub struct SurfaceResources {
     pub edit_occupancy_info: Resource<Buffer>,
     pub occupancy_to_instances_info: Resource<Buffer>,
     pub occupancy_to_instances_result: Resource<Buffer>,
-    pub occupancy_data: Resource<Buffer>,
+    pub occupancy_data: Resource<Texture>,
     pub instances: InstanceResources,
 }
 
@@ -200,6 +200,25 @@ impl SurfaceResources {
         };
         let sam_desc = Default::default();
         let surface = Texture::new(device.clone(), allocator.clone(), &surface_desc, &sam_desc);
+
+        let occupancy_desc = ImageDesc {
+            extent: Extent3D::new(
+                voxel_dim_per_chunk.x,
+                voxel_dim_per_chunk.y,
+                voxel_dim_per_chunk.z,
+            ),
+            format: vk::Format::R8_UINT,
+            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        let occupancy_data = Texture::new(
+            device.clone(),
+            allocator.clone(),
+            &occupancy_desc,
+            &sam_desc,
+        );
 
         let make_surface_info_layout = make_surface_sm
             .get_buffer_layout("U_MakeSurfaceInfo")
@@ -276,18 +295,6 @@ impl SurfaceResources {
             occupancy_to_instances_result_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
-        );
-
-        let occupancy_voxel_len = voxel_dim_per_chunk.x as u64
-            * voxel_dim_per_chunk.y as u64
-            * voxel_dim_per_chunk.z as u64;
-        let occupancy_word_len = occupancy_voxel_len.div_ceil(4);
-        let occupancy_data = Buffer::new_sized(
-            device.clone(),
-            allocator.clone(),
-            BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
-            gpu_allocator::MemoryLocation::GpuOnly,
-            occupancy_word_len * std::mem::size_of::<u32>() as u64,
         );
 
         let instances = InstanceResources::new(device.clone(), allocator.clone(), chunk_dim);

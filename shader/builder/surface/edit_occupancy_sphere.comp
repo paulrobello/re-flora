@@ -13,8 +13,7 @@ layout(set = 0, binding = 0) readonly uniform U_EditOccupancyInfo {
 }
 edit_occupancy_info;
 
-layout(set = 0, binding = 1) buffer B_OccupancyData { uint data[]; }
-occupancy_data;
+layout(set = 0, binding = 1, r8ui) uniform uimage3D occupancy_data;
 
 layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D surface;
 
@@ -23,22 +22,6 @@ layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D surface;
 
 const uint OCCUPANCY_MODE_REMOVE = 0u;
 const uint OCCUPANCY_MODE_ADD    = 1u;
-
-uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
-    return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
-}
-
-void set_occupancy(uint linear_idx, bool occupied) {
-    uint word_idx   = linear_idx >> 2u;
-    uint byte_shift = (linear_idx & 3u) * 8u;
-    uint bit_mask   = 1u << byte_shift;
-
-    if (occupied) {
-        atomicOr(occupancy_data.data[word_idx], bit_mask);
-    } else {
-        atomicAnd(occupancy_data.data[word_idx], ~bit_mask);
-    }
-}
 
 bool in_chunk_local_bound(ivec3 local_pos) {
     return all(greaterThanEqual(local_pos, ivec3(0))) &&
@@ -67,9 +50,8 @@ void main() {
         return;
     }
 
-    uint linear_idx = flatten_stem_idx(uvec3(stem_local), edit_occupancy_info.chunk_dim);
     if (edit_occupancy_info.mode == OCCUPANCY_MODE_REMOVE) {
-        set_occupancy(linear_idx, false);
+        imageStore(occupancy_data, stem_local, uvec4(0u, 0u, 0u, 0u));
         return;
     }
 
@@ -79,7 +61,7 @@ void main() {
             return;
         }
         if (is_surface_plantable(voxel_type_from_data(surface_data))) {
-            set_occupancy(linear_idx, true);
+            imageStore(occupancy_data, stem_local, uvec4(1u, 0u, 0u, 0u));
         }
     }
 }

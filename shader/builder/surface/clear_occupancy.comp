@@ -8,12 +8,7 @@ layout(set = 0, binding = 0) readonly uniform U_ClearOccupancyInfo {
 }
 clear_occupancy_info;
 
-layout(set = 0, binding = 1) buffer B_OccupancyData { uint data[]; }
-occupancy_data;
-
-uint flatten_stem_idx(uvec3 stem_local, uvec3 dim) {
-    return stem_local.x + stem_local.y * dim.x + stem_local.z * dim.x * dim.y;
-}
+layout(set = 0, binding = 1, r8ui) uniform uimage3D occupancy_data;
 
 void main() {
     uvec3 uvi = gl_GlobalInvocationID.xyz;
@@ -21,11 +16,5 @@ void main() {
         return;
     }
 
-    uint linear_idx = flatten_stem_idx(uvi, clear_occupancy_info.chunk_dim);
-    if ((linear_idx & 3u) != 0u) {
-        return;
-    }
-
-    uint word_idx             = linear_idx >> 2u;
-    occupancy_data.data[word_idx] = 0u;
+    imageStore(occupancy_data, ivec3(uvi), uvec4(0u, 0u, 0u, 0u));
 }
