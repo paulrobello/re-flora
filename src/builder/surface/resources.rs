@@ -285,7 +285,7 @@ impl SurfaceResources {
             device.clone(),
             allocator.clone(),
             BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
-            gpu_allocator::MemoryLocation::CpuToGpu,
+            gpu_allocator::MemoryLocation::GpuOnly,
             occupancy_len * std::mem::size_of::<u32>() as u64,
         );
 
