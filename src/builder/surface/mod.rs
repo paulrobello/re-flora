@@ -185,6 +185,12 @@ impl SurfaceBuilder {
             0,
             ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
         );
+        self.resources.occupancy_data.get_image().record_clear(
+            &cmdbuf,
+            Some(vk::ImageLayout::GENERAL),
+            0,
+            ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
+        );
 
         let extent = Extent3D {
             width: self.voxel_dim_per_chunk.x,
@@ -276,6 +282,11 @@ impl SurfaceBuilder {
         let device = self.vulkan_ctx.device();
         let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
         cmdbuf.begin(true);
+
+        self.resources
+            .occupancy_data
+            .get_image()
+            .record_transition_barrier(&cmdbuf, 0, vk::ImageLayout::GENERAL);
 
         self.clear_occupancy_ppl.record(
             &cmdbuf,
@@ -395,6 +406,11 @@ impl SurfaceBuilder {
         let device = self.vulkan_ctx.device();
         let cmdbuf = CommandBuffer::new(device, self.vulkan_ctx.command_pool());
         cmdbuf.begin(true);
+
+        self.resources
+            .occupancy_data
+            .get_image()
+            .record_transition_barrier(&cmdbuf, 0, vk::ImageLayout::GENERAL);
 
         self.clear_occupancy_ppl.record(
             &cmdbuf,
