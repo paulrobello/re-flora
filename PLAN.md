@@ -109,12 +109,16 @@ Phase 1 implementation checklist:
    - Regen after remove+add: restored instances keep per-instance decoded tick values.
    - Visual check: plant age/height progression still behaves correctly in render.
 
-Plase 2:
+Phase 2:
 
-Add a third tool, for grass-trimming, to the thrid place of the bottom toolbox,
-that functions as a trim tool for the flora.
+For the second tool, which adds flora to existing terrain, just set the tick to be the same as the init flora, so they are at the same height as the init flora
+
+Add a third tool for grass-trimming purpose, to the thrid place of the bottom toolbox,
+that functions as a trim tool for the flora. You may want to choose a proper image resource for the icon of it.
 
 This tool is used to trim affacted region to a flora age,
 which is effectivelly setting the tick stored in occupancy data to: current_tick - target_age
 
 So it can give a target_age to all affacted regions, the region, should be the same as the first and the second tool
+
+For now, just set the target_age to be half of the full mature age.
