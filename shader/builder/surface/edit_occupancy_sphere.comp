@@ -80,6 +80,7 @@ void main() {
         uint current_age = edit_occupancy_info.flora_tick - growth_start_tick;
         if (current_age > edit_occupancy_info.target_age) {
             uint new_growth_start_tick = edit_occupancy_info.flora_tick - edit_occupancy_info.target_age;
+        new_growth_start_tick = edit_occupancy_info.flora_tick < edit_occupancy_info.target_age ? 0u : new_growth_start_tick;
             imageStore(occupancy_data, stem_local, uvec4(new_growth_start_tick + 1u, 0u, 0u, 0u));
         }
     }
