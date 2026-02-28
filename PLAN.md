@@ -6,10 +6,9 @@ However, our flora instances have a term storing the plant tick in a u32, so in 
 
 There's a need for us to update the occupancy stages, so it support carring that information.
 
-Implementation plan:
+Phase 1:
 
 1. Upgrade occupancy texture format to u32
-
    - Change occupancy texture format from R8 to R32.
    - Update all occupancy image bindings from r8ui to r32ui.
    - Files to update:
@@ -22,53 +21,52 @@ Implementation plan:
    Sentinel: 0x00000000 means no flora.
 
 2. Encode growth tick in occupancy
-
-   - Store `growth_start_tick + 1` in occupancy.
-   - On read, treat 0 as empty, otherwise decode as `stored_value - 1`.
+    - Store `growth_start_tick + 1` in occupancy.
+    - On read, treat 0 as empty, otherwise decode as `stored_value - 1`.
+    - Wrap behavior is acceptable: if `growth_start_tick` is `u32::MAX`, the stored value will be 0 and treated as empty. We are not handling this edge case in phase 1.
 
 3. Update compute passes to read and write ticks
 
    a. clear_occupancy
-
-      - No behavior change, still writes 0.
+   - No behavior change, still writes 0.
 
    b. instances_to_occupancy
+   - Replace the write value 1 with `instance.growth_start_tick + 1`.
 
-      - Replace the write value 1 with `instance.growth_start_tick + 1`.
+    c. edit_occupancy_sphere (add and remove)
+    - Removal: always write 0.
+    - Addition: only write if current occupancy is 0, then write `flora_tick + 1`.
+    - Addition must preserve existing non-zero occupancy values (read-before-write guard).
+    - Add `flora_tick` into `U_EditOccupancyInfo` and update CPU-side builder in
+      `src/builder/surface/mod.rs`.
 
-   c. edit_occupancy_sphere (add and remove)
-
-      - Removal: always write 0.
-      - Addition: only write if current occupancy is 0, then write `flora_tick + 1`.
-      - Add `flora_tick` into `U_EditOccupancyInfo` and update CPU-side builder in
-        `src/builder/surface/mod.rs`.
-
-   d. occupancy_to_flora_instances
-
-      - Replace `instance.growth_start_tick = flora_tick` with decoded occupancy value.
-      - Read `occupancy_value = imageLoad(occupancy_data).r`.
-      - Skip if `occupancy_value == 0`.
-      - Set `instance.growth_start_tick = occupancy_value - 1`.
-      - Remove `flora_tick` from `U_OccupancyToInstancesInfo` if no longer needed,
-        and update CPU-side buffer layout accordingly.
+    d. occupancy_to_flora_instances
+    - Replace `instance.growth_start_tick = flora_tick` with decoded occupancy value.
+   - Read `occupancy_value = imageLoad(occupancy_data).r`.
+   - Skip if `occupancy_value == 0`.
+   - Set `instance.growth_start_tick = occupancy_value - 1`.
+    - Remove `flora_tick` from `U_OccupancyToInstancesInfo` and update CPU-side
+      buffer layout accordingly.
 
 4. Wire tick in regen paths
-
-   - When regenerating, ensure the edit pass gets the current tick.
-   - If `flora_tick` is removed from `U_OccupancyToInstancesInfo`, update
-     `update_occupancy_to_instances_info` to only write chunk offset and dimension.
+    - When regenerating, ensure the edit pass gets the current tick.
+    - Update `update_occupancy_to_instances_info` to only write chunk offset and dimension
+      after `flora_tick` removal.
 
 5. Validate behavior
+    - Confirm that add preserves existing occupancy values.
+    - Confirm that remove clears to 0.
+    - Confirm that regrowth preserves prior `growth_start_tick` values.
+    - Confirm vertex shaders still compute age correctly using instance `growth_start_tick`.
+    - Spot-check a regen edit: read back instances and verify `growth_start_tick` matches
+      decoded occupancy (`stored_value - 1`) for a few points.
 
-   - Confirm that add preserves existing occupancy values.
-   - Confirm that remove clears to 0.
-   - Confirm that regrowth preserves prior `growth_start_tick` values.
-   - Confirm vertex shaders still compute age correctly using instance `growth_start_tick`.
+Plase 2:
 
-DO IT LATER:
+Add a third tool, for grass-trimming, to the thrid place of the bottom toolbox,
+that functions as a trim tool for the flora.
 
-Add a third tool to the bottom toolbox, that functions as a trim tool for the flora.
+This tool is used to trim affacted region to a flora age,
+which is effectivelly setting the tick stored in occupancy data to: current_tick - target_age
 
-This tool is used to trim affacted region to a flora age, which is effectivelly setting the tick stored in occupancy data to: current_tick - target_age
-
-This gives a target_age to all affacted regions
+So it can give a target_age to all affacted regions, the region, should be the same as the first and the second tool
