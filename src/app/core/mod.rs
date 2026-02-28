@@ -45,9 +45,10 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui_style::{
     apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
-    GOLD_ACCENT, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
-    ITEM_PANEL_SLOT_COUNT, ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH,
-    PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
+    GOLD_ACCENT, ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
+    ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH, ITEM_PANEL_SLOT_COUNT,
+    ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH, PANEL_BG, PANEL_DARK,
+    SAGE_ACCENT, SHADOW_COLOR,
 };
 use uuid::Uuid;
 use winit::{
@@ -94,10 +95,12 @@ pub struct App {
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
     item_panel_staff_icon: Option<TextureHandle>,
+    item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
+    last_hoe_trim_time: Option<Instant>,
     terrain_edit_loop_sound: Option<Uuid>,
     terrain_edit_loop_sound_muted: bool,
 
@@ -356,10 +359,12 @@ impl App {
             is_fly_mode: false,
             item_panel_shovel_icon: None,
             item_panel_staff_icon: None,
+            item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
             last_staff_regen_time: None,
+            last_hoe_trim_time: None,
             terrain_edit_loop_sound: None,
             terrain_edit_loop_sound_muted: true,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
@@ -489,6 +494,33 @@ impl App {
             egui::TextureOptions::NEAREST,
         );
         self.item_panel_staff_icon = Some(staff_texture);
+
+        let hoe_path = if std::path::Path::new(ITEM_PANEL_HOE_ICON_PATH).exists() {
+            ITEM_PANEL_HOE_ICON_PATH
+        } else {
+            log::warn!(
+                "Item panel icon not found at {}. Falling back to {}",
+                ITEM_PANEL_HOE_ICON_PATH,
+                ITEM_PANEL_HOE_ICON_FALLBACK_PATH
+            );
+            ITEM_PANEL_HOE_ICON_FALLBACK_PATH
+        };
+
+        let hoe_bytes = std::fs::read(hoe_path)
+            .with_context(|| format!("Failed to read item panel icon from {hoe_path}"))?;
+        let hoe_rgba = image::load_from_memory(&hoe_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {hoe_path}"))?
+            .to_rgba8();
+        let hoe_size = [hoe_rgba.width() as usize, hoe_rgba.height() as usize];
+        let hoe_pixels = hoe_rgba.into_raw();
+        let hoe_image = ColorImage::from_rgba_unmultiplied(hoe_size, &hoe_pixels);
+
+        let hoe_texture = self.egui_renderer.context().load_texture(
+            "item_panel_wooden_hoe",
+            hoe_image,
+            egui::TextureOptions::NEAREST,
+        );
+        self.item_panel_hoe_icon = Some(hoe_texture);
         Ok(())
     }
 
@@ -607,6 +639,8 @@ impl App {
                                 self.try_shovel_dig(now);
                             } else if self.is_staff_selected() {
                                 self.try_staff_regenerate(now);
+                            } else if self.is_hoe_selected() {
+                                self.try_hoe_trim(now);
                             }
                         }
                         ElementState::Released => {
@@ -638,6 +672,8 @@ impl App {
                         self.try_shovel_dig(now);
                     } else if self.is_staff_selected() {
                         self.try_staff_regenerate(now);
+                    } else if self.is_hoe_selected() {
+                        self.try_hoe_trim(now);
                     } else {
                         self.stop_terrain_edit_loop_sound();
                     }
@@ -668,6 +704,7 @@ impl App {
                 let mut tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
+                let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
@@ -1805,6 +1842,7 @@ impl App {
                             ctx,
                             item_panel_shovel_icon.as_ref(),
                             item_panel_staff_icon.as_ref(),
+                            item_panel_hoe_icon.as_ref(),
                             selected_item_panel_slot,
                         );
 

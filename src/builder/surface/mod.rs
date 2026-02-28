@@ -19,6 +19,7 @@ pub use resources::*;
 enum OccupancyEditMode {
     Remove = 0,
     Add = 1,
+    Trim = 2,
 }
 
 pub struct FloraRegenStats {
@@ -223,6 +224,7 @@ impl SurfaceBuilder {
             edit_center,
             edit_radius,
             flora_tick,
+            0,
             OccupancyEditMode::Remove,
         )?;
         Ok(())
@@ -240,7 +242,26 @@ impl SurfaceBuilder {
             edit_center,
             edit_radius,
             flora_tick,
+            0,
             OccupancyEditMode::Add,
+        )
+    }
+
+    pub fn trim_flora_instances(
+        &mut self,
+        chunk_id: UVec3,
+        edit_center: Vec3,
+        edit_radius: f32,
+        flora_tick: u32,
+        target_age: u32,
+    ) -> Result<FloraRegenStats> {
+        self.run_occupancy_edit(
+            chunk_id,
+            edit_center,
+            edit_radius,
+            flora_tick,
+            target_age,
+            OccupancyEditMode::Trim,
         )
     }
 
@@ -265,6 +286,7 @@ impl SurfaceBuilder {
             self.voxel_dim_per_chunk,
             OccupancyEditMode::Add,
             flora_tick,
+            0,
         )?;
         update_occupancy_to_instances_info(
             &self.resources.occupancy_to_instances_info,
@@ -343,7 +365,8 @@ impl SurfaceBuilder {
         chunk_id: UVec3,
         edit_center: Vec3,
         edit_radius: f32,
-        _flora_tick: u32,
+        flora_tick: u32,
+        target_age: u32,
         mode: OccupancyEditMode,
     ) -> Result<FloraRegenStats> {
         if !self.chunk_bound.in_bound(chunk_id) {
@@ -388,7 +411,8 @@ impl SurfaceBuilder {
             chunk_world_offset,
             self.voxel_dim_per_chunk,
             mode,
-            _flora_tick,
+            flora_tick,
+            target_age,
         )?;
         update_occupancy_to_instances_info(
             &self.resources.occupancy_to_instances_info,
@@ -610,6 +634,7 @@ fn update_edit_occupancy_info(
     chunk_dim: UVec3,
     mode: OccupancyEditMode,
     flora_tick: u32,
+    target_age: u32,
 ) -> Result<()> {
     let data = StructMemberDataBuilder::from_buffer(edit_occupancy_info)
         .set_field(
@@ -631,6 +656,7 @@ fn update_edit_occupancy_info(
         )
         .set_field("mode", PlainMemberTypeWithData::UInt(mode as u32))
         .set_field("flora_tick", PlainMemberTypeWithData::UInt(flora_tick))
+        .set_field("target_age", PlainMemberTypeWithData::UInt(target_age))
         .build()?;
     edit_occupancy_info.fill_with_raw_u8(&data)?;
     Ok(())

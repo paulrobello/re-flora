@@ -11,6 +11,7 @@ layout(set = 0, binding = 0) readonly uniform U_EditOccupancyInfo {
     uvec3 chunk_dim;
     uint mode;
     uint flora_tick;
+    uint target_age;
 }
 edit_occupancy_info;
 
@@ -23,6 +24,7 @@ layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D surface;
 
 const uint OCCUPANCY_MODE_REMOVE = 0u;
 const uint OCCUPANCY_MODE_ADD    = 1u;
+const uint OCCUPANCY_MODE_TRIM   = 2u;
 
 bool in_chunk_local_bound(ivec3 local_pos) {
     return all(greaterThanEqual(local_pos, ivec3(0))) &&
@@ -66,6 +68,19 @@ void main() {
             if (current_occupancy == 0u) {
                 imageStore(occupancy_data, stem_local, uvec4(edit_occupancy_info.flora_tick + 1u, 0u, 0u, 0u));
             }
+        }
+    }
+
+    if (edit_occupancy_info.mode == OCCUPANCY_MODE_TRIM) {
+        uint current_occupancy = imageLoad(occupancy_data, stem_local).r;
+        if (current_occupancy == 0u) {
+            return;
+        }
+        uint growth_start_tick = current_occupancy - 1u;
+        uint current_age = edit_occupancy_info.flora_tick - growth_start_tick;
+        if (current_age > edit_occupancy_info.target_age) {
+            uint new_growth_start_tick = edit_occupancy_info.flora_tick - edit_occupancy_info.target_age;
+            imageStore(occupancy_data, stem_local, uvec4(new_growth_start_tick + 1u, 0u, 0u, 0u));
         }
     }
 }

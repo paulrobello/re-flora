@@ -688,12 +688,36 @@ impl App {
                 world_ops::FloraSphereEdit {
                     center: edit.center,
                     radius: edit.radius,
-                    tick: self.flora_tick,
+                    tick: self.flora_tick.wrapping_sub(super::FLORA_FULL_GROWTH_TICKS),
                 },
             )?;
         } else {
             log::info!(
                 "Flora regen compile skipped: center={:?}, radius={}",
+                edit.center,
+                edit.radius
+            );
+        }
+        Ok(())
+    }
+
+    pub(super) fn apply_flora_trim(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
+        if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
+            let target_age = super::FLORA_FULL_GROWTH_TICKS / 2;
+            world_ops::mesh_trim_flora_for_sphere_edit(
+                &mut self.surface_builder,
+                super::VOXEL_DIM_PER_CHUNK,
+                compiled.rebuild_bound,
+                world_ops::FloraSphereEdit {
+                    center: edit.center,
+                    radius: edit.radius,
+                    tick: self.flora_tick,
+                },
+                target_age,
+            )?;
+        } else {
+            log::info!(
+                "Flora trim compile skipped: center={:?}, radius={}",
                 edit.center,
                 edit.radius
             );

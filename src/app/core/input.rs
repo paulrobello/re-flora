@@ -1,4 +1,4 @@
-use super::ui_style::{SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
+use super::ui_style::{HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -24,6 +24,10 @@ impl App {
 
     pub(super) fn is_staff_selected(&self) -> bool {
         self.selected_item_panel_slot == STAFF_SLOT_INDEX
+    }
+
+    pub(super) fn is_hoe_selected(&self) -> bool {
+        self.selected_item_panel_slot == HOE_SLOT_INDEX
     }
 
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
@@ -187,6 +191,41 @@ impl App {
                     "Staff regeneration attempt failed during terrain query: {}",
                     err
                 );
+            }
+        }
+    }
+
+    pub(super) fn try_hoe_trim(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_hoe_selected() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
+            Ok(Some(center)) => {
+                self.start_terrain_edit_loop_sound(center);
+
+                if let Some(last_trim) = self.last_hoe_trim_time {
+                    if now.duration_since(last_trim) < super::SHOVEL_DIG_INTERVAL {
+                        return;
+                    }
+                }
+
+                if let Err(err) = self.apply_flora_trim(TerrainRemovalEdit {
+                    center,
+                    radius: super::SHOVEL_REMOVE_RADIUS,
+                }) {
+                    log::error!("Failed to apply flora trim: {}", err);
+                    return;
+                }
+                self.last_hoe_trim_time = Some(now);
+            }
+            Ok(None) => {
+                self.stop_terrain_edit_loop_sound();
+                self.last_hoe_trim_time = Some(now);
+            }
+            Err(err) => {
+                log::error!("Hoe trim attempt failed during terrain query: {}", err);
             }
         }
     }

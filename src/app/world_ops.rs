@@ -247,6 +247,37 @@ pub(crate) fn mesh_regenerate_flora_for_sphere_edit(
     Ok(())
 }
 
+pub(crate) fn mesh_trim_flora_for_sphere_edit(
+    surface_builder: &mut SurfaceBuilder,
+    voxel_dim_per_chunk: UVec3,
+    bound: UAabb3,
+    flora_edit: FloraSphereEdit,
+    target_age: u32,
+) -> Result<()> {
+    let affected_chunk_indices =
+        get_affected_chunk_indices(bound.min(), bound.max(), voxel_dim_per_chunk);
+
+    for chunk_id in affected_chunk_indices {
+        let now = Instant::now();
+        let res = surface_builder.build_surface(chunk_id, false);
+        if let Err(e) = res {
+            log::error!("Failed to build surface for chunk {}: {}", chunk_id, e);
+            continue;
+        }
+        BENCH.lock().unwrap().record("build_surface", now.elapsed());
+
+        let _regen_stats = surface_builder.trim_flora_instances(
+            chunk_id,
+            flora_edit.center,
+            flora_edit.radius,
+            flora_edit.tick,
+            target_age,
+        )?;
+    }
+
+    Ok(())
+}
+
 fn get_affected_chunk_indices(
     min_bound: UVec3,
     max_bound: UVec3,
