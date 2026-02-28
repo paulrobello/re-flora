@@ -54,12 +54,60 @@ Phase 1:
       after `flora_tick` removal.
 
 5. Validate behavior
-    - Confirm that add preserves existing occupancy values.
-    - Confirm that remove clears to 0.
-    - Confirm that regrowth preserves prior `growth_start_tick` values.
-    - Confirm vertex shaders still compute age correctly using instance `growth_start_tick`.
-    - Spot-check a regen edit: read back instances and verify `growth_start_tick` matches
-      decoded occupancy (`stored_value - 1`) for a few points.
+     - Confirm that add preserves existing occupancy values.
+     - Confirm that remove clears to 0.
+     - Confirm that regrowth preserves prior `growth_start_tick` values.
+     - Confirm vertex shaders still compute age correctly using instance `growth_start_tick`.
+     - Spot-check a regen edit: read back instances and verify `growth_start_tick` matches
+       decoded occupancy (`stored_value - 1`) for a few points.
+
+Phase 1 implementation checklist:
+
+1. `src/builder/surface/resources.rs`
+   - Change `occupancy_desc.format` from `vk::Format::R8_UINT` to `vk::Format::R32_UINT`.
+
+2. `shader/builder/surface/clear_occupancy.comp`
+   - Change occupancy image binding format from `r8ui` to `r32ui`.
+   - Keep clearing value as `uvec4(0u, 0u, 0u, 0u)`.
+
+3. `shader/builder/surface/instances_to_occupancy.comp`
+   - Change occupancy image binding format from `r8ui` to `r32ui`.
+   - Replace occupancy write `1u` with `instance.growth_start_tick + 1u`.
+
+4. `shader/builder/surface/edit_occupancy_sphere.comp`
+   - Change occupancy image binding format from `r8ui` to `r32ui`.
+   - Add `uint flora_tick;` to `U_EditOccupancyInfo`.
+   - For remove mode: always store `0u`.
+   - For add mode:
+     - Read current occupancy at `stem_local`.
+     - Only write when current occupancy is `0u`.
+     - Write `flora_tick + 1u`.
+
+5. `src/builder/surface/mod.rs`
+   - Update `update_edit_occupancy_info(...)` signature to accept `flora_tick: u32`.
+   - Write `flora_tick` into `U_EditOccupancyInfo`.
+   - Pass `flora_tick` to `update_edit_occupancy_info(...)` from:
+     - `seed_and_rebuild_flora_from_surface(...)`
+     - `run_occupancy_edit(...)`
+   - In `run_occupancy_edit(...)`, stop ignoring `_flora_tick`; use it as `flora_tick`.
+
+6. `shader/builder/surface/occupancy_to_flora_instances.comp`
+   - Remove `uint flora_tick;` from `U_OccupancyToInstancesInfo`.
+   - Change occupancy image binding format from `r8ui` to `r32ui`.
+   - Read `occupancy_value = imageLoad(occupancy_data, stem_local).r`.
+   - Skip when `occupancy_value == 0u`.
+   - Set `instance.growth_start_tick = occupancy_value - 1u`.
+
+7. `src/builder/surface/mod.rs` (occupancy to instances info path)
+   - Update `update_occupancy_to_instances_info(...)` to remove `flora_tick` parameter.
+   - Stop setting `flora_tick` field in the CPU-side struct writer.
+   - Update all call sites to pass only chunk offset and chunk dimension.
+
+8. Runtime checks after implementation
+   - Remove in sphere: edited region occupancy becomes 0, non-edited region unchanged.
+   - Add in sphere: pre-existing non-zero occupancy is preserved.
+   - Regen after remove+add: restored instances keep per-instance decoded tick values.
+   - Visual check: plant age/height progression still behaves correctly in render.
 
 Plase 2:
 
