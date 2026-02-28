@@ -264,12 +264,12 @@ impl SurfaceBuilder {
             chunk_world_offset,
             self.voxel_dim_per_chunk,
             OccupancyEditMode::Add,
+            flora_tick,
         )?;
         update_occupancy_to_instances_info(
             &self.resources.occupancy_to_instances_info,
             chunk_world_offset,
             self.voxel_dim_per_chunk,
-            flora_tick,
         )?;
         cleanup_occupancy_to_instances_result(&self.resources.occupancy_to_instances_result)?;
 
@@ -388,12 +388,12 @@ impl SurfaceBuilder {
             chunk_world_offset,
             self.voxel_dim_per_chunk,
             mode,
+            _flora_tick,
         )?;
         update_occupancy_to_instances_info(
             &self.resources.occupancy_to_instances_info,
             chunk_world_offset,
             self.voxel_dim_per_chunk,
-            0,
         )?;
         cleanup_occupancy_to_instances_result(&self.resources.occupancy_to_instances_result)?;
 
@@ -609,6 +609,7 @@ fn update_edit_occupancy_info(
     chunk_world_offset: UVec3,
     chunk_dim: UVec3,
     mode: OccupancyEditMode,
+    flora_tick: u32,
 ) -> Result<()> {
     let data = StructMemberDataBuilder::from_buffer(edit_occupancy_info)
         .set_field(
@@ -629,6 +630,7 @@ fn update_edit_occupancy_info(
             PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
         )
         .set_field("mode", PlainMemberTypeWithData::UInt(mode as u32))
+        .set_field("flora_tick", PlainMemberTypeWithData::UInt(flora_tick))
         .build()?;
     edit_occupancy_info.fill_with_raw_u8(&data)?;
     Ok(())
@@ -638,7 +640,6 @@ fn update_occupancy_to_instances_info(
     occupancy_to_instances_info: &Buffer,
     chunk_world_offset: UVec3,
     chunk_dim: UVec3,
-    flora_tick: u32,
 ) -> Result<()> {
     let data = StructMemberDataBuilder::from_buffer(occupancy_to_instances_info)
         .set_field(
@@ -649,7 +650,6 @@ fn update_occupancy_to_instances_info(
             "chunk_dim",
             PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
         )
-        .set_field("flora_tick", PlainMemberTypeWithData::UInt(flora_tick))
         .build()?;
     occupancy_to_instances_info.fill_with_raw_u8(&data)?;
     Ok(())

@@ -10,10 +10,11 @@ layout(set = 0, binding = 0) readonly uniform U_EditOccupancyInfo {
     uvec3 chunk_world_offset;
     uvec3 chunk_dim;
     uint mode;
+    uint flora_tick;
 }
 edit_occupancy_info;
 
-layout(set = 0, binding = 1, r8ui) uniform uimage3D occupancy_data;
+layout(set = 0, binding = 1, r32ui) uniform uimage3D occupancy_data;
 
 layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D surface;
 
@@ -61,7 +62,10 @@ void main() {
             return;
         }
         if (is_surface_plantable(voxel_type_from_data(surface_data))) {
-            imageStore(occupancy_data, stem_local, uvec4(1u, 0u, 0u, 0u));
+            uint current_occupancy = imageLoad(occupancy_data, stem_local).r;
+            if (current_occupancy == 0u) {
+                imageStore(occupancy_data, stem_local, uvec4(edit_occupancy_info.flora_tick + 1u, 0u, 0u, 0u));
+            }
         }
     }
 }

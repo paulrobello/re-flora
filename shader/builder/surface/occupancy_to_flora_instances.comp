@@ -11,7 +11,6 @@ layout(local_size_x = GROUP_SIZE, local_size_y = GROUP_SIZE, local_size_z = GROU
 layout(set = 0, binding = 0) readonly uniform U_OccupancyToInstancesInfo {
     uvec3 chunk_world_offset;
     uvec3 chunk_dim;
-    uint flora_tick;
 }
 occupancy_to_instances_info;
 
@@ -20,7 +19,7 @@ layout(set = 0, binding = 1) buffer B_OccupancyToInstancesResult {
 }
 occupancy_to_instances_result;
 
-layout(set = 0, binding = 2, r8ui) readonly uniform uimage3D occupancy_data;
+layout(set = 0, binding = 2, r32ui) readonly uniform uimage3D occupancy_data;
 
 layout(set = 0, binding = 3, r32ui) readonly uniform uimage3D surface;
 
@@ -50,13 +49,13 @@ float hash(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
-void add_flora_instance(ivec3 stem_world_pos, ivec3 base_world_pos, uint species_idx) {
+void add_flora_instance(ivec3 stem_world_pos, ivec3 base_world_pos, uint species_idx, uint growth_start_tick) {
     uint write_idx = atomicAdd(occupancy_to_instances_result.flora_instance_len[species_idx], 1u);
     Instance instance;
     set_instance_pos(instance, uvec3(stem_world_pos));
     uint seed                                           = murmur_hash_13(uvec3(base_world_pos));
     instance.ty_seed                                    = pack_instance_ty_seed(species_idx, seed);
-    instance.growth_start_tick                          = occupancy_to_instances_info.flora_tick;
+    instance.growth_start_tick                          = growth_start_tick;
     manual_flora_instances[species_idx].data[write_idx] = instance;
 }
 
@@ -139,9 +138,11 @@ void main() {
     }
 
     uvec3 stem_local_u = uvec3(stem_local);
-    if (imageLoad(occupancy_data, ivec3(stem_local_u)).r == 0u) {
+    uint occupancy_value = imageLoad(occupancy_data, ivec3(stem_local_u)).r;
+    if (occupancy_value == 0u) {
         return;
     }
+    uint growth_start_tick = occupancy_value - 1u;
 
     ivec3 base_local  = stem_local + ivec3(0, -1, 0);
     uint surface_data = imageLoad(surface, base_local).r;
@@ -169,12 +170,12 @@ void main() {
     }
 
     if (!allow_any_flora && allow_grass) {
-        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_GRASS);
+        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_GRASS, growth_start_tick);
         return;
     }
 
     uint flora_type;
     if (select_flora_biome(world_base_pos, flora_type)) {
-        add_flora_instance(world_stem_pos, world_base_pos, flora_type);
+        add_flora_instance(world_stem_pos, world_base_pos, flora_type, growth_start_tick);
     }
 }

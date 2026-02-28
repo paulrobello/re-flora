@@ -207,7 +207,7 @@ impl SurfaceResources {
                 voxel_dim_per_chunk.y,
                 voxel_dim_per_chunk.z,
             ),
-            format: vk::Format::R8_UINT,
+            format: vk::Format::R32_UINT,
             usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
