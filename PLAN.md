@@ -111,14 +111,53 @@ Phase 1 implementation checklist:
 
 Phase 2:
 
-For the second tool, which adds flora to existing terrain, just set the tick to be the same as the init flora, so they are at the same height as the init flora
+Definition:
 
-Add a third tool for grass-trimming purpose, to the thrid place of the bottom toolbox,
-that functions as a trim tool for the flora. You may want to choose a proper image resource for the icon of it.
+- `growth_start_tick` means the world tick when this instance started growing.
+  Age in ticks is `current_flora_tick - growth_start_tick`.
 
-This tool is used to trim affacted region to a flora age,
-which is effectivelly setting the tick stored in occupancy data to: current_tick - target_age
+Phase 2 implementation plan:
 
-So it can give a target_age to all affacted regions, the region, should be the same as the first and the second tool
+1. Tool 2: add flora to existing terrain (same height as init flora)
+   - Behavior: when adding new flora, set `growth_start_tick` so its age matches init flora.
+   - Source of truth: `FLORA_FULL_GROWTH_TICKS` in `src/app/core/mod.rs`.
+   - Use `growth_start_tick = current_flora_tick - FLORA_FULL_GROWTH_TICKS`.
+     - Use wrapping subtract (matches existing tick behavior) unless explicitly clamped.
+   - This ensures the new flora renders at full growth like init flora.
 
-For now, just set the target_age to be half of the full mature age.
+2. Tool 3: grass trimming tool (new toolbox slot)
+   - Add a third tool icon in the bottom toolbox, slot index 2.
+   - Icon asset: `assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/11_Wooden_Hoe.PNG`.
+   - Selection and input handling should mirror shovel/staff patterns.
+
+3. Shared radius
+   - The trimming tool uses the same radius and region shape as tool 1 and tool 2.
+
+4. Trimming behavior (occupancy updates)
+   - Goal: trim only older flora, never increase height.
+   - For each affected cell:
+     - Read `occupancy_value` (0 means empty).
+     - Skip if empty.
+     - Decode `growth_start_tick = occupancy_value - 1`.
+     - Compute `current_age = current_flora_tick - growth_start_tick` (wrapping ok).
+     - Only trim if `current_age > target_age`.
+     - If trim applies, set new `growth_start_tick = current_flora_tick - target_age`.
+     - Underflow behavior: clamp `current_flora_tick - target_age` to 0 (saturating subtract).
+     - Store back as `new_growth_start_tick + 1`.
+
+5. Target age
+   - `target_age = FLORA_FULL_GROWTH_TICKS / 2`.
+   - With current constant this is `15` ticks.
+
+6. Shader + CPU wiring
+   - Extend edit/occupancy compute path to support a trim mode:
+     - Add mode enum/flag for trim.
+     - Add `current_flora_tick` and `target_age` to the edit info buffer.
+   - Use the same occupancy edit shader and branching, or create a dedicated trim shader if cleaner.
+
+7. Validation checks
+   - Trim does not add flora to empty cells.
+   - Trim does not affect younger flora (age <= target_age).
+   - Trim clamps underflow correctly.
+   - Radius matches tools 1 and 2.
+   - Icon appears in slot 3 and selection works.
