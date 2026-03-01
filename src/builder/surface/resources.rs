@@ -174,6 +174,7 @@ pub struct SurfaceResources {
     pub instances: InstanceResources,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl SurfaceResources {
     pub fn new(
         device: Device,

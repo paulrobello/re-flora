@@ -236,7 +236,7 @@ pub(crate) fn mesh_regenerate_flora_for_sphere_edit(
         }
         BENCH.lock().unwrap().record("build_surface", now.elapsed());
 
-        let regen_stats = surface_builder.regenerate_flora_instances(
+        let _regen_stats = surface_builder.regenerate_flora_instances(
             chunk_id,
             flora_edit.center,
             flora_edit.radius,

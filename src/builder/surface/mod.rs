@@ -22,6 +22,7 @@ enum OccupancyEditMode {
     Trim = 2,
 }
 
+#[allow(dead_code)]
 pub struct FloraRegenStats {
     pub appended_total: u32,
     pub before_total: u32,
@@ -385,12 +386,16 @@ impl SurfaceBuilder {
 
         let mut species_len = [0_u32; 3];
         let mut max_len = 0_u32;
-        for species_idx in 0..self.flora_species_count.min(3) {
+        for (species_idx, species) in species_len
+            .iter_mut()
+            .enumerate()
+            .take(self.flora_species_count.min(3))
+        {
             let len = self.resources.instances.chunk_flora_instances[chunk_idx]
                 .1
                 .get(species_idx)
                 .instances_len;
-            species_len[species_idx] = len;
+            *species = len;
             max_len = max_len.max(len);
         }
 
@@ -626,6 +631,7 @@ fn update_instances_to_occupancy_info(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_edit_occupancy_info(
     edit_occupancy_info: &Buffer,
     edit_center_vox: Vec3,
