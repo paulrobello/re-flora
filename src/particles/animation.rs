@@ -69,6 +69,8 @@ pub const BIRD_SPRITESHEET_REL_PATH: &str = "assets/texture/Bird/Spritesheet/Bir
 
 pub const BUTTERFLY_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
 pub const BUTTERFLY_FRAMES_PER_VARIANT: u32 = 5;
+pub const BUTTERFLY_VIEW_COUNT: u32 = 5;
+pub const BUTTERFLY_VIEW_BUCKET_HALF_WIDTH: f32 = 22.5_f32.to_radians();
 
 pub const BIRD_ANIM_FRAME_DURATION_SEC: f32 = 0.2;
 pub const BIRD_IDLE_FRAME_COUNT: u32 = 2;
