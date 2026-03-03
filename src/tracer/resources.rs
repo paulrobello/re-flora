@@ -701,50 +701,51 @@ impl TracerResources {
             })
             .collect::<Vec<_>>();
         atlas_paths.sort();
-        if atlas_paths.is_empty() {
-            log::warn!(
-                "No butterfly atlases found in '{}'; using fallback texture",
-                dir_path
-            );
-        }
+
+        assert!(
+            !atlas_paths.is_empty(),
+            "Butterfly atlas not found in '{}'",
+            dir_path
+        );
+        assert!(
+            atlas_paths.len() == 1,
+            "Expected exactly one butterfly atlas in '{}', found {}",
+            dir_path,
+            atlas_paths.len()
+        );
+
+        let butterfly_atlas_path = &atlas_paths[0];
+        let atlas_path_str = butterfly_atlas_path.to_string_lossy().to_string();
+        let atlas = image::open(butterfly_atlas_path).expect(&format!(
+            "Failed to open butterfly atlas '{}'",
+            atlas_path_str
+        ));
+        let rgba = atlas.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        let expected_size = frame_dim * 5;
+        assert!(
+            width == expected_size && height == expected_size,
+            "Butterfly atlas must be {}x{}, got {}x{}",
+            expected_size,
+            expected_size,
+            width,
+            height
+        );
 
         let mut butterfly_layers = Vec::new();
-        for atlas_path in atlas_paths {
-            let atlas_path_str = atlas_path.to_string_lossy().to_string();
-            let image = match image::open(&atlas_path) {
-                Ok(image) => image,
-                Err(e) => {
-                    log::warn!(
-                        "Failed to open butterfly atlas '{}': {}; skipping",
-                        atlas_path_str,
-                        e
-                    );
-                    continue;
-                }
-            };
-            let rgba = image.to_rgba8();
+        for row in 0..5 {
             if let Some(frames) = Self::extract_row_sequence_layers(
                 &rgba,
-                0,
+                row,
                 BUTTERFLY_FRAMES_PER_VARIANT,
                 &atlas_path_str,
             ) {
                 butterfly_layers.extend(frames);
             } else {
-                log::warn!(
-                    "Butterfly atlas '{}' is too small; using resized fallback",
-                    atlas_path_str
+                panic!(
+                    "Failed to extract butterfly frames from row {} of '{}'",
+                    row, atlas_path_str
                 );
-                let fallback_frame = Self::resize_to_particle_frame(&rgba);
-                for _ in 0..BUTTERFLY_FRAMES_PER_VARIANT {
-                    butterfly_layers.push(fallback_frame.clone());
-                }
-            }
-        }
-
-        if butterfly_layers.is_empty() {
-            for _ in 0..BUTTERFLY_FRAMES_PER_VARIANT {
-                butterfly_layers.push(white_layer.clone());
             }
         }
         let bird_path = get_project_root() + "/" + BIRD_SPRITESHEET_REL_PATH;
