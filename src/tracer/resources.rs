@@ -716,10 +716,8 @@ impl TracerResources {
 
         let butterfly_atlas_path = &atlas_paths[0];
         let atlas_path_str = butterfly_atlas_path.to_string_lossy().to_string();
-        let atlas = image::open(butterfly_atlas_path).expect(&format!(
-            "Failed to open butterfly atlas '{}'",
-            atlas_path_str
-        ));
+        let atlas = image::open(butterfly_atlas_path)
+            .unwrap_or_else(|_| panic!("Failed to open butterfly atlas '{}'", atlas_path_str));
         let rgba = atlas.to_rgba8();
         let (width, height) = rgba.dimensions();
         let expected_size = frame_dim * 5;
@@ -901,17 +899,6 @@ impl TracerResources {
             frames.push(Self::to_particle_frame_bytes(frame));
         }
         Some(frames)
-    }
-
-    fn resize_to_particle_frame(image: &image::RgbaImage) -> Vec<u8> {
-        let frame_dim = PARTICLE_SPRITE_FRAME_DIM;
-        let frame = image::imageops::resize(
-            image,
-            frame_dim,
-            frame_dim,
-            image::imageops::FilterType::Nearest,
-        );
-        Self::to_particle_frame_bytes(frame)
     }
 
     fn to_particle_frame_bytes(mut frame: image::RgbaImage) -> Vec<u8> {
