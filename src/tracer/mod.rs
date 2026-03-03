@@ -36,7 +36,8 @@ use crate::geom::UAabb3;
 use crate::particles::{
     animated_sequence_layer, animated_variant_layer, bird_animation_sequence, BirdSpriteSequence,
     ParticleSnapshot, BIRD_TOTAL_FRAME_COUNT, BUTTERFLY_ANIM_FRAME_DURATION_SEC,
-    BUTTERFLY_FRAMES_PER_VARIANT, PARTICLE_CAPACITY,
+    BUTTERFLY_FRAMES_PER_VARIANT, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, BUTTERFLY_VIEW_COUNT,
+    PARTICLE_CAPACITY,
 };
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
@@ -1606,18 +1607,20 @@ impl Tracer {
             .array_len
             .saturating_sub(LEAF_LAYER_COUNT + bird_layer_count)
             .max(1);
-        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT.min(butterfly_total_layer_count);
-        let butterfly_variant_count = (butterfly_total_layer_count / butterfly_frame_count).max(1);
+        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT;
+        let butterfly_view_count = BUTTERFLY_VIEW_COUNT;
         let bird_base_layer = LEAF_LAYER_COUNT + butterfly_total_layer_count;
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
                 .normalize_or_zero();
+        let camera_pos_xz = Vec2::new(self.camera.position().x, self.camera.position().z);
         const SPRITE_FLIP_BIT: u32 = 1 << 31;
-        const MIN_FLIP_SPEED_SQ: f32 = 0.01 * 0.01;
+        const MIN_SPEED_SQ: f32 = 0.01 * 0.01;
+        const MIN_DIR_SQ: f32 = 0.0001; // for to_cam direction
 
         let is_moving_right_relative_to_player = |velocity: Vec3| -> bool {
             let velocity_xz = Vec2::new(velocity.x, velocity.z);
-            if velocity_xz.length_squared() <= MIN_FLIP_SPEED_SQ {
+            if velocity_xz.length_squared() <= MIN_SPEED_SQ {
                 return false;
             }
             if camera_right_xz.length_squared() <= f32::EPSILON {
@@ -1638,14 +1641,52 @@ impl Tracer {
         self.particle_instance_scratch.clear();
         self.particle_instance_scratch.reserve(count);
         for snap in snapshots.iter().take(capacity) {
-            let butterfly_tex_index = animated_variant_layer(
-                LEAF_LAYER_COUNT,
-                snap.texture_variant,
-                butterfly_variant_count,
-                butterfly_frame_count,
-                BUTTERFLY_ANIM_FRAME_DURATION_SEC,
-                time_since_start_sec,
-            );
+            let butterfly_tex_index = {
+                let vel_xz = Vec2::new(snap.velocity.x, snap.velocity.z);
+                let butterfly_pos_xz = Vec2::new(snap.position_ws.x, snap.position_ws.z);
+                let to_cam_xz = camera_pos_xz - butterfly_pos_xz;
+
+                let vel_dir_xz = if vel_xz.length_squared() > MIN_SPEED_SQ {
+                    vel_xz.normalize()
+                } else {
+                    Vec2::ZERO
+                };
+
+                let to_cam_dir_xz = if to_cam_xz.length_squared() > MIN_DIR_SQ {
+                    to_cam_xz.normalize()
+                } else {
+                    Vec2::ZERO
+                };
+
+                let view_index = if vel_dir_xz == Vec2::ZERO || to_cam_dir_xz == Vec2::ZERO {
+                    2 // side view default
+                } else {
+                    let dot = (-vel_dir_xz).dot(to_cam_dir_xz).clamp(-1.0, 1.0);
+                    let angle = dot.acos();
+
+                    let half_width = BUTTERFLY_VIEW_BUCKET_HALF_WIDTH;
+                    if angle < half_width {
+                        0 // front
+                    } else if angle < half_width * 3.0 {
+                        1 // front-side
+                    } else if angle < half_width * 5.0 {
+                        2 // side
+                    } else if angle < half_width * 7.0 {
+                        3 // back-side
+                    } else {
+                        4 // back
+                    }
+                };
+
+                animated_variant_layer(
+                    LEAF_LAYER_COUNT,
+                    view_index,
+                    butterfly_view_count,
+                    butterfly_frame_count,
+                    BUTTERFLY_ANIM_FRAME_DURATION_SEC,
+                    time_since_start_sec,
+                )
+            };
             let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
             let bird_tex_index = animated_sequence_layer(
                 bird_base_layer,
