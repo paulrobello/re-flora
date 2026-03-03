@@ -465,7 +465,7 @@ impl ButterflyEmitter {
             motion_mode: MotionMode::Free,
             sink_on_lifetime: false,
             sink_speed: 0.0,
-            texture_variant: self.rng.random_range(0..self.texture_variant_count),
+            texture_variant: 0, // single grayscale atlas - view selected at render time
             render_kind: self.render_kind,
         };
 
