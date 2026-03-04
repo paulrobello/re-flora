@@ -707,14 +707,24 @@ impl TracerResources {
             "Butterfly atlas not found in '{}'",
             dir_path
         );
-        assert!(
-            atlas_paths.len() == 1,
-            "Expected exactly one butterfly atlas in '{}', found {}",
-            dir_path,
-            atlas_paths.len()
-        );
 
-        let butterfly_atlas_path = &atlas_paths[0];
+        let butterfly_atlas_path = atlas_paths
+            .iter()
+            .find(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.eq_ignore_ascii_case("butterfly.png"))
+            })
+            .unwrap_or(&atlas_paths[0]);
+
+        if atlas_paths.len() > 1 {
+            log::warn!(
+                "Found multiple butterfly atlases in '{}', using '{}'",
+                dir_path,
+                butterfly_atlas_path.display()
+            );
+        }
+
         let atlas_path_str = butterfly_atlas_path.to_string_lossy().to_string();
         let atlas = image::open(butterfly_atlas_path)
             .unwrap_or_else(|_| panic!("Failed to open butterfly atlas '{}'", atlas_path_str));
