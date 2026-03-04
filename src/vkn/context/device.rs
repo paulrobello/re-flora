@@ -347,7 +347,7 @@ fn create_device(
 }
 
 fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
-    let mut requirements = vec![
+    let requirements = vec![
         DeviceExtensionRequirement {
             name: vk::KHR_SWAPCHAIN_NAME,
             reason: "Required to present rendered images to the window surface",
@@ -361,18 +361,16 @@ fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
             reason:
                 "Needed for `VK_KHR_acceleration_structure` companion functionality (shader builds)",
         },
-        // DeviceExtensionRequirement {
-        //     name: vk::KHR_SHADER_CLOCK_NAME,
-        //     reason: "Used for time queries and GPU profiling in compute shaders",
-        // },
     ];
 
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
+        let mut requirements = requirements;
         requirements.push(DeviceExtensionRequirement {
             name: ash::khr::portability_subset::NAME,
             reason: "macOS/iOS MoltenVK portability requirements",
         });
+        return requirements;
     }
 
     requirements
