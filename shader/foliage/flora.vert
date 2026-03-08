@@ -189,8 +189,7 @@ void main() {
         vec3 grass_bottom_color_linear;
         vec3 grass_tip_color_linear;
         sample_grass_band_gradient(vec2(float(in_instance_pos.x), float(in_instance_pos.z)),
-                                   instance_seed, grass_bottom_color_linear,
-                                   grass_tip_color_linear);
+                                   grass_bottom_color_linear, grass_tip_color_linear);
         base_color_linear = mix(grass_bottom_color_linear, grass_tip_color_linear, color_gradient);
     } else {
         uint palette_seed        = combine_color_seed(instance_seed);

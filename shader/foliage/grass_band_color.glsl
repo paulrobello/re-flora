@@ -2,8 +2,6 @@
 #define GRASS_BAND_COLOR_GLSL
 
 #include "../include/core/color.glsl"
-#include "../include/core/hash.glsl"
-
 const int GRASS_BAND_NOISE_SEED         = 9041;
 const float GRASS_BAND_NOISE_FREQUENCY  = 0.008f;
 const int GRASS_BAND_NOISE_OCTAVES      = 3;
@@ -41,17 +39,18 @@ uint sample_grass_band_index(float noise_01) {
     return uint(min(scaled, float(GRASS_BAND_COUNT - 1u)));
 }
 
-uint sample_grass_variant_index(uint instance_seed) {
-    uint variant_seed = wellons_hash(instance_seed ^ 0x9E3779B9u);
-    float scaled      = floor(construct_float_01(variant_seed) * float(GRASS_VARIANT_COUNT));
+uint sample_grass_variant_index(float noise_01, uint band_idx) {
+    float band_pos = noise_01 * float(GRASS_BAND_COUNT);
+    float local_band_pos = clamp(band_pos - float(band_idx), 0.0f, 0.9999f);
+    float scaled = floor(local_band_pos * float(GRASS_VARIANT_COUNT));
     return uint(min(scaled, float(GRASS_VARIANT_COUNT - 1u)));
 }
 
-void sample_grass_band_gradient(vec2 world_xz, uint instance_seed, out vec3 bottom_color_linear,
+void sample_grass_band_gradient(vec2 world_xz, out vec3 bottom_color_linear,
                                 out vec3 tip_color_linear) {
     float noise_01    = sample_grass_band_noise(world_xz);
     uint band_idx     = sample_grass_band_index(noise_01);
-    uint variant_idx  = sample_grass_variant_index(instance_seed);
+    uint variant_idx  = sample_grass_variant_index(noise_01, band_idx);
     uint palette_idx  = band_idx * GRASS_VARIANT_COUNT + variant_idx;
     bottom_color_linear = srgb_to_linear(GRASS_BOTTOM_LUT[palette_idx]);
     tip_color_linear    = srgb_to_linear(GRASS_TIP_LUT[palette_idx]);
