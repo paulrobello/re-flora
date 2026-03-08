@@ -147,7 +147,7 @@ impl LeavesResources {
 #[repr(C)]
 #[derive(Clone, Copy, Pod, Zeroable)]
 pub struct ParticleInstanceGpu {
-    pub position: [u32; 3],
+    pub position: [f32; 3],
     pub size: f32,
     pub color: [f32; 4],
     pub tex_index: u32,

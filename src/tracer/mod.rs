@@ -1731,7 +1731,7 @@ impl Tracer {
                 texture_layout.total_layer_count()
             );
             self.particle_instance_scratch.push(ParticleInstanceGpu {
-                position: snap.position.to_array(),
+                position: snap.position_ws.to_array(),
                 size: snap.size,
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
