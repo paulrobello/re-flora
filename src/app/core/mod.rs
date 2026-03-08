@@ -1437,6 +1437,8 @@ impl App {
                                             self.particle_forces.speed_noise.max_speed;
                                         let mut perlin_freq =
                                             self.particle_forces.speed_noise.frequency;
+                                        let mut leaf_planar_speed_multiplier =
+                                            self.particle_forces.leaf_planar_speed_multiplier;
                                         let mut perlin_changed = ui
                                             .add(
                                                 egui::Slider::new(
@@ -1464,6 +1466,15 @@ impl App {
                                                 .text("Perlin Speed Frequency"),
                                             )
                                             .changed();
+                                        perlin_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut leaf_planar_speed_multiplier,
+                                                    0.0..=3.0,
+                                                )
+                                                .text("Leaf Planar Speed Mult"),
+                                            )
+                                            .changed();
                                         if perlin_changed {
                                             if perlin_min_speed > perlin_max_speed {
                                                 std::mem::swap(
@@ -1477,6 +1488,8 @@ impl App {
                                                 perlin_max_speed;
                                             self.particle_forces.speed_noise.frequency =
                                                 perlin_freq;
+                                            self.particle_forces.leaf_planar_speed_multiplier =
+                                                leaf_planar_speed_multiplier.max(0.0);
                                         }
 
                                         ui.add(

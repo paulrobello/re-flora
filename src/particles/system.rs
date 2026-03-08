@@ -9,7 +9,7 @@ use super::{
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
-pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.1;
+pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.15;
 
 #[derive(Clone, Copy, Debug)]
 pub struct ParticleTickStep {
@@ -113,7 +113,7 @@ impl Default for SpeedNoise {
     fn default() -> Self {
         Self {
             min_speed: -0.05,
-            max_speed: 0.18,
+            max_speed: 0.14,
             frequency: 0.5,
         }
     }
@@ -125,6 +125,8 @@ pub struct ParticleForces {
     pub linear_damping: f32,
     /// Perlin-driven speed profile (used for falling leaves).
     pub speed_noise: SpeedNoise,
+    /// Multiplier for planar velocity on falling particles.
+    pub leaf_planar_speed_multiplier: f32,
 }
 
 impl Default for ParticleForces {
@@ -132,6 +134,7 @@ impl Default for ParticleForces {
         Self {
             linear_damping: 0.0,
             speed_noise: SpeedNoise::default(),
+            leaf_planar_speed_multiplier: 0.23,
         }
     }
 }
@@ -489,6 +492,7 @@ impl ParticleSystem {
                 match mode {
                     MotionMode::Falling => {
                         let gravity_scale = self.gravity_factors[slot];
+                        let planar_speed_multiplier = forces.leaf_planar_speed_multiplier.max(0.0);
                         // Clamp and order the speed range
                         let (min_speed, max_speed) =
                             if forces.speed_noise.min_speed <= forces.speed_noise.max_speed {
@@ -507,6 +511,8 @@ impl ParticleSystem {
                         // Keep horizontal motion damped; vertical comes purely from noise.
                         vel.x *= damping;
                         vel.z *= damping;
+                        vel.x *= planar_speed_multiplier;
+                        vel.z *= planar_speed_multiplier;
                         vel.y = -target_speed;
                     }
                     MotionMode::Free => {
