@@ -11,6 +11,14 @@ pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
 pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.1;
 
+#[derive(Clone, Copy, Debug)]
+pub struct ParticleTickStep {
+    pub did_step: bool,
+    pub active_bucket: u32,
+    pub step_seconds: f32,
+    pub bucket_count: u32,
+}
+
 /// Handle that uniquely identifies a live particle.
 /// Internally, it keeps track of the slot index and a generation counter.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -178,6 +186,7 @@ pub struct ParticleSystem {
     update_bucket_phase: u32,
     update_bucket_elapsed: f32,
     update_full_cycle_seconds: f32,
+    last_tick_step: ParticleTickStep,
     speed_noise: FastNoiseLite,
 }
 
@@ -225,6 +234,12 @@ impl ParticleSystem {
             update_bucket_phase: 0,
             update_bucket_elapsed: 0.0,
             update_full_cycle_seconds: PARTICLE_FULL_UPDATE_SECONDS_DEFAULT,
+            last_tick_step: ParticleTickStep {
+                did_step: false,
+                active_bucket: 0,
+                step_seconds: PARTICLE_FULL_UPDATE_SECONDS_DEFAULT,
+                bucket_count: PARTICLE_UPDATE_BUCKET_COUNT as u32,
+            },
             speed_noise,
         }
     }
@@ -391,6 +406,14 @@ impl ParticleSystem {
     /// Supports both falling particles and free-flight motion with the same drift model.
     pub fn update(&mut self, dt: f32, forces: ParticleForces) {
         if dt <= 0.0 || self.alive_indices.is_empty() {
+            let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
+            let step_seconds = self.bucket_step_seconds(bucket_count);
+            self.last_tick_step = ParticleTickStep {
+                did_step: false,
+                active_bucket: self.update_bucket_phase % bucket_count.max(1),
+                step_seconds,
+                bucket_count,
+            };
             return;
         }
 
@@ -407,6 +430,16 @@ impl ParticleSystem {
                 should_step_bucket = true;
             }
         }
+        self.last_tick_step = ParticleTickStep {
+            did_step: if bucket_count > 1 {
+                should_step_bucket
+            } else {
+                true
+            },
+            active_bucket,
+            step_seconds: bucket_step_seconds,
+            bucket_count,
+        };
 
         let base_damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
         let clamped_freq = forces.speed_noise.frequency.max(0.0001);
@@ -647,5 +680,14 @@ impl ParticleSystem {
     #[allow(dead_code)]
     pub fn is_alive_handle(&self, handle: ParticleHandle) -> bool {
         self.validate_handle(handle).is_some()
+    }
+
+    pub fn last_tick_step(&self) -> ParticleTickStep {
+        self.last_tick_step
+    }
+
+    pub fn handle_bucket(&self, handle: ParticleHandle) -> Option<u32> {
+        self.validate_handle(handle)
+            .map(|idx| self.update_buckets[idx])
     }
 }
