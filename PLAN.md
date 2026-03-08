@@ -38,18 +38,27 @@ replace noisy hash based grass color variation with stable world space color pat
 
 # particle update rules
 
-currently the particles are being updated in every single frame for its positions.
+## objective
 
-to fit in the low framerate style we are currently in, we are using a clamping technique in its shaders to clamp their position in world space.
+reduce per-frame particle simulation cost while preserving the current low-framerate visual style.
 
-i would like to request for a completely different approach:
+## approach
 
-for each frame, we only update the position for a certain part of total particles.
+- assign each particle a stable update bucket `update_bucket` in range `0..N-1` at spawn time.
+- on frame `f`, only update particles where `update_bucket == (f % N)`.
+- non-updated particles keep their previous transform for that frame.
+- to preserve average motion over time, updated particles integrate using scaled timestep (`dt * N`).
 
-let's say, only 1/N of the total particles, where you use some bucket to assign a update index for each particle upon their creation
+## implementation notes
 
-the bucket size is N, so the update index is a int ranged from 0 to N-1
+- bucket assignment should be decorrelated (stable random/hash from particle id + spawn seed) to avoid visible striping.
+- run this scheduling on CPU if particle simulation is CPU-owned; do not send `update_bucket` to GPU unless needed by existing GPU-side systems.
+- remove shader world-space clamping once CPU-side bounds/respawn rules are in place.
 
-i believe this refactor can totally be done in cpu side, the update idx won't need to pass to GPU.
+## safety and validation
 
-and, just remove the clamping from shader.
+- define explicit bounds + respawn policy after clamping removal.
+- verify no instability (teleporting, tunneling, NaNs) under large `N`.
+- measure:
+  - CPU update time reduction vs baseline
+  - visual artifact threshold per `N` at target camera distances
