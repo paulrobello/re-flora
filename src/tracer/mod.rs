@@ -5,6 +5,9 @@ pub use resources::*;
 mod butterfly_palette;
 pub use butterfly_palette::*;
 
+mod palette_remap;
+pub use palette_remap::*;
+
 mod denoiser_resources;
 pub use denoiser_resources::*;
 

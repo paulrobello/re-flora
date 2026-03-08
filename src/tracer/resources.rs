@@ -7,7 +7,7 @@ use crate::{
     },
     resource::Resource,
     tracer::{
-        leaves_construct::generate_indexed_voxel_leaves, load_butterfly_rgba_with_palette_config,
+        leaves_construct::generate_indexed_voxel_leaves, load_butterfly_and_remap,
         ButterflyPaletteConfig, DenoiserResources, ExtentDependentResources, Vertex,
     },
     util::get_project_root,
@@ -727,7 +727,7 @@ impl TracerResources {
 
         let atlas_path_str = butterfly_atlas_path.to_string_lossy().to_string();
         let config = ButterflyPaletteConfig::default_current();
-        let rgba = load_butterfly_rgba_with_palette_config(butterfly_atlas_path, &config);
+        let rgba = load_butterfly_and_remap(butterfly_atlas_path, &config);
         let (width, height) = rgba.dimensions();
         let expected_size = frame_dim * 5;
         assert!(
