@@ -4,7 +4,7 @@ use glam::{UVec3, Vec3, Vec4};
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
-pub const PARTICLE_UPDATE_STEP_SECONDS: f32 = 1.0;
+pub const PARTICLE_UPDATE_STEP_SECONDS: f32 = 0.1;
 // Keep in sync with shader/particles/particle.vert scaling_factor (1.0 / 256.0).
 const PARTICLE_POSITION_SCALE: f32 = 256.0;
 
