@@ -31,6 +31,10 @@ fn parse_color(hex: &str) -> Color32 {
     Color32::from_rgba_unmultiplied(r, g, b, a)
 }
 
+fn color_to_hex(color: Color32) -> String {
+    format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b())
+}
+
 fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
     let mut params: std::collections::HashMap<String, Box<dyn std::any::Any>> =
         std::collections::HashMap::new();
@@ -435,5 +439,197 @@ impl Default for GuiAdjustables {
     fn default() -> Self {
         let config = GuiConfigLoader::load();
         load_from_config(&config)
+    }
+}
+
+impl GuiAdjustables {
+    pub fn save_to_config(&self) -> std::io::Result<()> {
+        let mut config = GuiConfigLoader::load();
+
+        for section in &mut config.section {
+            for param in &mut section.param {
+                let value_updated = match param.kind {
+                    GuiParamKind::Float => {
+                        if let Some(field) = Self::get_float_param(self, &param.id) {
+                            param.value.set_float(field.value);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    GuiParamKind::Int => {
+                        if let Some(field) = Self::get_int_param(self, &param.id) {
+                            param.value.set_int(field.value);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    GuiParamKind::Uint => {
+                        if let Some(field) = Self::get_uint_param(self, &param.id) {
+                            param.value.set_uint(field.value);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    GuiParamKind::Bool => {
+                        if let Some(field) = Self::get_bool_param(self, &param.id) {
+                            param.value.set_bool(field.value);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    GuiParamKind::Color => {
+                        if let Some(field) = Self::get_color_param(self, &param.id) {
+                            param.value.set_color(color_to_hex(field.value));
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                };
+                if !value_updated {
+                    log::warn!(
+                        "Failed to update config value for param '{}' in section '{}'",
+                        param.id,
+                        section.name
+                    );
+                }
+            }
+        }
+
+        GuiConfigLoader::save(&config)
+    }
+
+    #[allow(dead_code)]
+    fn get_float_param<'a>(
+        adjustables: &'a GuiAdjustables,
+        id: &str,
+    ) -> Option<&'a crate::gui_adjustables::FloatParam> {
+        match id {
+            "debug_float" => Some(&adjustables.debug_float),
+            "lod_distance" => Some(&adjustables.lod_distance),
+            "sun_altitude" => Some(&adjustables.sun_altitude),
+            "sun_azimuth" => Some(&adjustables.sun_azimuth),
+            "sun_size" => Some(&adjustables.sun_size),
+            "sun_luminance" => Some(&adjustables.sun_luminance),
+            "time_of_day" => Some(&adjustables.time_of_day),
+            "latitude" => Some(&adjustables.latitude),
+            "season" => Some(&adjustables.season),
+            "day_cycle_minutes" => Some(&adjustables.day_cycle_minutes),
+            "starlight_formuparam" => Some(&adjustables.starlight_formuparam),
+            "starlight_stepsize" => Some(&adjustables.starlight_stepsize),
+            "starlight_zoom" => Some(&adjustables.starlight_zoom),
+            "starlight_tile" => Some(&adjustables.starlight_tile),
+            "starlight_speed" => Some(&adjustables.starlight_speed),
+            "starlight_brightness" => Some(&adjustables.starlight_brightness),
+            "starlight_darkmatter" => Some(&adjustables.starlight_darkmatter),
+            "starlight_distfading" => Some(&adjustables.starlight_distfading),
+            "starlight_saturation" => Some(&adjustables.starlight_saturation),
+            "temporal_position_phi" => Some(&adjustables.temporal_position_phi),
+            "temporal_alpha" => Some(&adjustables.temporal_alpha),
+            "god_ray_max_depth" => Some(&adjustables.god_ray_max_depth),
+            "god_ray_weight" => Some(&adjustables.god_ray_weight),
+            "phi_c" => Some(&adjustables.phi_c),
+            "phi_n" => Some(&adjustables.phi_n),
+            "phi_p" => Some(&adjustables.phi_p),
+            "min_phi_z" => Some(&adjustables.min_phi_z),
+            "max_phi_z" => Some(&adjustables.max_phi_z),
+            "phi_z_stable_sample_count" => Some(&adjustables.phi_z_stable_sample_count),
+            "flora_instance_hue_offset" => Some(&adjustables.flora_instance_hue_offset),
+            "flora_instance_saturation_offset" => {
+                Some(&adjustables.flora_instance_saturation_offset)
+            }
+            "flora_instance_value_offset" => Some(&adjustables.flora_instance_value_offset),
+            "flora_voxel_hue_offset" => Some(&adjustables.flora_voxel_hue_offset),
+            "flora_voxel_saturation_offset" => Some(&adjustables.flora_voxel_saturation_offset),
+            "flora_voxel_value_offset" => Some(&adjustables.flora_voxel_value_offset),
+            "leaves_inner_density" => Some(&adjustables.leaves_inner_density),
+            "leaves_outer_density" => Some(&adjustables.leaves_outer_density),
+            "leaves_inner_radius" => Some(&adjustables.leaves_inner_radius),
+            "leaves_outer_radius" => Some(&adjustables.leaves_outer_radius),
+            "particle_full_update_seconds" => Some(&adjustables.particle_full_update_seconds),
+            "butterflies_per_chunk" => Some(&adjustables.butterflies_per_chunk),
+            "butterfly_wander_radius" => Some(&adjustables.butterfly_wander_radius),
+            "butterfly_height_offset_min" => Some(&adjustables.butterfly_height_offset_min),
+            "butterfly_height_offset_max" => Some(&adjustables.butterfly_height_offset_max),
+            "butterfly_size" => Some(&adjustables.butterfly_size),
+            "butterfly_drift_strength_min" => Some(&adjustables.butterfly_drift_strength_min),
+            "butterfly_drift_strength_max" => Some(&adjustables.butterfly_drift_strength_max),
+            "butterfly_drift_frequency_min" => Some(&adjustables.butterfly_drift_frequency_min),
+            "butterfly_drift_frequency_max" => Some(&adjustables.butterfly_drift_frequency_max),
+            "butterfly_steering_strength" => Some(&adjustables.butterfly_steering_strength),
+            "butterfly_bob_frequency_hz" => Some(&adjustables.butterfly_bob_frequency_hz),
+            "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
+            "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn get_int_param<'a>(
+        adjustables: &'a GuiAdjustables,
+        id: &str,
+    ) -> Option<&'a crate::gui_adjustables::IntParam> {
+        match id {
+            "starlight_iterations" => Some(&adjustables.starlight_iterations),
+            "starlight_volsteps" => Some(&adjustables.starlight_volsteps),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn get_uint_param<'a>(
+        adjustables: &'a GuiAdjustables,
+        id: &str,
+    ) -> Option<&'a crate::gui_adjustables::UintParam> {
+        match id {
+            "debug_uint" => Some(&adjustables.debug_uint),
+            "god_ray_max_checks" => Some(&adjustables.god_ray_max_checks),
+            "a_trous_iteration_count" => Some(&adjustables.a_trous_iteration_count),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn get_bool_param<'a>(
+        adjustables: &'a GuiAdjustables,
+        id: &str,
+    ) -> Option<&'a crate::gui_adjustables::BoolParam> {
+        match id {
+            "debug_bool" => Some(&adjustables.debug_bool),
+            "auto_daynight_cycle" => Some(&adjustables.auto_daynight_cycle),
+            "is_changing_lum_phi" => Some(&adjustables.is_changing_lum_phi),
+            "is_spatial_denoising_enabled" => Some(&adjustables.is_spatial_denoising_enabled),
+            "butterflies_enabled" => Some(&adjustables.butterflies_enabled),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn get_color_param<'a>(
+        adjustables: &'a GuiAdjustables,
+        id: &str,
+    ) -> Option<&'a crate::gui_adjustables::ColorParam> {
+        match id {
+            "sun_color" => Some(&adjustables.sun_color),
+            "ambient_light" => Some(&adjustables.ambient_light),
+            "grass_bottom_dark_color" => Some(&adjustables.grass_bottom_dark_color),
+            "grass_bottom_light_color" => Some(&adjustables.grass_bottom_light_color),
+            "grass_tip_dark_color" => Some(&adjustables.grass_tip_dark_color),
+            "grass_tip_light_color" => Some(&adjustables.grass_tip_light_color),
+            "ember_bloom_bottom_color" => Some(&adjustables.ember_bloom_bottom_color),
+            "ember_bloom_tip_color" => Some(&adjustables.ember_bloom_tip_color),
+            "leaves_bottom_color" => Some(&adjustables.leaves_bottom_color),
+            "leaves_tip_color" => Some(&adjustables.leaves_tip_color),
+            "butterfly_wing_color_low" => Some(&adjustables.butterfly_wing_color_low),
+            "butterfly_wing_color_high" => Some(&adjustables.butterfly_wing_color_high),
+            "voxel_dirt_color" => Some(&adjustables.voxel_dirt_color),
+            "voxel_cherry_wood_color" => Some(&adjustables.voxel_cherry_wood_color),
+            "voxel_oak_wood_color" => Some(&adjustables.voxel_oak_wood_color),
+            _ => None,
+        }
     }
 }
