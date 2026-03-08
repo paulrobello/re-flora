@@ -454,8 +454,7 @@ impl ButterflyEmitter {
         let max_height_offset = *self.height_offset.end();
         let vertical_span = (max_height_offset - min_height_offset).max(0.01);
 
-        let handle_phase = pos.x * 0.317 + pos.z * 1.913;
-        let noise_time = time * self.bob_frequency_hz.max(0.05) + handle_phase;
+        let noise_time = time * self.bob_frequency_hz.max(0.05);
         let noise = self
             .vertical_noise
             .get_noise_2d(noise_time, 0.0)
