@@ -4,14 +4,14 @@
 #include "../include/core/color.glsl"
 
 const int GRASS_BAND_NOISE_SEED         = 9041;
-const float GRASS_BAND_NOISE_FREQUENCY  = 0.0018f;
+const float GRASS_BAND_NOISE_FREQUENCY  = 0.008f;
 const int GRASS_BAND_NOISE_OCTAVES      = 3;
 const float GRASS_BAND_NOISE_LACUNARITY = 2.0f;
 const float GRASS_BAND_NOISE_GAIN       = 0.5f;
 const uint GRASS_BAND_COUNT             = 3u;
 
 const vec3 GRASS_BAND_LUT[GRASS_BAND_COUNT] =
-    vec3[](vec3(0.184, 0.345, 0.102), vec3(0.286, 0.490, 0.141), vec3(0.455, 0.655, 0.224));
+    vec3[](vec3(0.286, 0.490, 0.141), vec3(0.420, 0.647, 0.227), vec3(0.620, 0.808, 0.384));
 
 float sample_grass_band_noise(vec2 world_xz) {
     fnl_state state    = fnlCreateState(GRASS_BAND_NOISE_SEED);

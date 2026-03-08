@@ -181,7 +181,8 @@ void main() {
 
     vec3 base_color_linear;
     if (is_grass) {
-        base_color_linear = sample_grass_band_color(instance_pos.xz);
+        base_color_linear =
+            sample_grass_band_color(vec2(float(in_instance_pos.x), float(in_instance_pos.z)));
     } else {
         uint palette_seed        = combine_color_seed(instance_seed);
         vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
