@@ -4,7 +4,7 @@ use glam::{Vec3, Vec4};
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
-pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.4;
+pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.1;
 
 /// Handle that uniquely identifies a live particle.
 /// Internally, it keeps track of the slot index and a generation counter.
