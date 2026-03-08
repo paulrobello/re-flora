@@ -1615,6 +1615,7 @@ impl Tracer {
             .max(1);
         let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT;
         let butterfly_view_count = BUTTERFLY_VIEW_COUNT;
+        let butterfly_layers_per_preset = butterfly_view_count * butterfly_frame_count;
         let bird_base_layer = LEAF_LAYER_COUNT + butterfly_total_layer_count;
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
@@ -1684,14 +1685,17 @@ impl Tracer {
                     }
                 };
 
-                animated_variant_layer(
-                    LEAF_LAYER_COUNT,
-                    view_index,
-                    butterfly_view_count,
-                    butterfly_frame_count,
-                    BUTTERFLY_ANIM_FRAME_DURATION_SEC,
-                    time_since_start_sec,
-                )
+                let palette_preset = ButterflyPalettePreset::from_index(snap.texture_variant);
+                let palette_offset = (palette_preset as u32) * butterfly_layers_per_preset;
+                palette_offset
+                    + animated_variant_layer(
+                        0,
+                        view_index,
+                        butterfly_view_count,
+                        butterfly_frame_count,
+                        BUTTERFLY_ANIM_FRAME_DURATION_SEC,
+                        time_since_start_sec,
+                    )
             };
             let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
             let bird_tex_index = animated_sequence_layer(
