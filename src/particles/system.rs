@@ -3,6 +3,7 @@ use glam::{UVec3, Vec3, Vec4};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
+pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
 // Keep in sync with shader/particles/particle.vert scaling_factor (1.0 / 256.0).
 const PARTICLE_POSITION_SCALE: f32 = 256.0;
 
@@ -167,6 +168,8 @@ pub struct ParticleSystem {
     speed_noise_offsets: Vec<f32>,
     texture_variants: Vec<u32>,
     render_kinds: Vec<ParticleRenderKind>,
+    update_buckets: Vec<u32>,
+    update_bucket_phase: u32,
     speed_noise: FastNoiseLite,
 }
 
@@ -208,6 +211,8 @@ impl ParticleSystem {
             speed_noise_offsets: vec![0.0; max_particles],
             texture_variants: vec![0; max_particles],
             render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
+            update_buckets: vec![0; max_particles],
+            update_bucket_phase: 0,
             speed_noise,
         }
     }
@@ -274,6 +279,7 @@ impl ParticleSystem {
         self.speed_noise_offsets[slot] = spawn.speed_noise_offset;
         self.texture_variants[slot] = spawn.texture_variant;
         self.render_kinds[slot] = spawn.render_kind;
+        self.update_buckets[slot] = self.assign_update_bucket(slot, spawn.speed_noise_offset);
 
         Some(ParticleHandle {
             index: slot as u32,
@@ -317,12 +323,31 @@ impl ParticleSystem {
         self.retire_slot(slot);
     }
 
+    fn assign_update_bucket(&self, slot: usize, spawn_seed: f32) -> u32 {
+        if PARTICLE_UPDATE_BUCKET_COUNT <= 1 {
+            return 0;
+        }
+
+        let seed = (slot as u32)
+            .wrapping_mul(0x9E37_79B9)
+            .wrapping_add(self.generations[slot].wrapping_mul(0x85EB_CA6B))
+            .wrapping_add(spawn_seed.to_bits().wrapping_mul(0xC2B2_AE35));
+
+        (seed ^ (seed >> 16)).wrapping_mul(0x7FEB_352D) % (PARTICLE_UPDATE_BUCKET_COUNT as u32)
+    }
+
     /// Advances the simulation by `dt` seconds and applies forces/damping.
     /// Supports both falling particles and free-flight motion with the same drift model.
     pub fn update(&mut self, dt: f32, forces: ParticleForces) {
         if dt <= 0.0 || self.alive_indices.is_empty() {
             return;
         }
+
+        let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
+        let active_bucket = self.update_bucket_phase % bucket_count;
+        self.update_bucket_phase = (self.update_bucket_phase + 1) % bucket_count;
+        let sim_dt = dt * bucket_count as f32;
+
         let damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
         let clamped_freq = forces.speed_noise.frequency.max(0.0001);
         self.speed_noise.set_frequency(Some(clamped_freq));
@@ -330,6 +355,10 @@ impl ParticleSystem {
         let mut alive_cursor = 0;
         while alive_cursor < self.alive_indices.len() {
             let slot = self.alive_indices[alive_cursor];
+            if self.update_buckets[slot] != active_bucket {
+                alive_cursor += 1;
+                continue;
+            }
 
             let vel = &mut self.velocities[slot];
             let mode = self.motion_modes[slot];
@@ -345,7 +374,7 @@ impl ParticleSystem {
             let turbulence = Vec3::new(drift_offset_x, drift_offset_y, drift_offset_z);
             let drift_force =
                 (self.drift_directions[slot] + turbulence * 0.5) * self.drift_strengths[slot];
-            *vel += drift_force * dt;
+            *vel += drift_force * sim_dt;
 
             if is_sinking {
                 vel.x *= damping * 0.96;
@@ -386,8 +415,8 @@ impl ParticleSystem {
                 }
             }
 
-            self.positions[slot] += *vel * dt;
-            self.ages[slot] += dt;
+            self.positions[slot] += *vel * sim_dt;
+            self.ages[slot] += sim_dt;
 
             if !self.is_sinking[slot]
                 && self.sink_on_lifetime[slot]
