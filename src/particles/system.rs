@@ -367,7 +367,7 @@ impl ParticleSystem {
         while alive_cursor < self.alive_indices.len() {
             let slot = self.alive_indices[alive_cursor];
             let mode = self.motion_modes[slot];
-            let is_bucketed = mode == MotionMode::Falling && bucket_count > 1;
+            let is_bucketed = bucket_count > 1;
             if is_bucketed && (!should_step_bucket || self.update_buckets[slot] != active_bucket) {
                 alive_cursor += 1;
                 continue;
