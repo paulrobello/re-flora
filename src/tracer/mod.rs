@@ -6,7 +6,9 @@ mod butterfly_palette;
 pub use butterfly_palette::*;
 
 mod palette_remap;
-pub use palette_remap::*;
+
+mod particle_texture_layout;
+pub use particle_texture_layout::*;
 
 mod denoiser_resources;
 pub use denoiser_resources::*;
