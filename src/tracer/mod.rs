@@ -1687,7 +1687,8 @@ impl Tracer {
 
                 let palette_preset = ButterflyPalettePreset::from_index(snap.texture_variant);
                 let palette_offset = (palette_preset as u32) * butterfly_layers_per_preset;
-                palette_offset
+                LEAF_LAYER_COUNT
+                    + palette_offset
                     + animated_variant_layer(
                         0,
                         view_index,
