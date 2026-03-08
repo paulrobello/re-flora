@@ -8,28 +8,42 @@ id = "debug_float"
 kind = "float"
 label = "Debug Float"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 10.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 10.0
 
 [[section.param]]
 id = "debug_uint"
 kind = "uint"
 label = "Debug UInt"
 type = "Uint"
-data = { value = 0, min = 0, max = 100 }
+
+[section.param.data]
+value = 0
+min = 0
+max = 100
 
 [[section.param]]
 id = "lod_distance"
 kind = "float"
 label = "LOD Distance"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 10.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 10.0
 
 [[section.param]]
 id = "debug_bool"
 kind = "bool"
 label = "Debug Bool"
 type = "Bool"
-data = { value = true }
+
+[section.param.data]
+value = true
 
 [[section]]
 name = "Sky"
@@ -39,77 +53,115 @@ id = "sun_altitude"
 kind = "float"
 label = "Altitude (normalized)"
 type = "Float"
-data = { value = 0.25, min = -1.0, max = 1.0 }
+
+[section.param.data]
+value = 0.2875792682170868
+min = -1.0
+max = 1.0
 
 [[section.param]]
 id = "sun_azimuth"
 kind = "float"
 label = "Azimuth (normalized)"
 type = "Float"
-data = { value = 0.8, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.7993887066841125
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "sun_size"
 kind = "float"
 label = "Size (relative)"
 type = "Float"
-data = { value = 0.065, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.06499999761581421
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "sun_color"
 kind = "color"
 label = "Sun Color"
 type = "Color"
-data = { value = "#FFF1E0" }
+
+[section.param.data]
+value = "#FFF1E0"
 
 [[section.param]]
 id = "sun_luminance"
 kind = "float"
 label = "Sun Luminance"
 type = "Float"
-data = { value = 1.65, min = 0.0, max = 10.0 }
+
+[section.param.data]
+value = 1.649999976158142
+min = 0.0
+max = 10.0
 
 [[section.param]]
 id = "ambient_light"
 kind = "color"
 label = "Ambient Light"
 type = "Color"
-data = { value = "#323232" }
+
+[section.param.data]
+value = "#323232"
 
 [[section.param]]
 id = "auto_daynight_cycle"
 kind = "bool"
 label = "Auto Day/Night Cycle"
 type = "Bool"
-data = { value = true }
+
+[section.param.data]
+value = true
 
 [[section.param]]
 id = "time_of_day"
 kind = "float"
 label = "Time of Day"
 type = "Float"
-data = { value = 0.45, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.4557054042816162
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "latitude"
 kind = "float"
 label = "Latitude"
 type = "Float"
-data = { value = -0.7, min = -1.0, max = 1.0 }
+
+[section.param.data]
+value = -0.699999988079071
+min = -1.0
+max = 1.0
 
 [[section.param]]
 id = "season"
 kind = "float"
 label = "Season"
 type = "Float"
-data = { value = 0.25, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.25
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "day_cycle_minutes"
 kind = "float"
 label = "Day Cycle Duration (Minutes)"
 type = "Float"
-data = { value = 30.0, min = 0.1, max = 60.0 }
+
+[section.param.data]
+value = 30.0
+min = 0.10000000149011612
+max = 60.0
 
 [[section]]
 name = "Starlight"
@@ -119,77 +171,121 @@ id = "starlight_iterations"
 kind = "int"
 label = "Iterations"
 type = "Int"
-data = { value = 18, min = 1, max = 30 }
+
+[section.param.data]
+value = 18
+min = 1
+max = 30
 
 [[section.param]]
 id = "starlight_formuparam"
 kind = "float"
 label = "Form Parameter"
 type = "Float"
-data = { value = 0.42, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.41999998688697815
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "starlight_volsteps"
 kind = "int"
 label = "Volume Steps"
 type = "Int"
-data = { value = 12, min = 1, max = 50 }
+
+[section.param.data]
+value = 12
+min = 1
+max = 50
 
 [[section.param]]
 id = "starlight_stepsize"
 kind = "float"
 label = "Step Size"
 type = "Float"
-data = { value = 0.27, min = 0.01, max = 1.0 }
+
+[section.param.data]
+value = 0.27000001072883606
+min = 0.009999999776482582
+max = 1.0
 
 [[section.param]]
 id = "starlight_zoom"
 kind = "float"
 label = "Zoom"
 type = "Float"
-data = { value = 0.1, min = 0.1, max = 2.0 }
+
+[section.param.data]
+value = 0.10000000149011612
+min = 0.10000000149011612
+max = 2.0
 
 [[section.param]]
 id = "starlight_tile"
 kind = "float"
 label = "Tile"
 type = "Float"
-data = { value = 1.02, min = 0.1, max = 2.0 }
+
+[section.param.data]
+value = 1.0199999809265137
+min = 0.10000000149011612
+max = 2.0
 
 [[section.param]]
 id = "starlight_speed"
 kind = "float"
 label = "Speed"
 type = "Float"
-data = { value = 0.077, min = 0.001, max = 0.1 }
+
+[section.param.data]
+value = 0.07699999958276749
+min = 0.0010000000474974513
+max = 0.10000000149011612
 
 [[section.param]]
 id = "starlight_brightness"
 kind = "float"
 label = "Brightness"
 type = "Float"
-data = { value = 0.0021, min = 0.0001, max = 0.01 }
+
+[section.param.data]
+value = 0.002099999925121665
+min = 0.00009999999747378752
+max = 0.009999999776482582
 
 [[section.param]]
 id = "starlight_darkmatter"
 kind = "float"
 label = "Dark Matter"
 type = "Float"
-data = { value = 0.57, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.5699999928474426
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "starlight_distfading"
 kind = "float"
 label = "Distance Fading"
 type = "Float"
-data = { value = 0.46, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.46000000834465027
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "starlight_saturation"
 kind = "float"
 label = "Saturation"
 type = "Float"
-data = { value = 0.97, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.9700000286102295
+min = 0.0
+max = 1.0
 
 [[section]]
 name = "Temporal"
@@ -199,14 +295,22 @@ id = "temporal_position_phi"
 kind = "float"
 label = "Position Phi"
 type = "Float"
-data = { value = 0.8, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.800000011920929
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "temporal_alpha"
 kind = "float"
 label = "Alpha"
 type = "Float"
-data = { value = 0.08, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.07999999821186066
+min = 0.0
+max = 1.0
 
 [[section]]
 name = "GodRay"
@@ -216,21 +320,33 @@ id = "god_ray_max_depth"
 kind = "float"
 label = "Max Depth"
 type = "Float"
-data = { value = 1.0, min = 0.1, max = 10.0 }
+
+[section.param.data]
+value = 1.0
+min = 0.10000000149011612
+max = 10.0
 
 [[section.param]]
 id = "god_ray_max_checks"
 kind = "uint"
 label = "Max Checks"
 type = "Uint"
-data = { value = 32, min = 1, max = 64 }
+
+[section.param.data]
+value = 32
+min = 1
+max = 64
 
 [[section.param]]
 id = "god_ray_weight"
 kind = "float"
 label = "Weight"
 type = "Float"
-data = { value = 0.3, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.30000001192092896
+min = 0.0
+max = 1.0
 
 [[section]]
 name = "Spatial"
@@ -240,63 +356,95 @@ id = "phi_c"
 kind = "float"
 label = "Phi C"
 type = "Float"
-data = { value = 0.75, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.75
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "phi_n"
 kind = "float"
 label = "Phi N"
 type = "Float"
-data = { value = 20.0, min = 0.0, max = 100.0 }
+
+[section.param.data]
+value = 20.0
+min = 0.0
+max = 100.0
 
 [[section.param]]
 id = "phi_p"
 kind = "float"
 label = "Phi P"
 type = "Float"
-data = { value = 0.05, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.05000000074505806
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "min_phi_z"
 kind = "float"
 label = "Min Phi Z"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "max_phi_z"
 kind = "float"
 label = "Max Phi Z"
 type = "Float"
-data = { value = 0.5, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.5
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "phi_z_stable_sample_count"
 kind = "float"
 label = "Phi Z Stable Sample Count"
 type = "Float"
-data = { value = 0.05, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.05000000074505806
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "is_changing_lum_phi"
 kind = "bool"
 label = "Changing Luminance Phi"
 type = "Bool"
-data = { value = true }
+
+[section.param.data]
+value = true
 
 [[section.param]]
 id = "is_spatial_denoising_enabled"
 kind = "bool"
 label = "Enable Spatial Denoising"
 type = "Bool"
-data = { value = true }
+
+[section.param.data]
+value = true
 
 [[section.param]]
 id = "a_trous_iteration_count"
 kind = "uint"
 label = "A-Trous Iterations"
 type = "Uint"
-data = { value = 3, min = 1, max = 5 }
+
+[section.param.data]
+value = 3
+min = 1
+max = 5
 
 [[section]]
 name = "Grass"
@@ -306,28 +454,36 @@ id = "grass_bottom_dark_color"
 kind = "color"
 label = "Bottom Dark"
 type = "Color"
-data = { value = "#005240" }
+
+[section.param.data]
+value = "#005240"
 
 [[section.param]]
 id = "grass_bottom_light_color"
 kind = "color"
 label = "Bottom Light"
 type = "Color"
-data = { value = "#00AF6C" }
+
+[section.param.data]
+value = "#00AF6C"
 
 [[section.param]]
 id = "grass_tip_dark_color"
 kind = "color"
 label = "Tip Dark"
 type = "Color"
-data = { value = "#DADB00" }
+
+[section.param.data]
+value = "#DADB00"
 
 [[section.param]]
 id = "grass_tip_light_color"
 kind = "color"
 label = "Tip Light"
 type = "Color"
-data = { value = "#94BE00" }
+
+[section.param.data]
+value = "#94BE00"
 
 [[section]]
 name = "EmberBloom"
@@ -337,14 +493,18 @@ id = "ember_bloom_bottom_color"
 kind = "color"
 label = "Bottom Color"
 type = "Color"
-data = { value = "#580032" }
+
+[section.param.data]
+value = "#580032"
 
 [[section.param]]
 id = "ember_bloom_tip_color"
 kind = "color"
 label = "Tip Color"
 type = "Color"
-data = { value = "#FFB5FF" }
+
+[section.param.data]
+value = "#FFB5FF"
 
 [[section]]
 name = "FloraVariation"
@@ -354,42 +514,66 @@ id = "flora_instance_hue_offset"
 kind = "float"
 label = "Instance Hue Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "flora_instance_saturation_offset"
 kind = "float"
 label = "Instance Saturation Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "flora_instance_value_offset"
 kind = "float"
 label = "Instance Value Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "flora_voxel_hue_offset"
 kind = "float"
 label = "Voxel Hue Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "flora_voxel_saturation_offset"
 kind = "float"
 label = "Voxel Saturation Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "flora_voxel_value_offset"
 kind = "float"
 label = "Voxel Value Offset Max"
 type = "Float"
-data = { value = 0.0, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.0
+min = 0.0
+max = 1.0
 
 [[section]]
 name = "Leaves"
@@ -399,42 +583,62 @@ id = "leaves_inner_density"
 kind = "float"
 label = "Inner Density"
 type = "Float"
-data = { value = 0.38, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.3799999952316284
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "leaves_outer_density"
 kind = "float"
 label = "Outer Density"
 type = "Float"
-data = { value = 0.45, min = 0.0, max = 1.0 }
+
+[section.param.data]
+value = 0.44999998807907104
+min = 0.0
+max = 1.0
 
 [[section.param]]
 id = "leaves_inner_radius"
 kind = "float"
 label = "Inner Radius"
 type = "Float"
-data = { value = 12.0, min = 1.0, max = 64.0 }
+
+[section.param.data]
+value = 12.0
+min = 1.0
+max = 64.0
 
 [[section.param]]
 id = "leaves_outer_radius"
 kind = "float"
 label = "Outer Radius"
 type = "Float"
-data = { value = 17.0, min = 1.0, max = 64.0 }
+
+[section.param.data]
+value = 17.0
+min = 1.0
+max = 64.0
 
 [[section.param]]
 id = "leaves_bottom_color"
 kind = "color"
 label = "Bottom Color"
 type = "Color"
-data = { value = "#EFEFEF" }
+
+[section.param.data]
+value = "#EFEFEF"
 
 [[section.param]]
 id = "leaves_tip_color"
 kind = "color"
 label = "Tip Color"
 type = "Color"
-data = { value = "#FF89F1" }
+
+[section.param.data]
+value = "#FF89F1"
 
 [[section]]
 name = "Particles"
@@ -444,7 +648,11 @@ id = "particle_full_update_seconds"
 kind = "float"
 label = "Full Update Time (s)"
 type = "Float"
-data = { value = 0.1, min = 0.05, max = 5.0 }
+
+[section.param.data]
+value = 0.10000000149011612
+min = 0.05000000074505806
+max = 5.0
 
 [[section]]
 name = "Butterflies"
@@ -454,105 +662,159 @@ id = "butterflies_enabled"
 kind = "bool"
 label = "Enable Butterflies"
 type = "Bool"
-data = { value = true }
+
+[section.param.data]
+value = true
 
 [[section.param]]
 id = "butterflies_per_chunk"
 kind = "float"
 label = "Butterflies Per Chunk"
 type = "Float"
-data = { value = 0.5, min = 0.0, max = 2.0 }
+
+[section.param.data]
+value = 0.5
+min = 0.0
+max = 2.0
 
 [[section.param]]
 id = "butterfly_wander_radius"
 kind = "float"
 label = "Wander Radius"
 type = "Float"
-data = { value = 2.5, min = 0.5, max = 8.0 }
+
+[section.param.data]
+value = 2.5
+min = 0.5
+max = 8.0
 
 [[section.param]]
 id = "butterfly_height_offset_min"
 kind = "float"
 label = "Height Offset Min"
 type = "Float"
-data = { value = 0.06, min = 0.0, max = 4.0 }
+
+[section.param.data]
+value = 0.05999999865889549
+min = 0.0
+max = 4.0
 
 [[section.param]]
 id = "butterfly_height_offset_max"
 kind = "float"
 label = "Height Offset Max"
 type = "Float"
-data = { value = 0.14, min = 0.0, max = 4.0 }
+
+[section.param.data]
+value = 0.14000000059604645
+min = 0.0
+max = 4.0
 
 [[section.param]]
 id = "butterfly_size"
 kind = "float"
 label = "Size"
 type = "Float"
-data = { value = 0.018, min = 0.001, max = 0.03 }
+
+[section.param.data]
+value = 0.017999999225139618
+min = 0.0010000000474974513
+max = 0.029999999329447746
 
 [[section.param]]
 id = "butterfly_drift_strength_min"
 kind = "float"
 label = "Flutter Strength Min"
 type = "Float"
-data = { value = 0.6, min = 0.0, max = 3.0 }
+
+[section.param.data]
+value = 0.6000000238418579
+min = 0.0
+max = 3.0
 
 [[section.param]]
 id = "butterfly_drift_strength_max"
 kind = "float"
 label = "Flutter Strength Max"
 type = "Float"
-data = { value = 1.4, min = 0.0, max = 3.0 }
+
+[section.param.data]
+value = 1.399999976158142
+min = 0.0
+max = 3.0
 
 [[section.param]]
 id = "butterfly_drift_frequency_min"
 kind = "float"
 label = "Flutter Speed Min"
 type = "Float"
-data = { value = 1.5, min = 0.5, max = 6.0 }
+
+[section.param.data]
+value = 1.5
+min = 0.5
+max = 6.0
 
 [[section.param]]
 id = "butterfly_drift_frequency_max"
 kind = "float"
 label = "Flutter Speed Max"
 type = "Float"
-data = { value = 3.5, min = 0.5, max = 6.0 }
+
+[section.param.data]
+value = 3.5
+min = 0.5
+max = 6.0
 
 [[section.param]]
 id = "butterfly_steering_strength"
 kind = "float"
 label = "Home Pull Strength"
 type = "Float"
-data = { value = 0.9, min = 0.0, max = 3.0 }
+
+[section.param.data]
+value = 0.8999999761581421
+min = 0.0
+max = 3.0
 
 [[section.param]]
 id = "butterfly_bob_frequency_hz"
 kind = "float"
 label = "Vertical Bob Frequency (Hz)"
 type = "Float"
-data = { value = 2.2, min = 0.0, max = 8.0 }
+
+[section.param.data]
+value = 2.200000047683716
+min = 0.0
+max = 8.0
 
 [[section.param]]
 id = "butterfly_bob_strength"
 kind = "float"
 label = "Vertical Bob Strength"
 type = "Float"
-data = { value = 1.4, min = 0.0, max = 6.0 }
+
+[section.param.data]
+value = 1.399999976158142
+min = 0.0
+max = 6.0
 
 [[section.param]]
 id = "butterfly_wing_color_low"
 kind = "color"
 label = "Wing Color Low"
 type = "Color"
-data = { value = "#F2E68C" }
+
+[section.param.data]
+value = "#F2E68C"
 
 [[section.param]]
 id = "butterfly_wing_color_high"
 kind = "color"
 label = "Wing Color High"
 type = "Color"
-data = { value = "#FFF7B8" }
+
+[section.param.data]
+value = "#FFF7B8"
 
 [[section]]
 name = "Voxel"
@@ -562,25 +824,35 @@ id = "voxel_dirt_color"
 kind = "color"
 label = "Dirt Color"
 type = "Color"
-data = { value = "#5F5F5F" }
+
+[section.param.data]
+value = "#5F5F5F"
 
 [[section.param]]
 id = "voxel_cherry_wood_color"
 kind = "color"
 label = "Cherry Wood Color"
 type = "Color"
-data = { value = "#CAB05C" }
+
+[section.param.data]
+value = "#CAB05C"
 
 [[section.param]]
 id = "voxel_oak_wood_color"
 kind = "color"
 label = "Oak Wood Color"
 type = "Color"
-data = { value = "#A6904B" }
+
+[section.param.data]
+value = "#A6904B"
 
 [[section.param]]
 id = "voxel_color_variance"
 kind = "float"
 label = "Hash Color Variance"
 type = "Float"
-data = { value = 1.0, min = 0.0, max = 2.0 }
+
+[section.param.data]
+value = 1.0
+min = 0.0
+max = 2.0
