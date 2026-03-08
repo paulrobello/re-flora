@@ -2,6 +2,9 @@ mod resources;
 use bytemuck::{Pod, Zeroable};
 pub use resources::*;
 
+mod butterfly_palette;
+pub use butterfly_palette::*;
+
 mod denoiser_resources;
 pub use denoiser_resources::*;
 
