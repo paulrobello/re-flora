@@ -4,6 +4,7 @@ use crate::tracer::palette_remap::{
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum ButterflyPaletteRole {
     Transparent,
     Border,
@@ -13,6 +14,7 @@ pub enum ButterflyPaletteRole {
 }
 
 impl ButterflyPaletteRole {
+    #[allow(dead_code)]
     pub const ROLE_ORDER: [ButterflyPaletteRole; 5] = [
         ButterflyPaletteRole::Transparent,
         ButterflyPaletteRole::Border,
@@ -32,6 +34,7 @@ pub struct ButterflyPaletteConfig {
 }
 
 impl ButterflyPaletteConfig {
+    #[allow(dead_code)]
     pub fn from_role_colors(role_colors: [PaletteColor; 5]) -> Self {
         Self {
             transparent: role_colors[0],
@@ -42,7 +45,7 @@ impl ButterflyPaletteConfig {
         }
     }
 
-    pub fn to_role_array(&self) -> [PaletteColor; 5] {
+    pub fn into_role_array(self) -> [PaletteColor; 5] {
         [
             self.transparent,
             self.border,
@@ -153,7 +156,7 @@ pub fn load_butterfly_and_remap(
     println!("  mid_shade:  {:02X?}", target_config.mid_shade);
     println!("  light_shade: {:02X?}", target_config.light_shade);
 
-    let target_roles = target_config.to_role_array();
+    let target_roles = target_config.into_role_array();
     let remapped = remap_palette(&source_roles, &target_roles, &rgba);
 
     println!("palette remapped for {}", path_str);
