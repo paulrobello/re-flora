@@ -16,6 +16,7 @@ pub struct GuiSection {
 pub struct GuiParam {
     pub id: String,
     pub kind: GuiParamKind,
+    #[allow(dead_code)]
     pub label: String,
     #[serde(flatten)]
     pub value: GuiParamValue,

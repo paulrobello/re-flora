@@ -94,7 +94,7 @@ impl GuiConfigLoader {
                     ));
                 }
 
-                Self::validate_param(&mut errors, &section.name, &param, param_idx);
+                Self::validate_param(&mut errors, &section.name, param, param_idx);
             }
         }
 
