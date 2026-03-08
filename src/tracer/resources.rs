@@ -20,7 +20,7 @@ use ash::vk;
 use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
 use resource_container_derive::ResourceContainer;
-use std::{collections::BTreeSet, path::Path};
+use std::{collections::BTreeSet, fs::File, io::Read, path::Path};
 
 type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
 
@@ -266,11 +266,34 @@ pub struct TracerResources {
 }
 
 impl TracerResources {
-    fn print_rgba_palette(image: &image::RgbaImage, label: &str) {
+    fn detect_png_color_mode(path: &Path) -> Option<&'static str> {
+        const PNG_SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
+
+        let mut header = [0u8; 26];
+        let mut file = File::open(path).ok()?;
+        file.read_exact(&mut header).ok()?;
+
+        if header[0..8] != PNG_SIGNATURE || &header[12..16] != b"IHDR" {
+            return None;
+        }
+
+        match header[25] {
+            3 => Some("palette"),
+            0 | 2 | 4 | 6 => Some("rgba"),
+            _ => None,
+        }
+    }
+
+    fn print_rgba_palette(image: &image::RgbaImage, label: &str, color_mode: Option<&str>) {
         let mut palette = BTreeSet::new();
 
         for pixel in image.pixels() {
             palette.insert(pixel.0);
+        }
+
+        match color_mode {
+            Some(mode) => println!("detected color mode for {}: {}", label, mode),
+            None => println!("detected color mode for {}: unknown", label),
         }
 
         println!("palette for {} ({} colors):", label, palette.len());
@@ -745,7 +768,8 @@ impl TracerResources {
         let atlas = image::open(butterfly_atlas_path)
             .unwrap_or_else(|_| panic!("Failed to open butterfly atlas '{}'", atlas_path_str));
         let rgba = atlas.to_rgba8();
-        Self::print_rgba_palette(&rgba, &atlas_path_str);
+        let color_mode = Self::detect_png_color_mode(butterfly_atlas_path);
+        Self::print_rgba_palette(&rgba, &atlas_path_str, color_mode);
         let (width, height) = rgba.dimensions();
         let expected_size = frame_dim * 5;
         assert!(
