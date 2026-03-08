@@ -20,7 +20,7 @@ use ash::vk;
 use bytemuck::{Pod, Zeroable};
 use glam::IVec3;
 use resource_container_derive::ResourceContainer;
-use std::path::Path;
+use std::{collections::BTreeSet, path::Path};
 
 type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
 
@@ -266,6 +266,22 @@ pub struct TracerResources {
 }
 
 impl TracerResources {
+    fn print_rgba_palette(image: &image::RgbaImage, label: &str) {
+        let mut palette = BTreeSet::new();
+
+        for pixel in image.pixels() {
+            palette.insert(pixel.0);
+        }
+
+        println!("palette for {} ({} colors):", label, palette.len());
+        for color in palette {
+            println!(
+                "#{:02X}{:02X}{:02X}{:02X} (r={}, g={}, b={}, a={})",
+                color[0], color[1], color[2], color[3], color[0], color[1], color[2], color[3]
+            );
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         vulkan_ctx: &VulkanContext,
@@ -729,6 +745,7 @@ impl TracerResources {
         let atlas = image::open(butterfly_atlas_path)
             .unwrap_or_else(|_| panic!("Failed to open butterfly atlas '{}'", atlas_path_str));
         let rgba = atlas.to_rgba8();
+        Self::print_rgba_palette(&rgba, &atlas_path_str);
         let (width, height) = rgba.dimensions();
         let expected_size = frame_dim * 5;
         assert!(
