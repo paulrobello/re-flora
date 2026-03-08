@@ -43,8 +43,7 @@ use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, 
 use crate::geom::UAabb3;
 use crate::particles::{
     animated_sequence_layer, animated_variant_layer, bird_animation_sequence, BirdSpriteSequence,
-    ParticleSnapshot, BIRD_TOTAL_FRAME_COUNT, BUTTERFLY_ANIM_FRAME_DURATION_SEC,
-    BUTTERFLY_FRAMES_PER_VARIANT, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, BUTTERFLY_VIEW_COUNT,
+    ParticleSnapshot, BUTTERFLY_ANIM_FRAME_DURATION_SEC, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH,
     PARTICLE_CAPACITY,
 };
 use crate::resource::ResourceContainer;
@@ -1605,20 +1604,24 @@ impl Tracer {
     ) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
         let count = snapshots.len().min(capacity);
-        const LEAF_LAYER_COUNT: u32 = 1;
-        let bird_layer_count = BIRD_TOTAL_FRAME_COUNT;
-        let butterfly_total_layer_count = self
+        let texture_layout = ParticleTextureLayout::new();
+        texture_layout.assert_valid();
+        let texture_layer_count = self
             .resources
             .particle_lod_tex_lut
             .get_image()
             .get_desc()
-            .array_len
-            .saturating_sub(LEAF_LAYER_COUNT + bird_layer_count)
-            .max(1);
-        let butterfly_frame_count = BUTTERFLY_FRAMES_PER_VARIANT;
-        let butterfly_view_count = BUTTERFLY_VIEW_COUNT;
-        let butterfly_layers_per_preset = butterfly_view_count * butterfly_frame_count;
-        let bird_base_layer = LEAF_LAYER_COUNT + butterfly_total_layer_count;
+            .array_len;
+        debug_assert_eq!(
+            texture_layer_count,
+            texture_layout.total_layer_count(),
+            "Particle texture LUT layer count mismatch (runtime {}, expected {})",
+            texture_layer_count,
+            texture_layout.total_layer_count()
+        );
+        let butterfly_frame_count = texture_layout.butterfly_frames_per_view();
+        let butterfly_view_count = texture_layout.butterfly_view_count();
+        let bird_base_layer = texture_layout.bird_base_layer();
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
                 .normalize_or_zero();
@@ -1688,9 +1691,9 @@ impl Tracer {
                 };
 
                 let palette_preset = ButterflyPalettePreset::from_index(snap.texture_variant);
-                let palette_offset = (palette_preset as u32) * butterfly_layers_per_preset;
-                LEAF_LAYER_COUNT
-                    + palette_offset
+                let preset_base_layer =
+                    texture_layout.butterfly_preset_base_layer(palette_preset as u32);
+                let tex_index = preset_base_layer
                     + animated_variant_layer(
                         0,
                         view_index,
@@ -1698,7 +1701,14 @@ impl Tracer {
                         butterfly_frame_count,
                         BUTTERFLY_ANIM_FRAME_DURATION_SEC,
                         time_since_start_sec,
-                    )
+                    );
+                debug_assert!(
+                    texture_layout.contains_layer(tex_index),
+                    "Butterfly texture index {} out of LUT bounds {}",
+                    tex_index,
+                    texture_layout.total_layer_count()
+                );
+                tex_index
             };
             let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
             let bird_tex_index = animated_sequence_layer(
@@ -1706,12 +1716,18 @@ impl Tracer {
                 bird_animation_sequence(bird_sequence),
                 time_since_start_sec,
             );
+            debug_assert!(
+                texture_layout.contains_layer(bird_tex_index),
+                "Bird texture index {} out of LUT bounds {}",
+                bird_tex_index,
+                texture_layout.total_layer_count()
+            );
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position.to_array(),
                 size: snap.size,
                 color: snap.color.to_array(),
                 tex_index: match snap.kind {
-                    crate::particles::ParticleRenderKind::Leaf => 0,
+                    crate::particles::ParticleRenderKind::Leaf => texture_layout.leaf_layer(),
                     crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
                         butterfly_tex_index,
                         is_moving_right_relative_to_player(snap.velocity),
