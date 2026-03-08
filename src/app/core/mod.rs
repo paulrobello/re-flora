@@ -526,11 +526,8 @@ impl App {
         Ok(())
     }
 
-    fn calculate_sun_position(&mut self, time_of_day: f32, latitude: f32, season: f32) {
-        let (sun_altitude, sun_azimuth) =
-            environment::calculate_sun_position(time_of_day, latitude, season);
-        self.gui_adjustables.sun_altitude.value = sun_altitude;
-        self.gui_adjustables.sun_azimuth.value = sun_azimuth;
+    fn calculate_sun_position(time_of_day: f32, latitude: f32, season: f32) -> (f32, f32) {
+        environment::calculate_sun_position(time_of_day, latitude, season)
     }
 
     fn execute_edit_plan(&mut self, plan: WorldEditPlan) -> Result<()> {
@@ -872,30 +869,13 @@ impl App {
 
 // read-only displays for calculated values
                                                 ui.separator();
-                                                ui.label(format!(
-                                                    "Sun Altitude: {:.3}",
-                                                    self.gui_adjustables.sun_altitude.value
-                                                ));
-                                                ui.label(format!(
-                                                    "Sun Azimuth: {:.3}",
-                                                    self.gui_adjustables.sun_azimuth.value
-                                                ));
-                                            } else {
-                                                ui.add(
-                                                    egui::Slider::new(
-                                                        &mut self.gui_adjustables.sun_altitude.value,
-                                                        -1.0..=1.0,
-                                                    )
-                                                    .text("Altitude (normalized)")
-                                                    .smart_aim(false),
+                                                let (sun_altitude, sun_azimuth) = Self::calculate_sun_position(
+                                                    self.gui_adjustables.time_of_day.value,
+                                                    self.gui_adjustables.latitude.value,
+                                                    self.gui_adjustables.season.value,
                                                 );
-                                                ui.add(
-                                                    egui::Slider::new(
-                                                        &mut self.gui_adjustables.sun_azimuth.value,
-                                                        0.0..=1.0,
-                                                    )
-                                                    .text("Azimuth (normalized)"),
-                                                );
+                                                ui.label(format!("Sun Altitude: {:.3}", sun_altitude));
+                                                ui.label(format!("Sun Azimuth: {:.3}", sun_azimuth));
                                             }
                                             ui.add(
                                                 egui::Slider::new(&mut self.gui_adjustables.sun_size.value, 0.0..=1.0)
@@ -1977,7 +1957,7 @@ impl App {
                     // keep time_of_day in 0.0 to 1.0 range (wrap around)
                     self.gui_adjustables.time_of_day.value %= 1.0;
 
-                    self.calculate_sun_position(
+                    Self::calculate_sun_position(
                         self.gui_adjustables.time_of_day.value,
                         self.gui_adjustables.latitude.value,
                         self.gui_adjustables.season.value,
@@ -2021,6 +2001,12 @@ impl App {
 
                 cmdbuf.begin(false);
 
+                let (sun_altitude, sun_azimuth) = Self::calculate_sun_position(
+                    self.gui_adjustables.time_of_day.value,
+                    self.gui_adjustables.latitude.value,
+                    self.gui_adjustables.season.value,
+                );
+
                 self.tracer
                     .update_buffers(
                         &self.time_info,
@@ -2060,10 +2046,7 @@ impl App {
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
                         FLORA_FULL_GROWTH_TICKS,
-                        get_sun_dir(
-                            self.gui_adjustables.sun_altitude.value.asin().to_degrees(),
-                            self.gui_adjustables.sun_azimuth.value * 360.0,
-                        ),
+                        get_sun_dir(sun_altitude.asin().to_degrees(), sun_azimuth * 360.0),
                         self.gui_adjustables.sun_size.value,
                         Vec3::new(
                             self.gui_adjustables.sun_color.value.r() as f32 / 255.0,
@@ -2071,8 +2054,8 @@ impl App {
                             self.gui_adjustables.sun_color.value.b() as f32 / 255.0,
                         ),
                         self.gui_adjustables.sun_luminance.value,
-                        self.gui_adjustables.sun_altitude.value,
-                        self.gui_adjustables.sun_azimuth.value,
+                        sun_altitude,
+                        sun_azimuth,
                         Vec3::new(
                             self.gui_adjustables.ambient_light.value.r() as f32 / 255.0,
                             self.gui_adjustables.ambient_light.value.g() as f32 / 255.0,

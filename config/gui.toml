@@ -49,28 +49,6 @@ value = true
 name = "Sky"
 
 [[section.param]]
-id = "sun_altitude"
-kind = "float"
-label = "Altitude (normalized)"
-type = "Float"
-
-[section.param.data]
-value = 0.2875792682170868
-min = -1.0
-max = 1.0
-
-[[section.param]]
-id = "sun_azimuth"
-kind = "float"
-label = "Azimuth (normalized)"
-type = "Float"
-
-[section.param.data]
-value = 0.7993887066841125
-min = 0.0
-max = 1.0
-
-[[section.param]]
 id = "sun_size"
 kind = "float"
 label = "Size (relative)"

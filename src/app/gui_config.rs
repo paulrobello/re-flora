@@ -108,8 +108,6 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
         lod_distance: get_param!("lod_distance", crate::gui_adjustables::FloatParam),
         debug_bool: get_param!("debug_bool", crate::gui_adjustables::BoolParam),
 
-        sun_altitude: get_param!("sun_altitude", crate::gui_adjustables::FloatParam),
-        sun_azimuth: get_param!("sun_azimuth", crate::gui_adjustables::FloatParam),
         sun_size: get_param!("sun_size", crate::gui_adjustables::FloatParam),
         sun_color: get_param!("sun_color", crate::gui_adjustables::ColorParam),
         sun_luminance: get_param!("sun_luminance", crate::gui_adjustables::FloatParam),
@@ -325,8 +323,6 @@ declare_gui_adjustables! {
     },
 
     [Sky] {
-        sun_altitude: crate::gui_adjustables::FloatParam = 0.25, float(-1.0..=1.0), "Altitude (normalized)",
-        sun_azimuth: crate::gui_adjustables::FloatParam = 0.8, float(0.0..=1.0), "Azimuth (normalized)",
         sun_size: crate::gui_adjustables::FloatParam = 0.065, float(0.0..=1.0), "Size (relative)",
         sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
         sun_luminance: crate::gui_adjustables::FloatParam = 1.65, float(0.0..=10.0), "Sun Luminance",
@@ -443,7 +439,7 @@ impl Default for GuiAdjustables {
 }
 
 impl GuiAdjustables {
-    const SAVE_DENYLIST: &'static [&'static str] = &["sun_altitude", "sun_azimuth", "time_of_day"];
+    const SAVE_DENYLIST: &'static [&'static str] = &["time_of_day"];
 
     pub fn save_to_config(&self) -> std::io::Result<()> {
         let mut config = GuiConfigLoader::load();
@@ -517,8 +513,6 @@ impl GuiAdjustables {
         match id {
             "debug_float" => Some(&adjustables.debug_float),
             "lod_distance" => Some(&adjustables.lod_distance),
-            "sun_altitude" => Some(&adjustables.sun_altitude),
-            "sun_azimuth" => Some(&adjustables.sun_azimuth),
             "sun_size" => Some(&adjustables.sun_size),
             "sun_luminance" => Some(&adjustables.sun_luminance),
             "time_of_day" => Some(&adjustables.time_of_day),
