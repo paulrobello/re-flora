@@ -1160,15 +1160,27 @@ impl App {
 
                                         ui.collapsing("Grass Settings", |ui| {
                                             ui.horizontal(|ui| {
-                                                ui.label("Bottom Color:");
+                                                ui.label("Bottom Dark:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.grass_bottom_color.value,
+                                                    &mut self.gui_adjustables.grass_bottom_dark_color.value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
-                                                ui.label("Tip Color:");
+                                                ui.label("Bottom Light:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.grass_tip_color.value,
+                                                    &mut self.gui_adjustables.grass_bottom_light_color.value,
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
+                                                ui.label("Tip Dark:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.grass_tip_dark_color.value,
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
+                                                ui.label("Tip Light:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.grass_tip_light_color.value,
                                                 );
                                             });
                                         });
@@ -1987,6 +1999,26 @@ impl App {
                             self.gui_adjustables.flora_voxel_saturation_offset.value,
                             self.gui_adjustables.flora_voxel_value_offset.value,
                         ),
+                        Vec3::new(
+                            self.gui_adjustables.grass_bottom_dark_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_dark_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_dark_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.grass_bottom_light_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_light_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_bottom_light_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.grass_tip_dark_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_dark_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_dark_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.grass_tip_light_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_light_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.grass_tip_light_color.value.b() as f32 / 255.0,
+                        ),
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
                         FLORA_FULL_GROWTH_TICKS,
@@ -2069,8 +2101,8 @@ impl App {
                     .iter()
                     .map(|desc| match desc.key {
                         "grass" => (
-                            color_to_vec3(self.gui_adjustables.grass_bottom_color.value),
-                            color_to_vec3(self.gui_adjustables.grass_tip_color.value),
+                            color_to_vec3(self.gui_adjustables.grass_bottom_dark_color.value),
+                            color_to_vec3(self.gui_adjustables.grass_tip_light_color.value),
                         ),
                         "ember_bloom" => (
                             color_to_vec3(self.gui_adjustables.ember_bloom_bottom_color.value),

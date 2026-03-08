@@ -136,6 +136,10 @@ impl BufferUpdater {
         debug_uint: u32,
         flora_instance_hsv_offset_max: Vec3,
         flora_voxel_hsv_offset_max: Vec3,
+        grass_bottom_dark: Vec3,
+        grass_bottom_light: Vec3,
+        grass_tip_dark: Vec3,
+        grass_tip_light: Vec3,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -151,6 +155,22 @@ impl BufferUpdater {
             .set_field(
                 "flora_voxel_hsv_offset_max",
                 PlainMemberTypeWithData::Vec3(flora_voxel_hsv_offset_max.to_array()),
+            )
+            .set_field(
+                "grass_bottom_dark",
+                PlainMemberTypeWithData::Vec3(grass_bottom_dark.to_array()),
+            )
+            .set_field(
+                "grass_bottom_light",
+                PlainMemberTypeWithData::Vec3(grass_bottom_light.to_array()),
+            )
+            .set_field(
+                "grass_tip_dark",
+                PlainMemberTypeWithData::Vec3(grass_tip_dark.to_array()),
+            )
+            .set_field(
+                "grass_tip_light",
+                PlainMemberTypeWithData::Vec3(grass_tip_light.to_array()),
             )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;

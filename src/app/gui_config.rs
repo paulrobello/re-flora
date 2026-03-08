@@ -65,8 +65,10 @@ declare_gui_adjustables! {
     },
 
     [Grass] {
-        grass_bottom_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(55, 107, 0), color, "Bottom Color",
-        grass_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(119, 176, 7), color, "Tip Color",
+        grass_bottom_dark_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(100, 116, 0), color, "Bottom Dark",
+        grass_bottom_light_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(175, 155, 0), color, "Bottom Light",
+        grass_tip_dark_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(176, 174, 0), color, "Tip Dark",
+        grass_tip_light_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(138, 188, 0), color, "Tip Light",
     },
 
     [EmberBloom] {

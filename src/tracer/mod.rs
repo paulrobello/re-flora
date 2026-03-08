@@ -445,6 +445,10 @@ impl Tracer {
         debug_uint: u32,
         flora_instance_hsv_offset_max: Vec3,
         flora_voxel_hsv_offset_max: Vec3,
+        grass_bottom_dark: Vec3,
+        grass_bottom_light: Vec3,
+        grass_tip_dark: Vec3,
+        grass_tip_light: Vec3,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -541,6 +545,10 @@ impl Tracer {
             debug_uint,
             flora_instance_hsv_offset_max,
             flora_voxel_hsv_offset_max,
+            grass_bottom_dark,
+            grass_bottom_light,
+            grass_tip_dark,
+            grass_tip_light,
         )?;
 
         BufferUpdater::update_flora_growth_info(

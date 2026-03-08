@@ -27,6 +27,10 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     uint debug_uint;
     vec3 flora_instance_hsv_offset_max;
     vec3 flora_voxel_hsv_offset_max;
+    vec3 grass_bottom_dark;
+    vec3 grass_bottom_light;
+    vec3 grass_tip_dark;
+    vec3 grass_tip_light;
 }
 gui_input;
 
