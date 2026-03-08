@@ -12,14 +12,14 @@ const uint GRASS_VARIANT_COUNT          = 3u;
 const uint GRASS_BAND_VARIANT_LUT_LEN   = GRASS_BAND_COUNT * GRASS_VARIANT_COUNT;
 
 const vec3 GRASS_BOTTOM_LUT[GRASS_BAND_VARIANT_LUT_LEN] =
-    vec3[](vec3(0.231, 0.380, 0.122), vec3(0.255, 0.404, 0.129), vec3(0.275, 0.424, 0.141),
-           vec3(0.325, 0.506, 0.169), vec3(0.353, 0.533, 0.184), vec3(0.373, 0.557, 0.196),
-           vec3(0.443, 0.616, 0.243), vec3(0.471, 0.651, 0.263), vec3(0.498, 0.675, 0.282));
+    vec3[](vec3(0.000, 0.350, 0.200), vec3(0.020, 0.400, 0.220), vec3(0.040, 0.450, 0.240),
+           vec3(0.060, 0.500, 0.260), vec3(0.080, 0.550, 0.280), vec3(0.100, 0.600, 0.300),
+           vec3(0.120, 0.650, 0.320), vec3(0.150, 0.700, 0.350), vec3(0.180, 0.750, 0.380));
 
 const vec3 GRASS_TIP_LUT[GRASS_BAND_VARIANT_LUT_LEN] =
-    vec3[](vec3(0.424, 0.627, 0.220), vec3(0.451, 0.655, 0.235), vec3(0.478, 0.682, 0.251),
-           vec3(0.565, 0.753, 0.333), vec3(0.596, 0.776, 0.357), vec3(0.624, 0.800, 0.380),
-           vec3(0.710, 0.851, 0.482), vec3(0.737, 0.867, 0.514), vec3(0.761, 0.886, 0.541));
+    vec3[](vec3(0.300, 0.750, 0.100), vec3(0.380, 0.800, 0.120), vec3(0.460, 0.840, 0.140),
+           vec3(0.540, 0.880, 0.160), vec3(0.620, 0.920, 0.180), vec3(0.700, 0.950, 0.200),
+           vec3(0.780, 0.970, 0.220), vec3(0.860, 0.990, 0.240), vec3(0.950, 1.000, 0.260));
 
 float sample_grass_band_noise(vec2 world_xz) {
     fnl_state state    = fnlCreateState(GRASS_BAND_NOISE_SEED);
