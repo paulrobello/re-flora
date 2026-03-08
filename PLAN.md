@@ -1,7 +1,7 @@
-1. for grasses, we want to have more varieties. currently we have grass instance and grass voxel hashes that can be used to
-   determine the color to use during rendering. however this is too noisy while successfully adding varieties.
-   for now, keep this logic but turn the default of the varieties across instances and in a instance (voxel hash), to 0.
-   since we are going to implement another color patching logic.
+for grasses, we want to have more varieties. currently we have grass instance and grass voxel hashes that can be used to
+determine the color to use during rendering. however this is too noisy while successfully adding varieties.
+for now, keep this logic but turn the default of the varieties across instances and in a instance (voxel hash), to 0.
+since we are going to implement another color patching logic.
 
 the new logic:
 

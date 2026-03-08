@@ -8,7 +8,8 @@ use crate::{
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, load_butterfly_and_remap,
-        ButterflyPaletteConfig, DenoiserResources, ExtentDependentResources, Vertex,
+        ButterflyPaletteConfig, ButterflyPalettePreset, DenoiserResources,
+        ExtentDependentResources, Vertex,
     },
     util::get_project_root,
     vkn::{
@@ -726,9 +727,12 @@ impl TracerResources {
         }
 
         let atlas_path_str = butterfly_atlas_path.to_string_lossy().to_string();
-        let config = ButterflyPaletteConfig::default_current();
-        let rgba = load_butterfly_and_remap(butterfly_atlas_path, &config);
-        let (width, height) = rgba.dimensions();
+        let atlas_rgba = image::open(butterfly_atlas_path)
+            .unwrap_or_else(|e| {
+                panic!("Failed to open butterfly atlas '{}': {}", atlas_path_str, e)
+            })
+            .to_rgba8();
+        let (width, height) = atlas_rgba.dimensions();
         let expected_size = frame_dim * 5;
         assert!(
             width == expected_size && height == expected_size,
@@ -740,19 +744,25 @@ impl TracerResources {
         );
 
         let mut butterfly_layers = Vec::new();
-        for row in 0..5 {
-            if let Some(frames) = Self::extract_row_sequence_layers(
-                &rgba,
-                row,
-                BUTTERFLY_FRAMES_PER_VARIANT,
-                &atlas_path_str,
-            ) {
-                butterfly_layers.extend(frames);
-            } else {
-                panic!(
-                    "Failed to extract butterfly frames from row {} of '{}'",
-                    row, atlas_path_str
-                );
+        for preset_idx in 0..ButterflyPalettePreset::COUNT {
+            let preset = ButterflyPalettePreset::from_index(preset_idx);
+            let config = preset.config();
+            let rgba = load_butterfly_and_remap(butterfly_atlas_path, &config);
+            let label = format!("{} ({})", atlas_path_str, preset.name());
+            for row in 0..5 {
+                if let Some(frames) = Self::extract_row_sequence_layers(
+                    &rgba,
+                    row,
+                    BUTTERFLY_FRAMES_PER_VARIANT,
+                    &label,
+                ) {
+                    butterfly_layers.extend(frames);
+                } else {
+                    panic!(
+                        "Failed to extract butterfly frames from row {} of '{}'",
+                        row, label
+                    );
+                }
             }
         }
         let bird_path = get_project_root() + "/" + BIRD_SPRITESHEET_REL_PATH;
