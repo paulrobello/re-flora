@@ -2,63 +2,15 @@
 pub struct AnimatedTextureSequence {
     pub start_frame: u32,
     pub frame_count: u32,
-    pub frame_duration_sec: f32,
 }
 
 impl AnimatedTextureSequence {
-    pub const fn new(start_frame: u32, frame_count: u32, frame_duration_sec: f32) -> Self {
+    pub const fn new(start_frame: u32, frame_count: u32) -> Self {
         Self {
             start_frame,
             frame_count,
-            frame_duration_sec,
         }
     }
-
-    pub fn frame_offset_at_time(self, time_since_start_sec: f32) -> u32 {
-        frame_offset_at_time(
-            time_since_start_sec,
-            self.frame_count,
-            self.frame_duration_sec,
-        )
-    }
-}
-
-pub fn frame_offset_at_time(
-    time_since_start_sec: f32,
-    frame_count: u32,
-    frame_duration_sec: f32,
-) -> u32 {
-    if frame_count == 0 {
-        return 0;
-    }
-    if frame_duration_sec <= f32::EPSILON {
-        return 0;
-    }
-
-    let step = (time_since_start_sec.max(0.0) / frame_duration_sec).floor() as u64;
-    (step % frame_count as u64) as u32
-}
-
-pub fn animated_variant_layer(
-    base_layer: u32,
-    texture_variant: u32,
-    variant_count: u32,
-    frames_per_variant: u32,
-    frame_duration_sec: f32,
-    time_since_start_sec: f32,
-) -> u32 {
-    let frame_count = frames_per_variant.max(1);
-    let variant = texture_variant % variant_count.max(1);
-    let frame_offset = frame_offset_at_time(time_since_start_sec, frame_count, frame_duration_sec);
-    base_layer + variant * frame_count + frame_offset
-}
-
-pub fn animated_sequence_layer(
-    base_layer: u32,
-    sequence: AnimatedTextureSequence,
-    time_since_start_sec: f32,
-) -> u32 {
-    base_layer + sequence.start_frame + sequence.frame_offset_at_time(time_since_start_sec)
 }
 
 pub const PARTICLE_SPRITE_FRAME_DIM: u32 = 16;
@@ -148,23 +100,17 @@ pub const fn bird_spritesheet_sequence_def(
 
 pub const fn bird_animation_sequence(sequence: BirdSpriteSequence) -> AnimatedTextureSequence {
     match sequence {
-        BirdSpriteSequence::Idle => {
-            AnimatedTextureSequence::new(0, BIRD_IDLE_FRAME_COUNT, BIRD_ANIM_FRAME_DURATION_SEC)
+        BirdSpriteSequence::Idle => AnimatedTextureSequence::new(0, BIRD_IDLE_FRAME_COUNT),
+        BirdSpriteSequence::Flying => {
+            AnimatedTextureSequence::new(BIRD_IDLE_FRAME_COUNT, BIRD_FLYING_FRAME_COUNT)
         }
-        BirdSpriteSequence::Flying => AnimatedTextureSequence::new(
-            BIRD_IDLE_FRAME_COUNT,
-            BIRD_FLYING_FRAME_COUNT,
-            BIRD_ANIM_FRAME_DURATION_SEC,
-        ),
         BirdSpriteSequence::Walking => AnimatedTextureSequence::new(
             BIRD_IDLE_FRAME_COUNT + BIRD_FLYING_FRAME_COUNT,
             BIRD_WALKING_FRAME_COUNT,
-            BIRD_ANIM_FRAME_DURATION_SEC,
         ),
         BirdSpriteSequence::Eating => AnimatedTextureSequence::new(
             BIRD_IDLE_FRAME_COUNT + BIRD_FLYING_FRAME_COUNT + BIRD_WALKING_FRAME_COUNT,
             BIRD_EATING_FRAME_COUNT,
-            BIRD_ANIM_FRAME_DURATION_SEC,
         ),
     }
 }
