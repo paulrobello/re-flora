@@ -4,6 +4,7 @@ use glam::{UVec3, Vec3, Vec4};
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
+pub const PARTICLE_UPDATE_STEP_SECONDS: f32 = 1.0;
 // Keep in sync with shader/particles/particle.vert scaling_factor (1.0 / 256.0).
 const PARTICLE_POSITION_SCALE: f32 = 256.0;
 
@@ -170,6 +171,7 @@ pub struct ParticleSystem {
     render_kinds: Vec<ParticleRenderKind>,
     update_buckets: Vec<u32>,
     update_bucket_phase: u32,
+    update_bucket_elapsed: f32,
     speed_noise: FastNoiseLite,
 }
 
@@ -213,6 +215,7 @@ impl ParticleSystem {
             render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
             update_buckets: vec![0; max_particles],
             update_bucket_phase: 0,
+            update_bucket_elapsed: 0.0,
             speed_noise,
         }
     }
@@ -344,8 +347,17 @@ impl ParticleSystem {
         }
 
         let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
-        let active_bucket = self.update_bucket_phase % bucket_count;
-        self.update_bucket_phase = (self.update_bucket_phase + 1) % bucket_count;
+        let mut active_bucket = 0;
+        let mut should_step_bucket = false;
+        if bucket_count > 1 {
+            self.update_bucket_elapsed += dt;
+            if self.update_bucket_elapsed >= PARTICLE_UPDATE_STEP_SECONDS {
+                self.update_bucket_elapsed -= PARTICLE_UPDATE_STEP_SECONDS;
+                active_bucket = self.update_bucket_phase % bucket_count;
+                self.update_bucket_phase = (self.update_bucket_phase + 1) % bucket_count;
+                should_step_bucket = true;
+            }
+        }
 
         let base_damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
         let clamped_freq = forces.speed_noise.frequency.max(0.0001);
@@ -356,18 +368,17 @@ impl ParticleSystem {
             let slot = self.alive_indices[alive_cursor];
             let mode = self.motion_modes[slot];
             let is_bucketed = mode == MotionMode::Falling && bucket_count > 1;
-            if is_bucketed && self.update_buckets[slot] != active_bucket {
+            if is_bucketed && (!should_step_bucket || self.update_buckets[slot] != active_bucket) {
                 alive_cursor += 1;
                 continue;
             }
 
-            let dt_scale = if is_bucketed {
-                bucket_count as f32
+            let sim_dt = if is_bucketed {
+                PARTICLE_UPDATE_STEP_SECONDS
             } else {
-                1.0
+                dt
             };
-            let sim_dt = dt * dt_scale;
-            let damping = base_damping.powf(dt_scale);
+            let damping = base_damping;
 
             let vel = &mut self.velocities[slot];
             let is_sinking = self.is_sinking[slot];
@@ -385,7 +396,7 @@ impl ParticleSystem {
             *vel += drift_force * sim_dt;
 
             if is_sinking {
-                let sink_damping = (base_damping * 0.96).powf(dt_scale);
+                let sink_damping = base_damping * 0.96;
                 vel.x *= sink_damping;
                 vel.z *= sink_damping;
                 vel.y = -self.sink_speeds[slot];
