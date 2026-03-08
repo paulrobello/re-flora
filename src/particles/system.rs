@@ -346,22 +346,30 @@ impl ParticleSystem {
         let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
         let active_bucket = self.update_bucket_phase % bucket_count;
         self.update_bucket_phase = (self.update_bucket_phase + 1) % bucket_count;
-        let sim_dt = dt * bucket_count as f32;
 
-        let damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
+        let base_damping = 1.0_f32 - forces.linear_damping.clamp(0.0, 0.999);
         let clamped_freq = forces.speed_noise.frequency.max(0.0001);
         self.speed_noise.set_frequency(Some(clamped_freq));
 
         let mut alive_cursor = 0;
         while alive_cursor < self.alive_indices.len() {
             let slot = self.alive_indices[alive_cursor];
-            if self.update_buckets[slot] != active_bucket {
+            let mode = self.motion_modes[slot];
+            let is_bucketed = mode == MotionMode::Falling && bucket_count > 1;
+            if is_bucketed && self.update_buckets[slot] != active_bucket {
                 alive_cursor += 1;
                 continue;
             }
 
+            let dt_scale = if is_bucketed {
+                bucket_count as f32
+            } else {
+                1.0
+            };
+            let sim_dt = dt * dt_scale;
+            let damping = base_damping.powf(dt_scale);
+
             let vel = &mut self.velocities[slot];
-            let mode = self.motion_modes[slot];
             let is_sinking = self.is_sinking[slot];
 
             // Apply randomized turbulent drift
@@ -377,8 +385,9 @@ impl ParticleSystem {
             *vel += drift_force * sim_dt;
 
             if is_sinking {
-                vel.x *= damping * 0.96;
-                vel.z *= damping * 0.96;
+                let sink_damping = (base_damping * 0.96).powf(dt_scale);
+                vel.x *= sink_damping;
+                vel.z *= sink_damping;
                 vel.y = -self.sink_speeds[slot];
             } else {
                 match mode {
