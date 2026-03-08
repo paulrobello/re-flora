@@ -60,11 +60,6 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 const float scaling_factor = 1.0 / 256.0;
 const uint SPRITE_FLIP_BIT = 0x80000000u;
 
-vec3 clamp_to_grid(vec3 position) {
-    const float clamp_fac = scaling_factor;
-    return round(position / clamp_fac) * clamp_fac;
-}
-
 float get_shadow_weight(ivec3 vox_local_pos) {
     vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
     float shadow_negative_side_dropoff = max(0.0, dot(-vox_dir_normalized, sun_info.sun_dir));
@@ -84,7 +79,7 @@ void main() {
                        in_packed_data);
 
     float scale       = max(in_instance_size, 0.001) * 1.25;
-    vec3 instance_pos = clamp_to_grid(vec3(in_instance_pos) * scaling_factor);
+    vec3 instance_pos = vec3(in_instance_pos) * scaling_factor;
     vec3 vertex_pos =
         get_vert_pos_with_billboard(camera_info.view_mat, instance_pos, vert_offset_in_vox, scale);
 
