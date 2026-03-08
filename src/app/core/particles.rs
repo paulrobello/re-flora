@@ -3,7 +3,7 @@ use crate::audio::SpatialSoundManager;
 use crate::geom::UAabb3;
 use crate::particles::{
     BirdEmitter, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter,
-    ParticleHandle, ParticleSystem, PARTICLE_UPDATE_BUCKET_COUNT,
+    ParticleHandle, ParticleSystem,
 };
 use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
@@ -350,36 +350,12 @@ impl App {
         self.particle_system
             .set_full_update_seconds(self.gui_adjustables.particle_full_update_seconds.value);
 
-        let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as f32;
-        let particle_tick_step = (self.gui_adjustables.particle_full_update_seconds.value
-            / bucket_count)
-            .max(1.0 / 240.0);
-        let did_particle_tick = if PARTICLE_UPDATE_BUCKET_COUNT <= 1 {
-            self.particle_animation_time_sec += dt;
-            true
-        } else {
-            self.particle_tick_elapsed_sec += dt;
-            if self.particle_tick_elapsed_sec >= particle_tick_step {
-                self.particle_tick_elapsed_sec -= particle_tick_step;
-                self.particle_animation_time_sec += particle_tick_step;
-                true
-            } else {
-                false
-            }
-        };
-
         Self::drive_emitters(
             &mut self.butterfly_emitters,
             &mut self.particle_system,
             dt,
             wind_time,
         );
-        if did_particle_tick {
-            self.constrain_butterflies_to_terrain(
-                particle_tick_step,
-                self.particle_animation_time_sec,
-            );
-        }
         Self::drive_emitters(
             &mut self.bird_emitters,
             &mut self.particle_system,
@@ -395,6 +371,20 @@ impl App {
         );
 
         self.particle_system.update(dt, self.particle_forces);
+        let tick_step = self.particle_system.last_tick_step();
+        if tick_step.did_step {
+            self.particle_animation_time_sec += tick_step.step_seconds;
+            let active_bucket = if tick_step.bucket_count > 1 {
+                Some(tick_step.active_bucket)
+            } else {
+                None
+            };
+            self.constrain_butterflies_to_terrain(
+                tick_step.step_seconds,
+                self.particle_animation_time_sec,
+                active_bucket,
+            );
+        }
         self.bird_audio_binding.sync(
             &mut self.bird_emitters,
             &self.particle_system,
@@ -409,7 +399,12 @@ impl App {
         }
     }
 
-    pub(super) fn constrain_butterflies_to_terrain(&mut self, dt: f32, time: f32) {
+    pub(super) fn constrain_butterflies_to_terrain(
+        &mut self,
+        dt: f32,
+        time: f32,
+        active_bucket: Option<u32>,
+    ) {
         let mut query_positions_xz = Vec::new();
         let mut query_targets: Vec<ButterflyQueryTarget> = Vec::new();
 
@@ -425,6 +420,11 @@ impl App {
                 emitter_handles
                     .into_iter()
                     .zip(emitter_positions_xz.into_iter())
+                    .filter(|(handle, _)| {
+                        active_bucket.is_none_or(|bucket| {
+                            self.particle_system.handle_bucket(*handle) == Some(bucket)
+                        })
+                    })
                     .map(|(handle, pos_xz)| {
                         query_positions_xz.push(pos_xz);
                         ButterflyQueryTarget {
