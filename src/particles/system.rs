@@ -4,7 +4,7 @@ use glam::{UVec3, Vec3, Vec4};
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
-pub const PARTICLE_UPDATE_STEP_SECONDS: f32 = 0.1;
+pub const PARTICLE_FULL_UPDATE_SECONDS_DEFAULT: f32 = 0.4;
 // Keep in sync with shader/particles/particle.vert scaling_factor (1.0 / 256.0).
 const PARTICLE_POSITION_SCALE: f32 = 256.0;
 
@@ -172,6 +172,7 @@ pub struct ParticleSystem {
     update_buckets: Vec<u32>,
     update_bucket_phase: u32,
     update_bucket_elapsed: f32,
+    update_full_cycle_seconds: f32,
     speed_noise: FastNoiseLite,
 }
 
@@ -216,7 +217,19 @@ impl ParticleSystem {
             update_buckets: vec![0; max_particles],
             update_bucket_phase: 0,
             update_bucket_elapsed: 0.0,
+            update_full_cycle_seconds: PARTICLE_FULL_UPDATE_SECONDS_DEFAULT,
             speed_noise,
+        }
+    }
+
+    pub fn set_full_update_seconds(&mut self, seconds: f32) {
+        let clamped = seconds.max(1.0 / 240.0);
+        self.update_full_cycle_seconds = clamped;
+
+        let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
+        let step_seconds = self.bucket_step_seconds(bucket_count);
+        if self.update_bucket_elapsed >= step_seconds {
+            self.update_bucket_elapsed %= step_seconds;
         }
     }
 
@@ -339,6 +352,14 @@ impl ParticleSystem {
         (seed ^ (seed >> 16)).wrapping_mul(0x7FEB_352D) % (PARTICLE_UPDATE_BUCKET_COUNT as u32)
     }
 
+    fn bucket_step_seconds(&self, bucket_count: u32) -> f32 {
+        if bucket_count <= 1 {
+            return self.update_full_cycle_seconds.max(1.0 / 240.0);
+        }
+
+        (self.update_full_cycle_seconds / bucket_count as f32).max(1.0 / 240.0)
+    }
+
     /// Advances the simulation by `dt` seconds and applies forces/damping.
     /// Supports both falling particles and free-flight motion with the same drift model.
     pub fn update(&mut self, dt: f32, forces: ParticleForces) {
@@ -347,12 +368,13 @@ impl ParticleSystem {
         }
 
         let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as u32;
+        let bucket_step_seconds = self.bucket_step_seconds(bucket_count);
         let mut active_bucket = 0;
         let mut should_step_bucket = false;
         if bucket_count > 1 {
             self.update_bucket_elapsed += dt;
-            if self.update_bucket_elapsed >= PARTICLE_UPDATE_STEP_SECONDS {
-                self.update_bucket_elapsed -= PARTICLE_UPDATE_STEP_SECONDS;
+            if self.update_bucket_elapsed >= bucket_step_seconds {
+                self.update_bucket_elapsed -= bucket_step_seconds;
                 active_bucket = self.update_bucket_phase % bucket_count;
                 self.update_bucket_phase = (self.update_bucket_phase + 1) % bucket_count;
                 should_step_bucket = true;
@@ -373,11 +395,7 @@ impl ParticleSystem {
                 continue;
             }
 
-            let sim_dt = if is_bucketed {
-                PARTICLE_UPDATE_STEP_SECONDS
-            } else {
-                dt
-            };
+            let sim_dt = if is_bucketed { bucket_step_seconds } else { dt };
             let damping = base_damping;
 
             let vel = &mut self.velocities[slot];
