@@ -50,11 +50,20 @@ impl GuiConfigLoader {
         config
     }
 
-    fn config_path() -> std::path::PathBuf {
+    pub fn config_path() -> std::path::PathBuf {
         let project_root = env!("PROJECT_ROOT");
         Path::new(project_root)
             .join("config")
             .join(CONFIG_FILE_NAME)
+    }
+
+    pub fn save(config: &GuiConfigFile) -> std::io::Result<()> {
+        let config_path = Self::config_path();
+        let content = toml::to_string_pretty(config)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        std::fs::write(&config_path, content)?;
+        log::info!("Saved GUI config to {}", config_path.display());
+        Ok(())
     }
 
     fn validate(config: &GuiConfigFile, path: &Path) {
