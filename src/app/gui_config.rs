@@ -443,11 +443,17 @@ impl Default for GuiAdjustables {
 }
 
 impl GuiAdjustables {
+    const SAVE_DENYLIST: &'static [&'static str] = &["sun_altitude", "sun_azimuth", "time_of_day"];
+
     pub fn save_to_config(&self) -> std::io::Result<()> {
         let mut config = GuiConfigLoader::load();
 
         for section in &mut config.section {
             for param in &mut section.param {
+                if Self::SAVE_DENYLIST.contains(&param.id.as_str()) {
+                    continue;
+                }
+
                 let value_updated = match param.kind {
                     GuiParamKind::Float => {
                         if let Some(field) = Self::get_float_param(self, &param.id) {
