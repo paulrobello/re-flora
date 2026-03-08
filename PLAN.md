@@ -4,7 +4,7 @@
 
 replace noisy hash based grass color variation with stable world space color patching.
 
-## stage 1 scope (current)
+## stage 1 scope (completed)
 
 - keep existing hash based flora HSV variation code path for compatibility.
 - set default variation max values to `0` for both instance and voxel offsets.
@@ -49,6 +49,17 @@ replace noisy hash based grass color variation with stable world space color pat
   - `shader/foliage/flora_lod.vert`
 - include and call shared grass band color helper so LOD and non LOD match.
 
+5. per-blade gradient (bottom to tip)
+
+- hardcode bottom and tip color LUTs in `grass_band_color.glsl`.
+- each blade samples bottom and tip from the same patch band, then mixes by `color_gradient`.
+- ensures vertical gradient remains per-blade.
+
+6. spatially continuous variant selection
+
+- variant index is derived from continuous noise value, not from hash.
+- avoids isolated darkest/lighest blades inside mid regions.
+
 ## stage 1 validation checklist
 
 - grass shows coherent patching, no salt and pepper noise.
@@ -56,6 +67,7 @@ replace noisy hash based grass color variation with stable world space color pat
 - transitions are banded (toon like), not smoothly blended.
 - LOD and non LOD grass colors match.
 - non grass flora colors remain unchanged.
+- per-blade bottom-to-tip gradient is preserved.
 
 ## stage 2 (later optimization)
 
@@ -65,6 +77,18 @@ replace noisy hash based grass color variation with stable world space color pat
   - compact band index (`0..2`) in instance data.
 - use stored value in vertex shader to reduce repeated ALU.
 - only do this after profiling confirms stage 1 cost is material.
+
+## tuning guide
+
+to adjust grass colors, edit these arrays in `shader/foliage/grass_band_color.glsl`:
+
+- `GRASS_BOTTOM_LUT[9]` - bottom colors for 3 bands x 3 variants
+- `GRASS_BAND_NOISE_FREQUENCY` - controls patch size (higher = smaller patches)
+
+index mapping:
+- `0..2` = dark band variants
+- `3..5` = mid band variants
+- `6..8` = light band variants
 
 # wind rework
 
