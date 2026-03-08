@@ -179,18 +179,6 @@ macro_rules! declare_gui_adjustables {
             )*
         }
 
-        impl Default for GuiAdjustables {
-            fn default() -> Self {
-                Self {
-                    $(
-                        $(
-                            $field_name: declare_gui_adjustables!(@init $control_type, $default $(, $($control_args),* )? ),
-                        )*
-                    )*
-                }
-            }
-        }
-
         impl GuiAdjustables {
             /// Render all GUI controls organized by sections
             #[allow(dead_code)]

@@ -5,6 +5,7 @@ mod egui_renderer;
 mod flora;
 mod gameplay;
 mod geom;
+#[macro_use]
 mod gui_adjustables;
 mod particles;
 mod procedual_placer;
