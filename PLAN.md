@@ -4,72 +4,7 @@
 
 replace noisy hash based grass color variation with stable world space color patching.
 
-## stage 1 scope (completed)
-
-- keep existing hash based flora HSV variation code path for compatibility.
-- set default variation max values to `0` for both instance and voxel offsets.
-- implement a new grass only color patching path in vertex shader.
-- keep non grass species color logic unchanged.
-
-## stage 1 detailed implementation
-
-1. default variation controls
-
-- file: `src/app/gui_config.rs`
-- set these defaults to `0.0`:
-  - `flora_instance_hue_offset`
-  - `flora_instance_saturation_offset`
-  - `flora_instance_value_offset`
-  - `flora_voxel_hue_offset`
-  - `flora_voxel_saturation_offset`
-  - `flora_voxel_value_offset`
-
-2. grass patch noise in shader (deterministic, not per frame random)
-
-- create shared include: `shader/foliage/grass_band_color.glsl`
-- implement 2d Perlin fBm sampled from world `xz`:
-  - octaves: `3`
-  - lacunarity: `2.0`
-  - gain: `0.5`
-  - normalized output in `[0, 1]`
-- no time input for color sampling.
-- output must be stable for same world position across frames.
-
-3. hardcoded grass LUT and nearest band selection
-
-- in `grass_band_color.glsl`, hardcode 3 grass colors (shader side constants).
-- map noise to band index with nearest bucket behavior (no interpolation).
-- apply LUT color only for `FLORA_SPECIES_GRASS`.
-- keep existing palette flow for other species.
-
-4. integrate in both foliage vertex paths
-
-- update:
-  - `shader/foliage/flora.vert`
-  - `shader/foliage/flora_lod.vert`
-- include and call shared grass band color helper so LOD and non LOD match.
-
-5. per-blade gradient (bottom to tip)
-
-- hardcode bottom and tip color LUTs in `grass_band_color.glsl`.
-- each blade samples bottom and tip from the same patch band, then mixes by `color_gradient`.
-- ensures vertical gradient remains per-blade.
-
-6. spatially continuous variant selection
-
-- variant index is derived from continuous noise value, not from hash.
-- avoids isolated darkest/lighest blades inside mid regions.
-
-## stage 1 validation checklist
-
-- grass shows coherent patching, no salt and pepper noise.
-- patch colors are stable across frames and camera motion.
-- transitions are banded (toon like), not smoothly blended.
-- LOD and non LOD grass colors match.
-- non grass flora colors remain unchanged.
-- per-blade bottom-to-tip gradient is preserved.
-
-## stage 2 (later optimization)
+## later optimization
 
 - move grass patch random source from per vertex shader compute to flora generation.
 - store either:
@@ -77,18 +12,6 @@ replace noisy hash based grass color variation with stable world space color pat
   - compact band index (`0..2`) in instance data.
 - use stored value in vertex shader to reduce repeated ALU.
 - only do this after profiling confirms stage 1 cost is material.
-
-## tuning guide
-
-to adjust grass colors, edit these arrays in `shader/foliage/grass_band_color.glsl`:
-
-- `GRASS_BOTTOM_LUT[9]` - bottom colors for 3 bands x 3 variants
-- `GRASS_BAND_NOISE_FREQUENCY` - controls patch size (higher = smaller patches)
-
-index mapping:
-- `0..2` = dark band variants
-- `3..5` = mid band variants
-- `6..8` = light band variants
 
 # wind rework
 
