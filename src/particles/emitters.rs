@@ -1,5 +1,6 @@
 use std::{collections::HashMap, f32::consts::TAU, ops::RangeInclusive};
 
+use fastnoise_lite::{FastNoiseLite, NoiseType};
 use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
@@ -49,6 +50,13 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
         rng.random_range(min_z..=max_z),
         rng.random_range(min_w..=max_w),
     )
+}
+
+fn butterfly_height_noise_state(seed: i32, frequency: f32) -> FastNoiseLite {
+    let mut state = FastNoiseLite::with_seed(seed);
+    state.set_noise_type(Some(NoiseType::Perlin));
+    state.set_frequency(Some(frequency.max(0.0001)));
+    state
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -267,9 +275,9 @@ pub struct ButterflyEmitter {
     pub enabled: bool,
     pub butterfly_count: u32,
     render_kind: ParticleRenderKind,
+    vertical_noise: FastNoiseLite,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
-    smoothed_ground_height: HashMap<ParticleHandle, f32>,
 }
 
 impl ButterflyEmitter {
@@ -307,9 +315,9 @@ impl ButterflyEmitter {
             enabled: desc.enabled,
             butterfly_count: desc.butterfly_count,
             render_kind,
+            vertical_noise: butterfly_height_noise_state(seed as i32 + 9_341, 0.65),
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
-            smoothed_ground_height: HashMap::new(),
         };
         emitter.clamp_height(center.y);
         emitter
@@ -345,17 +353,10 @@ impl ButterflyEmitter {
     fn prune_handles(&mut self, system: &ParticleSystem) {
         self.active_handles
             .retain(|handle| system.is_alive_handle(*handle));
-        self.smoothed_ground_height
-            .retain(|handle, _| system.is_alive_handle(*handle));
     }
 
-    fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
-        let max_height_offset = *self.height_offset.end();
-        let min_height_offset = *self.height_offset.start();
+    fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32, _time: f32) {
         let steering = self.steering_strength * dt;
-        let vertical_span = (max_height_offset - min_height_offset).max(0.01);
-        let flutter_angular_speed = TAU * self.bob_frequency_hz.max(0.0);
-        let flutter_pull = self.bob_strength * dt;
         for handle in &self.active_handles {
             if let Some(pos) = system.position(*handle) {
                 let relative = pos - self.center;
@@ -363,20 +364,6 @@ impl ButterflyEmitter {
                 if horizontal.length_squared() > self.wander_radius * self.wander_radius {
                     let pull = -horizontal.normalize_or_zero() * steering;
                     let _ = system.add_velocity(*handle, pull);
-                }
-
-                // Add a rapid flap-like vertical target so butterflies frequently bob up/down.
-                let phase_offset = pos.x * 2.7 + pos.z * 3.3;
-                let flutter = (time * flutter_angular_speed + phase_offset).sin();
-                let target_offset = min_height_offset + (0.5 + 0.5 * flutter) * vertical_span;
-                let y_error = target_offset - relative.y;
-                let _ = system.add_velocity(*handle, Vec3::new(0.0, y_error * flutter_pull, 0.0));
-
-                // Keep hard vertical bounds to avoid runaway drift.
-                if relative.y < min_height_offset {
-                    let _ = system.add_velocity(*handle, Vec3::new(0.0, steering, 0.0));
-                } else if relative.y > max_height_offset {
-                    let _ = system.add_velocity(*handle, Vec3::new(0.0, -steering, 0.0));
                 }
             }
         }
@@ -392,7 +379,6 @@ impl ButterflyEmitter {
         while self.active_handles.len() > target_count {
             if let Some(handle) = self.active_handles.pop() {
                 let _ = system.despawn(handle);
-                self.smoothed_ground_height.remove(&handle);
             }
         }
     }
@@ -458,36 +444,35 @@ impl ButterflyEmitter {
         handle: ParticleHandle,
         ground_height: f32,
         dt: f32,
+        time: f32,
     ) {
         let Some(mut pos) = system.position(handle) else {
             return;
         };
 
-        // Temporal smoothing prevents per-frame query jitter from snapping butterflies.
-        const GROUND_TRACKING_TAU_SEC: f32 = 0.22;
-        const MAX_GROUND_STEP_PER_SEC: f32 = 3.5;
-        const MAX_VERTICAL_CORRECTION_PER_SEC: f32 = 1.8;
+        let min_height_offset = *self.height_offset.start();
+        let max_height_offset = *self.height_offset.end();
+        let vertical_span = (max_height_offset - min_height_offset).max(0.01);
 
-        let clamped_dt = dt.max(1.0 / 240.0);
-        let tracked_ground = self
-            .smoothed_ground_height
-            .entry(handle)
-            .or_insert(ground_height);
-        let max_ground_step = MAX_GROUND_STEP_PER_SEC * clamped_dt;
-        let limited_measurement = *tracked_ground
-            + (ground_height - *tracked_ground).clamp(-max_ground_step, max_ground_step);
-        let alpha = 1.0 - (-clamped_dt / GROUND_TRACKING_TAU_SEC).exp();
-        *tracked_ground += (limited_measurement - *tracked_ground) * alpha;
+        let handle_phase = pos.x * 0.317 + pos.z * 1.913;
+        let noise_time = time * self.bob_frequency_hz.max(0.05) + handle_phase;
+        let noise = self
+            .vertical_noise
+            .get_noise_2d(noise_time, 0.0)
+            .clamp(-1.0, 1.0);
+        let target_offset = min_height_offset + (noise * 0.5 + 0.5) * vertical_span;
 
-        let min_height = *tracked_ground + *self.height_offset.start();
-        let max_height = *tracked_ground + *self.height_offset.end();
-        let max_vertical_correction = MAX_VERTICAL_CORRECTION_PER_SEC * clamped_dt;
+        let current_offset = pos.y - ground_height;
+        let error = target_offset - current_offset;
+        let dt_for_correction = dt.clamp(1.0 / 240.0, 1.0 / 30.0);
+        let correction_speed = (self.bob_strength.max(0.2) * 2.5).max(0.4);
+        let max_step = correction_speed * dt_for_correction;
+        let correction = error.clamp(-max_step, max_step);
+        pos.y += correction;
 
-        if pos.y < min_height {
-            pos.y = (pos.y + max_vertical_correction).min(min_height);
-        } else if pos.y > max_height {
-            pos.y = (pos.y - max_vertical_correction).max(max_height);
-        }
+        let min_height = ground_height + min_height_offset;
+        let max_height = ground_height + max_height_offset;
+        pos.y = pos.y.clamp(min_height, max_height);
         let _ = system.set_position(handle, pos);
     }
 }
