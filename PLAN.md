@@ -12,3 +12,8 @@ but this step can be later changed to be called during flora generation step to 
 
 we then hard code a color LUT table in shader side to guide how to interpret the generated float to a color. we can use a color band of 3,
 where we just use nearest sampling without interpolation. (toon shading alike)
+
+# wind rework
+
+first just tell how does the wind model works currently, explain its logic.
+
