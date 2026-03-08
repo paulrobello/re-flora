@@ -42,9 +42,8 @@ use crate::builder::{
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
 use crate::particles::{
-    animated_sequence_layer, animated_variant_layer, bird_animation_sequence, BirdSpriteSequence,
-    ParticleSnapshot, BUTTERFLY_ANIM_FRAME_DURATION_SEC, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH,
-    PARTICLE_CAPACITY,
+    bird_animation_sequence, BirdSpriteSequence, ParticleSnapshot,
+    BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, PARTICLE_CAPACITY,
 };
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
@@ -1605,11 +1604,7 @@ impl Tracer {
         }
     }
 
-    pub fn upload_particles(
-        &mut self,
-        snapshots: &[ParticleSnapshot],
-        time_since_start_sec: f32,
-    ) -> Result<()> {
+    pub fn upload_particles(&mut self, snapshots: &[ParticleSnapshot]) -> Result<()> {
         let capacity = PARTICLE_CAPACITY;
         let count = snapshots.len().min(capacity);
         let texture_layout = ParticleTextureLayout::new();
@@ -1628,7 +1623,6 @@ impl Tracer {
             texture_layout.total_layer_count()
         );
         let butterfly_frame_count = texture_layout.butterfly_frames_per_view();
-        let butterfly_view_count = texture_layout.butterfly_view_count();
         let bird_base_layer = texture_layout.bird_base_layer();
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
@@ -1701,15 +1695,9 @@ impl Tracer {
                 let palette_preset = ButterflyPalettePreset::from_index(snap.texture_variant);
                 let preset_base_layer =
                     texture_layout.butterfly_preset_base_layer(palette_preset as u32);
-                let tex_index = preset_base_layer
-                    + animated_variant_layer(
-                        0,
-                        view_index,
-                        butterfly_view_count,
-                        butterfly_frame_count,
-                        BUTTERFLY_ANIM_FRAME_DURATION_SEC,
-                        time_since_start_sec,
-                    );
+                let frame_offset = snap.animation_frame_offset % butterfly_frame_count.max(1);
+                let tex_index =
+                    preset_base_layer + view_index * butterfly_frame_count + frame_offset;
                 debug_assert!(
                     texture_layout.contains_layer(tex_index),
                     "Butterfly texture index {} out of LUT bounds {}",
@@ -1719,11 +1707,10 @@ impl Tracer {
                 tex_index
             };
             let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
-            let bird_tex_index = animated_sequence_layer(
-                bird_base_layer,
-                bird_animation_sequence(bird_sequence),
-                time_since_start_sec,
-            );
+            let sequence = bird_animation_sequence(bird_sequence);
+            let bird_tex_index = bird_base_layer
+                + sequence.start_frame
+                + (snap.animation_frame_offset % sequence.frame_count.max(1));
             debug_assert!(
                 texture_layout.contains_layer(bird_tex_index),
                 "Bird texture index {} out of LUT bounds {}",

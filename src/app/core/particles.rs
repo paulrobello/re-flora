@@ -404,10 +404,7 @@ impl App {
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
 
-        if let Err(err) = self
-            .tracer
-            .upload_particles(&self.particle_snapshots, self.particle_animation_time_sec)
-        {
+        if let Err(err) = self.tracer.upload_particles(&self.particle_snapshots) {
             log::error!("Failed to upload particles: {}", err);
         }
     }
