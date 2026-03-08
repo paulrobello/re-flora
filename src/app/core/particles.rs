@@ -368,6 +368,8 @@ impl App {
             wind_time,
         );
 
+        self.particle_system
+            .set_full_update_seconds(self.gui_adjustables.particle_full_update_seconds.value);
         self.particle_system.update(dt, self.particle_forces);
         self.bird_audio_binding.sync(
             &mut self.bird_emitters,

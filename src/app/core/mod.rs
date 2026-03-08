@@ -1477,6 +1477,17 @@ impl App {
                                                 perlin_freq;
                                         }
 
+                                        ui.add(
+                                            egui::Slider::new(
+                                                &mut self
+                                                    .gui_adjustables
+                                                    .particle_full_update_seconds
+                                                    .value,
+                                                0.05..=5.0,
+                                            )
+                                            .text("Particle Full Update Time (s)"),
+                                        );
+
                                         ui.separator();
 
                                         let mut lifetime_min = self.leaf_emitter_desc.lifetime_min;

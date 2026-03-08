@@ -94,6 +94,10 @@ declare_gui_adjustables! {
         leaves_tip_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 137, 241), color, "Tip Color",
     },
 
+    [Particles] {
+        particle_full_update_seconds: crate::gui_adjustables::FloatParam = crate::particles::PARTICLE_FULL_UPDATE_SECONDS_DEFAULT, float(0.05..=5.0), "Full Update Time (s)",
+    },
+
     [Butterflies] {
         butterflies_enabled: crate::gui_adjustables::BoolParam = true, bool, "Enable Butterflies",
         butterflies_per_chunk: crate::gui_adjustables::FloatParam = 0.5, float(0.0..=2.0), "Butterflies Per Chunk",
