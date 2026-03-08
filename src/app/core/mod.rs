@@ -756,6 +756,18 @@ impl App {
                                                 .size(18.0)
                                                 .color(GOLD_ACCENT),
                                         );
+                                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                            if ui.add(egui::Button::new("Save").small()).clicked() {
+                                                match self.gui_adjustables.save_to_config() {
+                                                    Ok(_) => {
+                                                        log::info!("Config saved successfully");
+                                                    }
+                                                    Err(e) => {
+                                                        log::error!("Failed to save config: {}", e);
+                                                    }
+                                                }
+                                            }
+                                        });
                                     });
 
                                     ui.add_space(4.0);
