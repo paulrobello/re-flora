@@ -1,6 +1,11 @@
 use fastnoise_lite::{FastNoiseLite, NoiseType};
 use glam::{Vec3, Vec4};
 
+use super::{
+    bird_animation_sequence, BirdSpriteSequence, BIRD_ANIM_FRAME_DURATION_SEC,
+    BUTTERFLY_ANIM_FRAME_DURATION_SEC, BUTTERFLY_FRAMES_PER_VARIANT,
+};
+
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
 pub const PARTICLE_UPDATE_BUCKET_COUNT: usize = 4;
@@ -132,6 +137,7 @@ pub struct ParticleSnapshot {
     pub size: f32,
     pub kind: ParticleRenderKind,
     pub texture_variant: u32,
+    pub animation_frame_offset: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -165,6 +171,8 @@ pub struct ParticleSystem {
     max_particles: usize,
     speed_noise_offsets: Vec<f32>,
     texture_variants: Vec<u32>,
+    animation_elapsed: Vec<f32>,
+    animation_frame_offsets: Vec<u32>,
     render_kinds: Vec<ParticleRenderKind>,
     update_buckets: Vec<u32>,
     update_bucket_phase: u32,
@@ -210,6 +218,8 @@ impl ParticleSystem {
             max_particles,
             speed_noise_offsets: vec![0.0; max_particles],
             texture_variants: vec![0; max_particles],
+            animation_elapsed: vec![0.0; max_particles],
+            animation_frame_offsets: vec![0; max_particles],
             render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
             update_buckets: vec![0; max_particles],
             update_bucket_phase: 0,
@@ -291,6 +301,8 @@ impl ParticleSystem {
         self.alive_indices.push(slot);
         self.speed_noise_offsets[slot] = spawn.speed_noise_offset;
         self.texture_variants[slot] = spawn.texture_variant;
+        self.animation_elapsed[slot] = 0.0;
+        self.animation_frame_offsets[slot] = 0;
         self.render_kinds[slot] = spawn.render_kind;
         self.update_buckets[slot] = self.assign_update_bucket(slot, spawn.speed_noise_offset);
 
@@ -355,6 +367,24 @@ impl ParticleSystem {
         }
 
         (self.update_full_cycle_seconds / bucket_count as f32).max(1.0 / 240.0)
+    }
+
+    fn step_animation_frame(
+        elapsed: &mut f32,
+        frame_offset: &mut u32,
+        dt: f32,
+        frame_duration_sec: f32,
+        frame_count: u32,
+    ) {
+        if frame_count <= 1 || frame_duration_sec <= f32::EPSILON || dt <= 0.0 {
+            return;
+        }
+
+        *elapsed += dt;
+        while *elapsed >= frame_duration_sec {
+            *elapsed -= frame_duration_sec;
+            *frame_offset = (*frame_offset + 1) % frame_count;
+        }
     }
 
     /// Advances the simulation by `dt` seconds and applies forces/damping.
@@ -453,6 +483,31 @@ impl ParticleSystem {
             self.positions[slot] += *vel * sim_dt;
             self.ages[slot] += sim_dt;
 
+            match self.render_kinds[slot] {
+                ParticleRenderKind::Butterfly => {
+                    Self::step_animation_frame(
+                        &mut self.animation_elapsed[slot],
+                        &mut self.animation_frame_offsets[slot],
+                        sim_dt,
+                        BUTTERFLY_ANIM_FRAME_DURATION_SEC,
+                        BUTTERFLY_FRAMES_PER_VARIANT,
+                    );
+                }
+                ParticleRenderKind::Bird => {
+                    let sequence =
+                        BirdSpriteSequence::from_texture_variant(self.texture_variants[slot]);
+                    let frame_count = bird_animation_sequence(sequence).frame_count.max(1);
+                    Self::step_animation_frame(
+                        &mut self.animation_elapsed[slot],
+                        &mut self.animation_frame_offsets[slot],
+                        sim_dt,
+                        BIRD_ANIM_FRAME_DURATION_SEC,
+                        frame_count,
+                    );
+                }
+                ParticleRenderKind::Leaf => {}
+            }
+
             if !self.is_sinking[slot]
                 && self.sink_on_lifetime[slot]
                 && self.ages[slot] >= self.lifetimes[slot]
@@ -487,6 +542,7 @@ impl ParticleSystem {
                 size: self.sizes[*slot],
                 kind: self.render_kinds[*slot],
                 texture_variant: self.texture_variants[*slot],
+                animation_frame_offset: self.animation_frame_offsets[*slot],
             });
         }
     }
@@ -566,7 +622,12 @@ impl ParticleSystem {
     #[allow(dead_code)]
     pub fn set_texture_variant(&mut self, handle: ParticleHandle, texture_variant: u32) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
+            let changed = self.texture_variants[idx] != texture_variant;
             self.texture_variants[idx] = texture_variant;
+            if changed && self.render_kinds[idx] == ParticleRenderKind::Bird {
+                self.animation_elapsed[idx] = 0.0;
+                self.animation_frame_offsets[idx] = 0;
+            }
             true
         } else {
             false
