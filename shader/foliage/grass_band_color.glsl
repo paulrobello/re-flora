@@ -2,7 +2,6 @@
 #define GRASS_BAND_COLOR_GLSL
 
 #include "../include/core/color.glsl"
-#include "../include/core/fast_noise_lite.glsl"
 
 const int GRASS_BAND_NOISE_SEED         = 9041;
 const float GRASS_BAND_NOISE_FREQUENCY  = 0.0018f;
