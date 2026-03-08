@@ -8,7 +8,7 @@
 #include "../include/sunlight.glsl"
 
 layout(location = 0) in uvec2 in_packed_data;
-layout(location = 1) in uvec3 in_instance_pos;
+layout(location = 1) in vec3 in_instance_pos;
 layout(location = 2) in float in_instance_size;
 layout(location = 3) in vec4 in_instance_color;
 layout(location = 4) in uint in_instance_tex_index;
@@ -54,8 +54,6 @@ layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/vsm.glsl"
 
-const float scaling_factor = 1.0 / 256.0;
-
 float get_shadow_weight(ivec3 vox_local_pos) {
     vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
     float shadow_negative_side_dropoff = max(0.0, dot(-vox_dir_normalized, sun_info.sun_dir));
@@ -76,7 +74,7 @@ void main() {
 
     float scale        = max(in_instance_size, 0.001);
     vec3 vertex_offset = (vec3(vert_offset_in_vox) - vec3(0.5)) * scale;
-    vec3 instance_pos  = vec3(in_instance_pos) * scaling_factor;
+    vec3 instance_pos  = in_instance_pos;
 
     vec3 vertex_pos = instance_pos + vertex_offset;
 
