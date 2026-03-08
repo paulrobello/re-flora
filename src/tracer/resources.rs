@@ -3,13 +3,13 @@ use crate::{
     particles::{
         bird_spritesheet_sequence_def, BIRD_SPRITESHEET_HEIGHT, BIRD_SPRITESHEET_REL_PATH,
         BIRD_SPRITESHEET_SEQUENCE_ORDER, BIRD_SPRITESHEET_WIDTH, BIRD_TOTAL_FRAME_COUNT,
-        BUTTERFLY_FRAMES_PER_VARIANT, PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM,
+        PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM,
     },
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, load_butterfly_and_remap,
-        ButterflyPaletteConfig, ButterflyPalettePreset, DenoiserResources,
-        ExtentDependentResources, Vertex,
+        ButterflyPalettePreset, DenoiserResources, ExtentDependentResources, ParticleTextureLayout,
+        Vertex,
     },
     util::get_project_root,
     vkn::{
@@ -681,8 +681,9 @@ impl TracerResources {
 
     fn create_particle_lod_tex_lut(vulkan_ctx: &VulkanContext, allocator: Allocator) -> Texture {
         const PARTICLE_LOD_TEXTURE_DIR_REL_PATH: &str = "assets/texture/butterfly_16px";
-        const LUT_LAYER_LEAF: u32 = 0;
         let frame_dim = PARTICLE_SPRITE_FRAME_DIM;
+        let layout = ParticleTextureLayout::new();
+        layout.assert_valid();
 
         let white = [255u8, 255u8, 255u8, 255u8];
         let white_layer = white
@@ -744,16 +745,16 @@ impl TracerResources {
         );
 
         let mut butterfly_layers = Vec::new();
-        for preset_idx in 0..ButterflyPalettePreset::COUNT {
+        for preset_idx in 0..layout.butterfly_preset_count() {
             let preset = ButterflyPalettePreset::from_index(preset_idx);
             let config = preset.config();
             let rgba = load_butterfly_and_remap(butterfly_atlas_path, &config);
             let label = format!("{} ({})", atlas_path_str, preset.name());
-            for row in 0..5 {
+            for row in 0..layout.butterfly_view_count() {
                 if let Some(frames) = Self::extract_row_sequence_layers(
                     &rgba,
                     row,
-                    BUTTERFLY_FRAMES_PER_VARIANT,
+                    layout.butterfly_frames_per_view(),
                     &label,
                 ) {
                     butterfly_layers.extend(frames);
@@ -765,8 +766,16 @@ impl TracerResources {
                 }
             }
         }
+
+        assert_eq!(
+            butterfly_layers.len() as u32,
+            layout.butterfly_layer_count(),
+            "Butterfly layer count mismatch (got {}, expected {})",
+            butterfly_layers.len(),
+            layout.butterfly_layer_count()
+        );
         let bird_path = get_project_root() + "/" + BIRD_SPRITESHEET_REL_PATH;
-        let mut bird_layers = Vec::with_capacity(BIRD_TOTAL_FRAME_COUNT as usize);
+        let mut bird_layers = Vec::with_capacity(layout.bird_layer_count() as usize);
         match image::open(&bird_path) {
             Ok(image) => {
                 let rgba = image.to_rgba8();
@@ -832,7 +841,15 @@ impl TracerResources {
                 bird_layers.push(white_layer.clone());
             }
         }
-        let lut_layer_count = 1 + butterfly_layers.len() as u32 + bird_layers.len() as u32;
+        assert_eq!(
+            bird_layers.len() as u32,
+            layout.bird_layer_count(),
+            "Bird layer count mismatch (got {}, expected {})",
+            bird_layers.len(),
+            layout.bird_layer_count()
+        );
+
+        let lut_layer_count = layout.total_layer_count();
 
         let sam_desc = Default::default();
         let img_desc = ImageDesc {
@@ -846,16 +863,16 @@ impl TracerResources {
         };
         let tex = Texture::new(vulkan_ctx.device().clone(), allocator, &img_desc, &sam_desc);
 
-        Self::fill_particle_lut_layer(vulkan_ctx, &tex, LUT_LAYER_LEAF, &white_layer);
+        Self::fill_particle_lut_layer(vulkan_ctx, &tex, layout.leaf_layer(), &white_layer);
         for (frame_idx, frame_data) in butterfly_layers.iter().enumerate() {
             Self::fill_particle_lut_layer(
                 vulkan_ctx,
                 &tex,
-                (frame_idx as u32) + 1,
+                layout.butterfly_base_layer() + frame_idx as u32,
                 frame_data.as_slice(),
             );
         }
-        let bird_start_layer = 1 + butterfly_layers.len() as u32;
+        let bird_start_layer = layout.bird_base_layer();
         for (frame_idx, frame_data) in bird_layers.iter().enumerate() {
             Self::fill_particle_lut_layer(
                 vulkan_ctx,
