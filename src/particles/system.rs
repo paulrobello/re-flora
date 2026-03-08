@@ -183,6 +183,7 @@ pub struct ParticleSystem {
     animation_frame_offsets: Vec<u32>,
     render_kinds: Vec<ParticleRenderKind>,
     update_buckets: Vec<u32>,
+    pending_sim_dt: Vec<f32>,
     update_bucket_phase: u32,
     update_bucket_elapsed: f32,
     update_full_cycle_seconds: f32,
@@ -231,6 +232,7 @@ impl ParticleSystem {
             animation_frame_offsets: vec![0; max_particles],
             render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
             update_buckets: vec![0; max_particles],
+            pending_sim_dt: vec![0.0; max_particles],
             update_bucket_phase: 0,
             update_bucket_elapsed: 0.0,
             update_full_cycle_seconds: PARTICLE_FULL_UPDATE_SECONDS_DEFAULT,
@@ -261,6 +263,7 @@ impl ParticleSystem {
 
     fn retire_slot(&mut self, slot: usize) {
         self.is_alive[slot] = false;
+        self.pending_sim_dt[slot] = 0.0;
         self.free_list.push(slot);
     }
 
@@ -320,6 +323,7 @@ impl ParticleSystem {
         self.animation_frame_offsets[slot] = 0;
         self.render_kinds[slot] = spawn.render_kind;
         self.update_buckets[slot] = self.assign_update_bucket(slot, spawn.speed_noise_offset);
+        self.pending_sim_dt[slot] = 0.0;
 
         Some(ParticleHandle {
             index: slot as u32,
@@ -354,6 +358,7 @@ impl ParticleSystem {
         self.free_list.clear();
         for idx in (0..self.max_particles).rev() {
             self.is_alive[idx] = false;
+            self.pending_sim_dt[idx] = 0.0;
             self.free_list.push(idx);
         }
     }
@@ -450,12 +455,14 @@ impl ParticleSystem {
             let slot = self.alive_indices[alive_cursor];
             let mode = self.motion_modes[slot];
             let is_bucketed = bucket_count > 1;
+            self.pending_sim_dt[slot] += dt;
             if is_bucketed && (!should_step_bucket || self.update_buckets[slot] != active_bucket) {
                 alive_cursor += 1;
                 continue;
             }
 
-            let sim_dt = if is_bucketed { bucket_step_seconds } else { dt };
+            let sim_dt = self.pending_sim_dt[slot];
+            self.pending_sim_dt[slot] = 0.0;
             let damping = base_damping;
 
             let vel = &mut self.velocities[slot];
