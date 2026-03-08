@@ -32,21 +32,27 @@ pub enum GuiParamKind {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "type", content = "data")]
 pub enum GuiParamValue {
     Float {
         value: f32,
+        #[serde(default)]
         min: Option<f32>,
+        #[serde(default)]
         max: Option<f32>,
     },
     Int {
         value: i32,
+        #[serde(default)]
         min: Option<i32>,
+        #[serde(default)]
         max: Option<i32>,
     },
     Uint {
         value: u32,
+        #[serde(default)]
         min: Option<u32>,
+        #[serde(default)]
         max: Option<u32>,
     },
     Bool {
