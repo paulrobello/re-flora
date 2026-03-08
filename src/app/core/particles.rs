@@ -3,7 +3,7 @@ use crate::audio::SpatialSoundManager;
 use crate::geom::UAabb3;
 use crate::particles::{
     BirdEmitter, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter,
-    ParticleHandle, ParticleSystem,
+    ParticleHandle, ParticleSystem, PARTICLE_UPDATE_BUCKET_COUNT,
 };
 use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
@@ -347,13 +347,39 @@ impl App {
         self.ensure_map_butterfly_emitter();
         self.ensure_map_bird_emitter();
         let wind_time = self.time_info.time_since_start();
+        self.particle_system
+            .set_full_update_seconds(self.gui_adjustables.particle_full_update_seconds.value);
+
+        let bucket_count = PARTICLE_UPDATE_BUCKET_COUNT.max(1) as f32;
+        let particle_tick_step = (self.gui_adjustables.particle_full_update_seconds.value
+            / bucket_count)
+            .max(1.0 / 240.0);
+        let did_particle_tick = if PARTICLE_UPDATE_BUCKET_COUNT <= 1 {
+            self.particle_animation_time_sec += dt;
+            true
+        } else {
+            self.particle_tick_elapsed_sec += dt;
+            if self.particle_tick_elapsed_sec >= particle_tick_step {
+                self.particle_tick_elapsed_sec -= particle_tick_step;
+                self.particle_animation_time_sec += particle_tick_step;
+                true
+            } else {
+                false
+            }
+        };
+
         Self::drive_emitters(
             &mut self.butterfly_emitters,
             &mut self.particle_system,
             dt,
             wind_time,
         );
-        self.constrain_butterflies_to_terrain(dt, wind_time);
+        if did_particle_tick {
+            self.constrain_butterflies_to_terrain(
+                particle_tick_step,
+                self.particle_animation_time_sec,
+            );
+        }
         Self::drive_emitters(
             &mut self.bird_emitters,
             &mut self.particle_system,
@@ -368,8 +394,6 @@ impl App {
             wind_time,
         );
 
-        self.particle_system
-            .set_full_update_seconds(self.gui_adjustables.particle_full_update_seconds.value);
         self.particle_system.update(dt, self.particle_forces);
         self.bird_audio_binding.sync(
             &mut self.bird_emitters,
@@ -382,7 +406,7 @@ impl App {
 
         if let Err(err) = self
             .tracer
-            .upload_particles(&self.particle_snapshots, self.time_info.time_since_start())
+            .upload_particles(&self.particle_snapshots, self.particle_animation_time_sec)
         {
             log::error!("Failed to upload particles: {}", err);
         }
