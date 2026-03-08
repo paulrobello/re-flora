@@ -83,6 +83,7 @@ flora_growth_info;
 #include "../include/wind.glsl"
 #include "./billboard.glsl"
 #include "./color_variation.glsl"
+#include "./grass_band_color.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
 
@@ -178,19 +179,24 @@ void main() {
 
     gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    uint palette_seed        = combine_color_seed(instance_seed);
-    vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
-    vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed, pc.tip_color);
-    vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
-    vec3 instance_color_variation =
-        signed_unit_noise(float(instance_seed)) * gui_input.flora_instance_hsv_offset_max;
-    vec3 voxel_color_variation =
-        signed_unit_noise(vec4(vec3(vox_local_pos), float(instance_seed))) *
-        gui_input.flora_voxel_hsv_offset_max;
-    vec3 total_color_variation = instance_color_variation + voxel_color_variation;
-    vec3 varied_color          = apply_hsv_offset(interpolated_color, total_color_variation);
+    vec3 base_color_linear;
+    if (is_grass) {
+        base_color_linear = sample_grass_band_color(instance_pos.xz);
+    } else {
+        uint palette_seed        = combine_color_seed(instance_seed);
+        vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
+        vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed, pc.tip_color);
+        vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
+        vec3 instance_color_variation =
+            signed_unit_noise(float(instance_seed)) * gui_input.flora_instance_hsv_offset_max;
+        vec3 voxel_color_variation =
+            signed_unit_noise(vec4(vec3(vox_local_pos), float(instance_seed))) *
+            gui_input.flora_voxel_hsv_offset_max;
+        vec3 total_color_variation = instance_color_variation + voxel_color_variation;
+        base_color_linear          = apply_hsv_offset(interpolated_color, total_color_variation);
+    }
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
-    vert_color          = varied_color * (sun_light * shadow_weight + shading_info.ambient_light);
+    vert_color          = base_color_linear * (sun_light * shadow_weight + shading_info.ambient_light);
 }
