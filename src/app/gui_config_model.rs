@@ -1,18 +1,18 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GuiConfigFile {
     pub schema_version: u32,
     pub section: Vec<GuiSection>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GuiSection {
     pub name: String,
     pub param: Vec<GuiParam>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct GuiParam {
     pub id: String,
     pub kind: GuiParamKind,
@@ -22,7 +22,7 @@ pub struct GuiParam {
     pub value: GuiParamValue,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum GuiParamKind {
     Float,
@@ -32,7 +32,7 @@ pub enum GuiParamKind {
     Color,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type", content = "data")]
 pub enum GuiParamValue {
     Float {
@@ -97,6 +97,36 @@ impl GuiParamValue {
         match self {
             GuiParamValue::Color { value } => Some(value.clone()),
             _ => None,
+        }
+    }
+
+    pub fn set_float(&mut self, value: f32) {
+        if let GuiParamValue::Float { value: v, .. } = self {
+            *v = value;
+        }
+    }
+
+    pub fn set_int(&mut self, value: i32) {
+        if let GuiParamValue::Int { value: v, .. } = self {
+            *v = value;
+        }
+    }
+
+    pub fn set_uint(&mut self, value: u32) {
+        if let GuiParamValue::Uint { value: v, .. } = self {
+            *v = value;
+        }
+    }
+
+    pub fn set_bool(&mut self, value: bool) {
+        if let GuiParamValue::Bool { value: v } = self {
+            *v = value;
+        }
+    }
+
+    pub fn set_color(&mut self, value: String) {
+        if let GuiParamValue::Color { value: v } = self {
+            *v = value;
         }
     }
 }
