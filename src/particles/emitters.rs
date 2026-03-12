@@ -395,12 +395,14 @@ impl ButterflyEmitter {
             self.rng.random_range(0..preset_count)
         };
 
+        let lifetime = self.rng.random_range(10.0..=15.0);
+
         let spawn = ParticleSpawn {
             position,
             velocity: drift_direction * drift_strength * 0.35,
             color: Vec4::ONE,
             size: self.size,
-            lifetime: f32::MAX,
+            lifetime,
             wind_factor: 0.0,
             gravity_factor: 0.0,
             drift_direction,
