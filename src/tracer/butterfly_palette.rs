@@ -61,15 +61,31 @@ impl ButterflyPaletteConfig {
 pub enum ButterflyPalettePreset {
     Grayscale = 0,
     Yellow = 1,
+    Orange = 2,
+    Blue = 3,
+    Green = 4,
+    Pink = 5,
+    Purple = 6,
+    Cyan = 7,
+    Monarch = 8,
+    Midnight = 9,
 }
 
 impl ButterflyPalettePreset {
-    pub const COUNT: u32 = 2;
+    pub const COUNT: u32 = 10;
 
     pub fn from_index(index: u32) -> Self {
         match index {
             0 => Self::Grayscale,
             1 => Self::Yellow,
+            2 => Self::Orange,
+            3 => Self::Blue,
+            4 => Self::Green,
+            5 => Self::Pink,
+            6 => Self::Purple,
+            7 => Self::Cyan,
+            8 => Self::Monarch,
+            9 => Self::Midnight,
             _ => Self::Grayscale,
         }
     }
@@ -78,6 +94,14 @@ impl ButterflyPalettePreset {
         match self {
             Self::Grayscale => ButterflyPaletteConfig::default_current(),
             Self::Yellow => ButterflyPaletteConfig::yellow(),
+            Self::Orange => ButterflyPaletteConfig::orange(),
+            Self::Blue => ButterflyPaletteConfig::blue(),
+            Self::Green => ButterflyPaletteConfig::green(),
+            Self::Pink => ButterflyPaletteConfig::pink(),
+            Self::Purple => ButterflyPaletteConfig::purple(),
+            Self::Cyan => ButterflyPaletteConfig::cyan(),
+            Self::Monarch => ButterflyPaletteConfig::monarch(),
+            Self::Midnight => ButterflyPaletteConfig::midnight(),
         }
     }
 
@@ -85,6 +109,14 @@ impl ButterflyPalettePreset {
         match self {
             Self::Grayscale => "grayscale",
             Self::Yellow => "yellow",
+            Self::Orange => "orange",
+            Self::Blue => "blue",
+            Self::Green => "green",
+            Self::Pink => "pink",
+            Self::Purple => "purple",
+            Self::Cyan => "cyan",
+            Self::Monarch => "monarch",
+            Self::Midnight => "midnight",
         }
     }
 }
@@ -107,6 +139,86 @@ impl ButterflyPaletteConfig {
             dark_shade: [176, 122, 22, 255],
             mid_shade: [232, 185, 48, 255],
             light_shade: [255, 233, 140, 255],
+        }
+    }
+
+    pub fn orange() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [70, 25, 0, 255],
+            dark_shade: [170, 70, 10, 255],
+            mid_shade: [230, 120, 40, 255],
+            light_shade: [255, 196, 120, 255],
+        }
+    }
+
+    pub fn blue() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [10, 30, 80, 255],
+            dark_shade: [30, 70, 140, 255],
+            mid_shade: [70, 120, 200, 255],
+            light_shade: [170, 210, 255, 255],
+        }
+    }
+
+    pub fn green() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [10, 55, 10, 255],
+            dark_shade: [40, 100, 30, 255],
+            mid_shade: [90, 160, 70, 255],
+            light_shade: [190, 230, 150, 255],
+        }
+    }
+
+    pub fn pink() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [80, 10, 40, 255],
+            dark_shade: [150, 40, 90, 255],
+            mid_shade: [210, 90, 150, 255],
+            light_shade: [250, 190, 230, 255],
+        }
+    }
+
+    pub fn purple() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [40, 10, 70, 255],
+            dark_shade: [80, 40, 130, 255],
+            mid_shade: [130, 80, 190, 255],
+            light_shade: [210, 170, 255, 255],
+        }
+    }
+
+    pub fn cyan() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [0, 60, 70, 255],
+            dark_shade: [0, 110, 130, 255],
+            mid_shade: [40, 170, 190, 255],
+            light_shade: [160, 230, 240, 255],
+        }
+    }
+
+    pub fn monarch() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [15, 15, 15, 255],
+            dark_shade: [120, 60, 10, 255],
+            mid_shade: [210, 110, 20, 255],
+            light_shade: [250, 190, 110, 255],
+        }
+    }
+
+    pub fn midnight() -> Self {
+        Self {
+            transparent: [0, 0, 0, 0],
+            border: [5, 5, 15, 255],
+            dark_shade: [20, 20, 60, 255],
+            mid_shade: [40, 40, 110, 255],
+            light_shade: [120, 140, 210, 255],
         }
     }
 }
