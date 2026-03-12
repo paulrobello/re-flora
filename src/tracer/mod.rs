@@ -452,6 +452,7 @@ impl Tracer {
         sun_size: f32,
         sun_color: Vec3,
         sun_luminance: f32,
+        sun_display_luminance: f32,
         sun_altitude: f32,
         sun_azimuth: f32,
         ambient_light: Vec3,
@@ -560,6 +561,7 @@ impl Tracer {
             sun_size,
             sun_color,
             sun_luminance,
+            sun_display_luminance,
             sun_altitude,
             sun_azimuth,
         )?;

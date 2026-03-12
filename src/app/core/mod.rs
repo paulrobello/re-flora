@@ -885,6 +885,15 @@ impl App {
                                                 );
                                             });
                                             ui.horizontal(|ui| {
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        &mut self.gui_adjustables.sun_display_luminance.value,
+                                                        0.0..=10.0,
+                                                    )
+                                                    .text("Sun Display Luminance"),
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
                                                 ui.label("Ambient Light:");
                                                 ui.color_edit_button_srgba(&mut self.gui_adjustables.ambient_light.value);
                                             });
@@ -2039,6 +2048,7 @@ impl App {
                             self.gui_adjustables.sun_color.value.b() as f32 / 255.0,
                         ),
                         self.gui_adjustables.sun_luminance.value,
+                        self.gui_adjustables.sun_display_luminance.value,
                         sun_altitude,
                         sun_azimuth,
                         Vec3::new(

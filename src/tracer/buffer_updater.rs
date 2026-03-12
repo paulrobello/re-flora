@@ -198,12 +198,14 @@ impl BufferUpdater {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_sun_info(
         resources: &TracerResources,
         sun_dir: Vec3,
         sun_size: f32,
         sun_color: Vec3,
         sun_luminance: f32,
+        sun_display_luminance: f32,
         sun_altitude: f32,
         sun_azimuth: f32,
     ) -> Result<()> {
@@ -217,6 +219,10 @@ impl BufferUpdater {
             .set_field(
                 "sun_luminance",
                 PlainMemberTypeWithData::Float(sun_luminance),
+            )
+            .set_field(
+                "sun_display_luminance",
+                PlainMemberTypeWithData::Float(sun_display_luminance),
             )
             .set_field("sun_altitude", PlainMemberTypeWithData::Float(sun_altitude))
             .set_field("sun_azimuth", PlainMemberTypeWithData::Float(sun_azimuth))

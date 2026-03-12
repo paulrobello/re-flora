@@ -80,6 +80,17 @@ min = 0.0
 max = 10.0
 
 [[section.param]]
+id = "sun_display_luminance"
+kind = "float"
+label = "Sun Display Luminance"
+type = "Float"
+
+[section.param.data]
+value = 1.649999976158142
+min = 0.0
+max = 10.0
+
+[[section.param]]
 id = "ambient_light"
 kind = "color"
 label = "Ambient Light"

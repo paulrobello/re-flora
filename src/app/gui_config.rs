@@ -111,6 +111,10 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
         sun_size: get_param!("sun_size", crate::gui_adjustables::FloatParam),
         sun_color: get_param!("sun_color", crate::gui_adjustables::ColorParam),
         sun_luminance: get_param!("sun_luminance", crate::gui_adjustables::FloatParam),
+        sun_display_luminance: get_param!(
+            "sun_display_luminance",
+            crate::gui_adjustables::FloatParam
+        ),
         ambient_light: get_param!("ambient_light", crate::gui_adjustables::ColorParam),
         auto_daynight_cycle: get_param!("auto_daynight_cycle", crate::gui_adjustables::BoolParam),
         time_of_day: get_param!("time_of_day", crate::gui_adjustables::FloatParam),
@@ -326,6 +330,7 @@ declare_gui_adjustables! {
         sun_size: crate::gui_adjustables::FloatParam = 0.065, float(0.0..=1.0), "Size (relative)",
         sun_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 241, 224), color, "Sun Color",
         sun_luminance: crate::gui_adjustables::FloatParam = 1.65, float(0.0..=10.0), "Sun Luminance",
+        sun_display_luminance: crate::gui_adjustables::FloatParam = 1.65, float(0.0..=10.0), "Sun Display Luminance",
         ambient_light: crate::gui_adjustables::ColorParam = Color32::from_rgb(50, 50, 50), color, "Ambient Light",
         auto_daynight_cycle: crate::gui_adjustables::BoolParam = true, bool, "Auto Day/Night Cycle",
         time_of_day: crate::gui_adjustables::FloatParam = 0.45, float(0.0..=1.0), "Time of Day",
@@ -515,6 +520,7 @@ impl GuiAdjustables {
             "lod_distance" => Some(&adjustables.lod_distance),
             "sun_size" => Some(&adjustables.sun_size),
             "sun_luminance" => Some(&adjustables.sun_luminance),
+            "sun_display_luminance" => Some(&adjustables.sun_display_luminance),
             "time_of_day" => Some(&adjustables.time_of_day),
             "latitude" => Some(&adjustables.latitude),
             "season" => Some(&adjustables.season),
