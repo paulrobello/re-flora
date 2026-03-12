@@ -8,7 +8,7 @@ mod particles;
 mod ui_style;
 mod vegetation;
 
-use self::particles::{BirdAudioBinding, TreeLeafEmitter};
+use self::particles::TreeLeafEmitter;
 use self::vegetation::{TreeRecord, TreeVariationConfig};
 use crate::app::environment;
 use crate::app::world_edits::{
@@ -22,8 +22,8 @@ use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBui
 use crate::flora::species;
 use crate::geom::UAabb3;
 use crate::particles::{
-    BirdEmitter, BirdEmitterDesc, ButterflyEmitter, ButterflyEmitterDesc, LeafEmitterDesc,
-    ParticleForces, ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
+    ButterflyEmitter, ButterflyEmitterDesc, LeafEmitterDesc, ParticleForces, ParticleSnapshot,
+    ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::TreeDesc;
@@ -124,11 +124,8 @@ pub struct App {
     butterfly_emitters: Vec<ButterflyEmitter>,
     butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_animation_time_sec: f32,
-    bird_emitters: Vec<BirdEmitter>,
-    bird_emitter_desc: BirdEmitterDesc,
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
-    bird_audio_binding: BirdAudioBinding,
 
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
@@ -315,14 +312,11 @@ impl App {
         };
         let butterfly_emitters = Vec::new();
         let butterfly_emitter_desc = Self::butterfly_desc_from_gui_adjustables(&gui_adjustables);
-        let bird_emitters = Vec::new();
-        let bird_emitter_desc = butterfly_emitter_desc;
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
         let particle_forces = ParticleForces {
             linear_damping: 0.08,
             ..ParticleForces::default()
         };
-        let bird_audio_binding = BirdAudioBinding::default();
 
         let mut app = Self {
             vulkan_ctx,
@@ -382,11 +376,8 @@ impl App {
             butterfly_emitters,
             butterfly_emitter_desc,
             particle_animation_time_sec: 0.0,
-            bird_emitters,
-            bird_emitter_desc,
             particle_snapshots,
             particle_forces,
-            bird_audio_binding,
 
             spatial_sound_manager,
             tree_audio_manager,
@@ -395,7 +386,6 @@ impl App {
         app.configure_gui_font()?;
         app.load_item_panel_icons()?;
         app.ensure_map_butterfly_emitter();
-        app.ensure_map_bird_emitter();
 
         app.add_tree(
             app.debug_tree_desc.clone(),
@@ -1774,19 +1764,6 @@ impl App {
                                             )
                                             .changed();
 
-                                        butterflies_changed |= ui
-                                            .add(
-                                                egui::Slider::new(
-                                                    &mut self
-                                                        .gui_adjustables
-                                                        .bird_flight_speed
-                                                        .value,
-                                                    0.05..=1.5,
-                                                )
-                                                .text("Bird Flight Speed"),
-                                            )
-                                            .changed();
-
                                         ui.horizontal(|ui| {
                                             ui.label("Wing Color Low:");
                                             butterflies_changed |= ui
@@ -1815,21 +1792,13 @@ impl App {
                                                 Self::butterfly_desc_from_gui_adjustables(
                                                     &self.gui_adjustables,
                                                 );
-                                            self.bird_emitter_desc = self.butterfly_emitter_desc;
                                             for emitter in &mut self.butterfly_emitters {
                                                 emitter.apply_desc(&self.butterfly_emitter_desc);
-                                            }
-                                            for emitter in &mut self.bird_emitters {
-                                                emitter.apply_desc(&self.bird_emitter_desc);
-                                                emitter.set_flight_speed(
-                                                    self.gui_adjustables.bird_flight_speed.value,
-                                                );
                                             }
                                         }
 
                                         if self.leaf_emitters.is_empty()
                                             && self.butterfly_emitters.is_empty()
-                                            && self.bird_emitters.is_empty()
                                         {
                                             ui.label("No active emitters");
                                         }

@@ -1,10 +1,7 @@
 use fastnoise_lite::{FastNoiseLite, NoiseType};
 use glam::{Vec3, Vec4};
 
-use super::{
-    bird_animation_sequence, BirdSpriteSequence, BIRD_ANIM_FRAME_DURATION_SEC,
-    BUTTERFLY_ANIM_FRAME_DURATION_SEC, BUTTERFLY_FRAMES_PER_VARIANT,
-};
+use super::{BUTTERFLY_ANIM_FRAME_DURATION_SEC, BUTTERFLY_FRAMES_PER_VARIANT};
 
 /// Default maximum particle capacity shared between the CPU simulation and GPU buffer.
 pub const PARTICLE_CAPACITY: usize = 16_384;
@@ -155,7 +152,6 @@ pub struct ParticleSnapshot {
 pub enum ParticleRenderKind {
     Leaf,
     Butterfly,
-    Bird,
 }
 
 /// Keeps particle data in a struct-of-arrays layout for cache-friendly updates.
@@ -539,18 +535,6 @@ impl ParticleSystem {
                         BUTTERFLY_FRAMES_PER_VARIANT,
                     );
                 }
-                ParticleRenderKind::Bird => {
-                    let sequence =
-                        BirdSpriteSequence::from_texture_variant(self.texture_variants[slot]);
-                    let frame_count = bird_animation_sequence(sequence).frame_count.max(1);
-                    Self::step_animation_frame(
-                        &mut self.animation_elapsed[slot],
-                        &mut self.animation_frame_offsets[slot],
-                        sim_dt,
-                        BIRD_ANIM_FRAME_DURATION_SEC,
-                        frame_count,
-                    );
-                }
                 ParticleRenderKind::Leaf => {}
             }
 
@@ -668,12 +652,7 @@ impl ParticleSystem {
     #[allow(dead_code)]
     pub fn set_texture_variant(&mut self, handle: ParticleHandle, texture_variant: u32) -> bool {
         if let Some(idx) = self.validate_handle(handle) {
-            let changed = self.texture_variants[idx] != texture_variant;
             self.texture_variants[idx] = texture_variant;
-            if changed && self.render_kinds[idx] == ParticleRenderKind::Bird {
-                self.animation_elapsed[idx] = 0.0;
-                self.animation_frame_offsets[idx] = 0;
-            }
             true
         } else {
             false

@@ -1,6 +1,4 @@
-use crate::particles::{
-    BIRD_TOTAL_FRAME_COUNT, BUTTERFLY_FRAMES_PER_VARIANT, BUTTERFLY_VIEW_COUNT,
-};
+use crate::particles::{BUTTERFLY_FRAMES_PER_VARIANT, BUTTERFLY_VIEW_COUNT};
 use crate::tracer::ButterflyPalettePreset;
 
 #[derive(Debug, Clone, Copy)]
@@ -11,8 +9,6 @@ pub struct ParticleTextureLayout {
     butterfly_preset_count: u32,
     butterfly_view_count: u32,
     butterfly_frames_per_view: u32,
-    bird_base_layer: u32,
-    bird_layer_count: u32,
     total_layer_count: u32,
 }
 
@@ -26,9 +22,7 @@ impl ParticleTextureLayout {
         let butterfly_frames_per_view = BUTTERFLY_FRAMES_PER_VARIANT;
         let butterfly_layer_count =
             butterfly_preset_count * butterfly_view_count * butterfly_frames_per_view;
-        let bird_base_layer = butterfly_base_layer + butterfly_layer_count;
-        let bird_layer_count = BIRD_TOTAL_FRAME_COUNT;
-        let total_layer_count = bird_base_layer + bird_layer_count;
+        let total_layer_count = butterfly_base_layer + butterfly_layer_count;
 
         Self {
             leaf_layer,
@@ -37,8 +31,6 @@ impl ParticleTextureLayout {
             butterfly_preset_count,
             butterfly_view_count,
             butterfly_frames_per_view,
-            bird_base_layer,
-            bird_layer_count,
             total_layer_count,
         }
     }
@@ -79,14 +71,6 @@ impl ParticleTextureLayout {
         self.butterfly_base_layer + preset_index * self.butterfly_layers_per_preset()
     }
 
-    pub const fn bird_base_layer(self) -> u32 {
-        self.bird_base_layer
-    }
-
-    pub const fn bird_layer_count(self) -> u32 {
-        self.bird_layer_count
-    }
-
     pub const fn total_layer_count(self) -> u32 {
         self.total_layer_count
     }
@@ -103,19 +87,11 @@ impl ParticleTextureLayout {
             "Particle texture layout butterfly dimensions must be non-zero"
         );
         assert!(
-            self.bird_layer_count > 0,
-            "Particle texture layout bird frame count must be non-zero"
-        );
-        assert!(
             self.butterfly_base_layer == self.leaf_layer + self.leaf_layer_count,
             "Particle texture layout butterfly base layer is not contiguous"
         );
         assert!(
-            self.bird_base_layer == self.butterfly_base_layer + self.butterfly_layer_count(),
-            "Particle texture layout bird base layer is not contiguous"
-        );
-        assert!(
-            self.total_layer_count == self.bird_base_layer + self.bird_layer_count,
+            self.total_layer_count == self.butterfly_base_layer + self.butterfly_layer_count(),
             "Particle texture layout total layer count is not contiguous"
         );
     }

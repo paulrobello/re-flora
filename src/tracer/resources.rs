@@ -1,10 +1,6 @@
 use crate::{
     flora::species,
-    particles::{
-        bird_spritesheet_sequence_def, BIRD_SPRITESHEET_HEIGHT, BIRD_SPRITESHEET_REL_PATH,
-        BIRD_SPRITESHEET_SEQUENCE_ORDER, BIRD_SPRITESHEET_WIDTH, BIRD_TOTAL_FRAME_COUNT,
-        PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM,
-    },
+    particles::{PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM},
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, load_butterfly_and_remap,
@@ -685,13 +681,11 @@ impl TracerResources {
         let layout = ParticleTextureLayout::new();
         layout.assert_valid();
         log::info!(
-            "Particle LUT layout: leaf [{}..={}], butterfly [{}..={}], bird [{}..={}], total {} layers",
+            "Particle LUT layout: leaf [{}..={}], butterfly [{}..={}], total {} layers",
             layout.leaf_layer(),
             layout.leaf_layer() + layout.leaf_layer_count() - 1,
             layout.butterfly_base_layer(),
             layout.butterfly_base_layer() + layout.butterfly_layer_count() - 1,
-            layout.bird_base_layer(),
-            layout.bird_base_layer() + layout.bird_layer_count() - 1,
             layout.total_layer_count()
         );
 
@@ -777,88 +771,6 @@ impl TracerResources {
             }
         }
 
-        assert_eq!(
-            butterfly_layers.len() as u32,
-            layout.butterfly_layer_count(),
-            "Butterfly layer count mismatch (got {}, expected {})",
-            butterfly_layers.len(),
-            layout.butterfly_layer_count()
-        );
-        let bird_path = get_project_root() + "/" + BIRD_SPRITESHEET_REL_PATH;
-        let mut bird_layers = Vec::with_capacity(layout.bird_layer_count() as usize);
-        match image::open(&bird_path) {
-            Ok(image) => {
-                let rgba = image.to_rgba8();
-                let (sheet_width, sheet_height) = rgba.dimensions();
-                if sheet_width != BIRD_SPRITESHEET_WIDTH || sheet_height != BIRD_SPRITESHEET_HEIGHT
-                {
-                    log::warn!(
-                        "Bird spritesheet '{}' is {}x{}; expected {}x{}",
-                        bird_path,
-                        sheet_width,
-                        sheet_height,
-                        BIRD_SPRITESHEET_WIDTH,
-                        BIRD_SPRITESHEET_HEIGHT
-                    );
-                }
-                for sequence in BIRD_SPRITESHEET_SEQUENCE_ORDER {
-                    let def = bird_spritesheet_sequence_def(sequence);
-                    let source_label = format!("{} ({:?})", bird_path, sequence);
-                    if let Some(frames) = Self::extract_row_sequence_layers(
-                        &rgba,
-                        def.row,
-                        def.frame_count,
-                        &source_label,
-                    ) {
-                        bird_layers.extend(frames);
-                    } else {
-                        log::warn!(
-                            "Bird sprite sequence {:?} could not be extracted; using fallback frames",
-                            sequence
-                        );
-                        for _ in 0..def.frame_count {
-                            bird_layers.push(white_layer.clone());
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                log::warn!(
-                    "Failed to open bird spritesheet '{}': {}; using fallback texture",
-                    bird_path,
-                    e
-                );
-                for _ in 0..BIRD_TOTAL_FRAME_COUNT {
-                    bird_layers.push(white_layer.clone());
-                }
-            }
-        }
-        if bird_layers.len() as u32 != BIRD_TOTAL_FRAME_COUNT {
-            log::warn!(
-                "Bird animation frame count mismatch (got {}, expected {}); padding with fallback",
-                bird_layers.len(),
-                BIRD_TOTAL_FRAME_COUNT
-            );
-        }
-        while (bird_layers.len() as u32) < BIRD_TOTAL_FRAME_COUNT {
-            bird_layers.push(white_layer.clone());
-        }
-        if (bird_layers.len() as u32) > BIRD_TOTAL_FRAME_COUNT {
-            bird_layers.truncate(BIRD_TOTAL_FRAME_COUNT as usize);
-        }
-        if bird_layers.is_empty() {
-            for _ in 0..BIRD_TOTAL_FRAME_COUNT {
-                bird_layers.push(white_layer.clone());
-            }
-        }
-        assert_eq!(
-            bird_layers.len() as u32,
-            layout.bird_layer_count(),
-            "Bird layer count mismatch (got {}, expected {})",
-            bird_layers.len(),
-            layout.bird_layer_count()
-        );
-
         let lut_layer_count = layout.total_layer_count();
 
         let sam_desc = Default::default();
@@ -879,15 +791,6 @@ impl TracerResources {
                 vulkan_ctx,
                 &tex,
                 layout.butterfly_base_layer() + frame_idx as u32,
-                frame_data.as_slice(),
-            );
-        }
-        let bird_start_layer = layout.bird_base_layer();
-        for (frame_idx, frame_data) in bird_layers.iter().enumerate() {
-            Self::fill_particle_lut_layer(
-                vulkan_ctx,
-                &tex,
-                bird_start_layer + frame_idx as u32,
                 frame_data.as_slice(),
             );
         }

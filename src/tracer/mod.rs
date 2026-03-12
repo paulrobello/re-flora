@@ -41,10 +41,7 @@ use crate::builder::{
 };
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
-use crate::particles::{
-    bird_animation_sequence, BirdSpriteSequence, ParticleSnapshot,
-    BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, PARTICLE_CAPACITY,
-};
+use crate::particles::{ParticleSnapshot, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, PARTICLE_CAPACITY};
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
 use crate::vkn::{
@@ -1623,7 +1620,6 @@ impl Tracer {
             texture_layout.total_layer_count()
         );
         let butterfly_frame_count = texture_layout.butterfly_frames_per_view();
-        let bird_base_layer = texture_layout.bird_base_layer();
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
                 .normalize_or_zero();
@@ -1706,17 +1702,6 @@ impl Tracer {
                 );
                 tex_index
             };
-            let bird_sequence = BirdSpriteSequence::from_texture_variant(snap.texture_variant);
-            let sequence = bird_animation_sequence(bird_sequence);
-            let bird_tex_index = bird_base_layer
-                + sequence.start_frame
-                + (snap.animation_frame_offset % sequence.frame_count.max(1));
-            debug_assert!(
-                texture_layout.contains_layer(bird_tex_index),
-                "Bird texture index {} out of LUT bounds {}",
-                bird_tex_index,
-                texture_layout.total_layer_count()
-            );
             self.particle_instance_scratch.push(ParticleInstanceGpu {
                 position: snap.position_ws.to_array(),
                 size: snap.size,
@@ -1725,10 +1710,6 @@ impl Tracer {
                     crate::particles::ParticleRenderKind::Leaf => texture_layout.leaf_layer(),
                     crate::particles::ParticleRenderKind::Butterfly => pack_particle_tex_index(
                         butterfly_tex_index,
-                        is_moving_right_relative_to_player(snap.velocity),
-                    ),
-                    crate::particles::ParticleRenderKind::Bird => pack_particle_tex_index(
-                        bird_tex_index,
                         is_moving_right_relative_to_player(snap.velocity),
                     ),
                 },

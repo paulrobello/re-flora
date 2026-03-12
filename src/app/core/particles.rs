@@ -1,143 +1,14 @@
 use super::App;
-use crate::audio::SpatialSoundManager;
 use crate::geom::UAabb3;
 use crate::particles::{
-    BirdEmitter, ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter,
-    ParticleHandle, ParticleSystem,
+    ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
+    ParticleSystem,
 };
-use crate::tracer::TerrainRayQuery;
 use crate::util::ClusterResult;
 use egui::Color32;
 use glam::{Vec2, Vec3, Vec4};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
-use std::collections::{HashMap, HashSet};
-use uuid::Uuid;
 
-pub(super) const BIRD_AUDIO_PATH: &str =
-    "assets/sfx/birds/BIRDSong_House Sparrow, Call A 01_SARM_EB2.wav";
-pub(super) const BIRD_AUDIO_VOLUME_DB: f32 = 24.0;
-const BIRD_SING_INTERVAL_MIN_SEC: f32 = 4.0;
-const BIRD_SING_INTERVAL_MAX_SEC: f32 = 14.0;
-
-pub(super) struct BirdAudioBinding {
-    sources: HashMap<ParticleHandle, Uuid>,
-    next_song_time: HashMap<ParticleHandle, f32>,
-    active_handles: HashSet<ParticleHandle>,
-    positions: Vec<(ParticleHandle, Vec3)>,
-    rng: SmallRng,
-}
-
-impl Default for BirdAudioBinding {
-    fn default() -> Self {
-        Self {
-            sources: HashMap::new(),
-            next_song_time: HashMap::new(),
-            active_handles: HashSet::new(),
-            positions: Vec::new(),
-            rng: SmallRng::seed_from_u64(rand::rng().random()),
-        }
-    }
-}
-
-impl BirdAudioBinding {
-    fn next_song_time(&mut self, time_seconds: f32) -> f32 {
-        let delay = self
-            .rng
-            .random_range(BIRD_SING_INTERVAL_MIN_SEC..=BIRD_SING_INTERVAL_MAX_SEC);
-        time_seconds + delay
-    }
-
-    fn clear(&mut self, spatial_sound_manager: &SpatialSoundManager) {
-        for source_uuid in self.sources.values().copied() {
-            spatial_sound_manager.remove_source(source_uuid);
-        }
-        self.sources.clear();
-        self.next_song_time.clear();
-        self.active_handles.clear();
-        self.positions.clear();
-    }
-
-    fn sync(
-        &mut self,
-        emitters: &mut [BirdEmitter],
-        particle_system: &ParticleSystem,
-        spatial_sound_manager: &SpatialSoundManager,
-        time_seconds: f32,
-    ) {
-        self.positions.clear();
-        for emitter in emitters {
-            emitter.collect_song_positions(particle_system, &mut self.positions);
-        }
-
-        if self.positions.is_empty() {
-            self.clear(spatial_sound_manager);
-            return;
-        }
-
-        self.active_handles.clear();
-        let positions = self.positions.clone();
-        for (handle, position) in positions {
-            self.active_handles.insert(handle);
-
-            if !self.next_song_time.contains_key(&handle) {
-                let next_song_time = self.next_song_time(time_seconds);
-                self.next_song_time.insert(handle, next_song_time);
-            }
-
-            let should_sing = self
-                .next_song_time
-                .get(&handle)
-                .is_some_and(|next_song_time| time_seconds >= *next_song_time);
-            if !should_sing {
-                continue;
-            }
-
-            if let Some(source_uuid) = self.sources.remove(&handle) {
-                spatial_sound_manager.remove_source(source_uuid);
-            }
-
-            match spatial_sound_manager.add_spatial_source(
-                BIRD_AUDIO_PATH,
-                BIRD_AUDIO_VOLUME_DB,
-                position,
-            ) {
-                Ok(source_uuid) => {
-                    self.sources.insert(handle, source_uuid);
-                    let next_song_time = self.next_song_time(time_seconds);
-                    self.next_song_time.insert(handle, next_song_time);
-                }
-                Err(err) => {
-                    log::warn!("Failed to play bird chirp: {}", err);
-                    self.next_song_time.insert(handle, time_seconds + 1.0);
-                }
-            }
-        }
-
-        let stale_source_handles: Vec<ParticleHandle> = self
-            .sources
-            .keys()
-            .copied()
-            .filter(|handle| !self.active_handles.contains(handle))
-            .collect();
-
-        for handle in stale_source_handles {
-            if let Some(source_uuid) = self.sources.remove(&handle) {
-                spatial_sound_manager.remove_source(source_uuid);
-            }
-        }
-
-        let stale_song_handles: Vec<ParticleHandle> = self
-            .next_song_time
-            .keys()
-            .copied()
-            .filter(|handle| !self.active_handles.contains(handle))
-            .collect();
-
-        for handle in stale_song_handles {
-            self.next_song_time.remove(&handle);
-        }
-    }
-}
+// bird-specific audio and control logic has been removed
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
@@ -314,17 +185,6 @@ impl App {
         ));
     }
 
-    pub(super) fn ensure_map_bird_emitter(&mut self) {
-        if !self.bird_emitters.is_empty() {
-            return;
-        }
-
-        let (center, extent) = Self::map_butterfly_region();
-        let mut emitter = BirdEmitter::new_bird(center, extent, 41_203, &self.bird_emitter_desc);
-        emitter.set_flight_speed(self.gui_adjustables.bird_flight_speed.value);
-        self.bird_emitters.push(emitter);
-    }
-
     pub(super) fn map_butterfly_region() -> (Vec3, Vec3) {
         let map_size = super::CHUNK_DIM.as_vec3();
         let center = Vec3::new(map_size.x * 0.5, 0.5, map_size.z * 0.5);
@@ -342,7 +202,6 @@ impl App {
         }
 
         self.ensure_map_butterfly_emitter();
-        self.ensure_map_bird_emitter();
         let wind_time = self.time_info.time_since_start();
         self.particle_system
             .set_full_update_seconds(self.gui_adjustables.particle_full_update_seconds.value);
@@ -353,13 +212,6 @@ impl App {
             dt,
             wind_time,
         );
-        Self::drive_emitters(
-            &mut self.bird_emitters,
-            &mut self.particle_system,
-            dt,
-            wind_time,
-        );
-        self.constrain_birds_to_terrain(dt);
         Self::drive_emitters(
             &mut self.leaf_emitters,
             &mut self.particle_system,
@@ -382,12 +234,6 @@ impl App {
                 active_bucket,
             );
         }
-        self.bird_audio_binding.sync(
-            &mut self.bird_emitters,
-            &self.particle_system,
-            &self.spatial_sound_manager,
-            wind_time,
-        );
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
 
@@ -554,208 +400,6 @@ impl App {
         }
     }
 
-    pub(super) fn constrain_birds_to_terrain(&mut self, dt: f32) {
-        let mut query_positions_xz = Vec::new();
-        let mut query_targets: Vec<BirdQueryTarget> = Vec::new();
-
-        for (emitter_index, emitter) in self.bird_emitters.iter_mut().enumerate() {
-            let mut emitter_positions_xz = Vec::new();
-            let mut emitter_handles = Vec::new();
-            emitter.collect_ground_queries(
-                &self.particle_system,
-                &mut emitter_positions_xz,
-                &mut emitter_handles,
-            );
-            query_targets.extend(
-                emitter_handles
-                    .into_iter()
-                    .zip(emitter_positions_xz.into_iter())
-                    .map(|(handle, pos_xz)| {
-                        query_positions_xz.push(pos_xz);
-                        BirdQueryTarget {
-                            emitter_index,
-                            handle,
-                            kind: BirdTerrainQueryKind::Ground,
-                        }
-                    }),
-            );
-
-            let mut landing_positions_xz = Vec::new();
-            let mut landing_handles = Vec::new();
-            emitter.collect_landing_queries(&mut landing_positions_xz, &mut landing_handles);
-            query_targets.extend(
-                landing_handles
-                    .into_iter()
-                    .zip(landing_positions_xz.into_iter())
-                    .map(|(handle, pos_xz)| {
-                        query_positions_xz.push(pos_xz);
-                        BirdQueryTarget {
-                            emitter_index,
-                            handle,
-                            kind: BirdTerrainQueryKind::Landing,
-                        }
-                    }),
-            );
-        }
-
-        if query_targets.is_empty() {
-            return;
-        }
-
-        const BORDER_PADDING_INWARD: f32 = 0.001;
-        let map_size = super::CHUNK_DIM.as_vec3();
-        let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        for (idx, target) in query_targets.iter().enumerate() {
-            let clamped_x = query_positions_xz[idx]
-                .x
-                .clamp(BORDER_PADDING_INWARD, max_x);
-            let clamped_z = query_positions_xz[idx]
-                .y
-                .clamp(BORDER_PADDING_INWARD, max_z);
-            if clamped_x != query_positions_xz[idx].x || clamped_z != query_positions_xz[idx].y {
-                query_positions_xz[idx] = Vec2::new(clamped_x, clamped_z);
-
-                if matches!(target.kind, BirdTerrainQueryKind::Ground) {
-                    if let Some(mut pos) = self.particle_system.position(target.handle) {
-                        pos.x = clamped_x;
-                        pos.z = clamped_z;
-                        let _ = self.particle_system.set_position(target.handle, pos);
-                    }
-                }
-            }
-        }
-
-        let heights = match self
-            .tracer
-            .query_terrain_heights_batch_with_validity(&query_positions_xz)
-        {
-            Ok(heights) => heights,
-            Err(err) => {
-                log::error!("Failed terrain query for birds: {}", err);
-                return;
-            }
-        };
-
-        let mut invalid_sample_count = 0usize;
-        for (_idx, (target, sample)) in query_targets
-            .into_iter()
-            .zip(heights.into_iter())
-            .enumerate()
-        {
-            if !sample.is_valid {
-                invalid_sample_count += 1;
-                if matches!(target.kind, BirdTerrainQueryKind::Landing) {
-                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
-                        emitter.resample_landing_target(&self.particle_system, target.handle);
-                    }
-                }
-                continue;
-            }
-            match target.kind {
-                BirdTerrainQueryKind::Ground => {
-                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
-                        emitter.apply_ground_height(
-                            &mut self.particle_system,
-                            target.handle,
-                            sample.height,
-                            dt,
-                        );
-                    }
-                }
-                BirdTerrainQueryKind::Landing => {
-                    let src = self
-                        .particle_system
-                        .position(target.handle)
-                        .unwrap_or(Vec3::new(
-                            query_positions_xz[_idx].x,
-                            sample.height,
-                            query_positions_xz[_idx].y,
-                        ));
-                    let dst = Vec3::new(
-                        query_positions_xz[_idx].x,
-                        sample.height + 0.02,
-                        query_positions_xz[_idx].y,
-                    );
-                    let waypoint = self.find_bird_flight_waypoint(src, dst, max_x, max_z);
-                    if let Some(emitter) = self.bird_emitters.get_mut(target.emitter_index) {
-                        emitter.apply_landing_height(
-                            &self.particle_system,
-                            target.handle,
-                            sample.height,
-                            waypoint,
-                        );
-                    }
-                }
-            }
-        }
-
-        if invalid_sample_count > 0 {
-            log::warn!(
-                "Invalid bird terrain samples: {}/{}",
-                invalid_sample_count,
-                query_positions_xz.len()
-            );
-        }
-    }
-
-    fn find_bird_flight_waypoint(&mut self, src: Vec3, dst: Vec3, max_x: f32, max_z: f32) -> Vec3 {
-        let planar = Vec2::new(dst.x - src.x, dst.z - src.z);
-        if planar.length_squared() <= 1.0e-6 {
-            return dst;
-        }
-
-        const STEP_SIZE: f32 = 0.2;
-        const MAX_STEPS: usize = 160;
-        const CLEARANCE_EPSILON: f32 = 0.05;
-        let azimuth_dir = planar.normalize();
-        let mut rng = rand::rng();
-        let altitude_rad = rng.random_range(30.0f32..=50.0f32).to_radians();
-        let horizontal = altitude_rad.cos();
-        let vertical = altitude_rad.sin();
-        let t = Vec3::new(
-            azimuth_dir.x * horizontal,
-            vertical,
-            azimuth_dir.y * horizontal,
-        );
-
-        let mut last_p = src;
-        for step_idx in 1..=MAX_STEPS {
-            let step_distance = step_idx as f32 * STEP_SIZE;
-            let mut p = src + t * step_distance;
-            p.x = p.x.clamp(0.001, max_x);
-            p.z = p.z.clamp(0.001, max_z);
-            last_p = p;
-
-            let to_dst = dst - p;
-            let to_dst_len = to_dst.length();
-            if to_dst_len <= 1.0e-6 {
-                return p;
-            }
-
-            let ray = TerrainRayQuery {
-                origin: p,
-                direction: to_dst / to_dst_len,
-            };
-
-            match self.tracer.query_terrain_ray_with_validity(ray) {
-                Ok(hit) => {
-                    let blocked = hit.is_valid
-                        && (hit.position - p).length() + CLEARANCE_EPSILON < to_dst_len;
-                    if !blocked {
-                        return p;
-                    }
-                }
-                Err(err) => {
-                    log::warn!("Failed bird path ray query: {}", err);
-                    return p;
-                }
-            }
-        }
-
-        last_p
-    }
-
     pub(super) fn drive_emitters<E: ParticleEmitter>(
         emitters: &mut [E],
         particle_system: &mut ParticleSystem,
@@ -774,15 +418,4 @@ struct ButterflyQueryTarget {
     handle: ParticleHandle,
 }
 
-#[derive(Clone, Copy)]
-struct BirdQueryTarget {
-    emitter_index: usize,
-    handle: ParticleHandle,
-    kind: BirdTerrainQueryKind,
-}
-
-#[derive(Clone, Copy)]
-enum BirdTerrainQueryKind {
-    Ground,
-    Landing,
-}
+// bird query types have been removed
