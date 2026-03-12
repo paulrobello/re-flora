@@ -289,6 +289,7 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
             "butterfly_bob_strength",
             crate::gui_adjustables::FloatParam
         ),
+        bird_flight_speed: get_param!("bird_flight_speed", crate::gui_adjustables::FloatParam),
         butterfly_wing_color_low: get_param!(
             "butterfly_wing_color_low",
             crate::gui_adjustables::ColorParam
@@ -419,6 +420,7 @@ declare_gui_adjustables! {
         butterfly_steering_strength: crate::gui_adjustables::FloatParam = 0.9, float(0.0..=3.0), "Home Pull Strength",
         butterfly_bob_frequency_hz: crate::gui_adjustables::FloatParam = 2.2, float(0.0..=8.0), "Vertical Bob Frequency (Hz)",
         butterfly_bob_strength: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=6.0), "Vertical Bob Strength",
+        bird_flight_speed: crate::gui_adjustables::FloatParam = 0.52, float(0.05..=1.5), "Bird Flight Speed",
         butterfly_wing_color_low: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 230, 140), color, "Wing Color Low",
         butterfly_wing_color_high: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 247, 184), color, "Wing Color High",
     },
@@ -563,6 +565,7 @@ impl GuiAdjustables {
             "butterfly_steering_strength" => Some(&adjustables.butterfly_steering_strength),
             "butterfly_bob_frequency_hz" => Some(&adjustables.butterfly_bob_frequency_hz),
             "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
+            "bird_flight_speed" => Some(&adjustables.bird_flight_speed),
             "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
             _ => None,
         }

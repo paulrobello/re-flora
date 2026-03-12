@@ -542,6 +542,7 @@ pub struct BirdEmitter {
     color_low: Vec4,
     color_high: Vec4,
     enabled: bool,
+    flight_speed: f32,
     render_kind: ParticleRenderKind,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
@@ -563,6 +564,7 @@ impl BirdEmitter {
             color_low: desc.color_low,
             color_high: desc.color_high,
             enabled: desc.enabled,
+            flight_speed: BIRD_FLIGHT_SPEED,
             render_kind: ParticleRenderKind::Bird,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
@@ -576,6 +578,10 @@ impl BirdEmitter {
         self.size = desc.size.max(0.001);
         self.color_low = desc.color_low;
         self.color_high = desc.color_high;
+    }
+
+    pub fn set_flight_speed(&mut self, speed: f32) {
+        self.flight_speed = speed.max(0.0);
     }
 
     pub fn collect_song_positions(
@@ -973,12 +979,12 @@ impl ParticleEmitter for BirdEmitter {
                 }) => {
                     let to_target = current_target - pos;
                     let distance = to_target.length();
-                    let travel_distance = BIRD_FLIGHT_SPEED * dt;
+                    let travel_distance = self.flight_speed * dt;
                     if distance <= BIRD_LANDING_RADIUS || distance <= travel_distance {
                         if let Some(next) = next_target {
                             let to_next = next - pos;
                             let desired = if to_next.length_squared() > 1.0e-6 {
-                                to_next.normalize() * BIRD_FLIGHT_SPEED
+                                to_next.normalize() * self.flight_speed
                             } else {
                                 Vec3::ZERO
                             };
@@ -1009,7 +1015,7 @@ impl ParticleEmitter for BirdEmitter {
                             );
                         }
                     } else {
-                        let desired = to_target / distance * BIRD_FLIGHT_SPEED;
+                        let desired = to_target / distance * self.flight_speed;
                         let _ = system.set_velocity(handle, desired);
                     }
                 }

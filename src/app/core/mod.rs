@@ -1774,6 +1774,19 @@ impl App {
                                             )
                                             .changed();
 
+                                        butterflies_changed |= ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut self
+                                                        .gui_adjustables
+                                                        .bird_flight_speed
+                                                        .value,
+                                                    0.05..=1.5,
+                                                )
+                                                .text("Bird Flight Speed"),
+                                            )
+                                            .changed();
+
                                         ui.horizontal(|ui| {
                                             ui.label("Wing Color Low:");
                                             butterflies_changed |= ui
@@ -1808,6 +1821,9 @@ impl App {
                                             }
                                             for emitter in &mut self.bird_emitters {
                                                 emitter.apply_desc(&self.bird_emitter_desc);
+                                                emitter.set_flight_speed(
+                                                    self.gui_adjustables.bird_flight_speed.value,
+                                                );
                                             }
                                         }
 

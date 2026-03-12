@@ -320,12 +320,9 @@ impl App {
         }
 
         let (center, extent) = Self::map_butterfly_region();
-        self.bird_emitters.push(BirdEmitter::new_bird(
-            center,
-            extent,
-            41_203,
-            &self.bird_emitter_desc,
-        ));
+        let mut emitter = BirdEmitter::new_bird(center, extent, 41_203, &self.bird_emitter_desc);
+        emitter.set_flight_speed(self.gui_adjustables.bird_flight_speed.value);
+        self.bird_emitters.push(emitter);
     }
 
     pub(super) fn map_butterfly_region() -> (Vec3, Vec3) {
