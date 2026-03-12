@@ -706,9 +706,9 @@ label = "Flutter Strength Min"
 type = "Float"
 
 [section.param.data]
-value = 0.6000000238418579
+value = 0.015
 min = 0.0
-max = 3.0
+max = 0.1
 
 [[section.param]]
 id = "butterfly_drift_strength_max"
@@ -717,9 +717,9 @@ label = "Flutter Strength Max"
 type = "Float"
 
 [section.param.data]
-value = 1.399999976158142
+value = 0.025
 min = 0.0
-max = 3.0
+max = 0.1
 
 [[section.param]]
 id = "butterfly_drift_frequency_min"
