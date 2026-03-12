@@ -5,6 +5,7 @@ use glam::{Vec2, Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{MotionMode, ParticleHandle, ParticleRenderKind, ParticleSpawn, ParticleSystem};
+use crate::tracer::ButterflyPalettePreset;
 use crate::wind::Wind;
 
 pub trait ParticleEmitter {
@@ -387,10 +388,17 @@ impl ButterflyEmitter {
         let vertical_bias = self.rng.random_range(-0.2..=0.35);
         let drift_direction = Vec3::new(yaw.cos(), vertical_bias, yaw.sin()).normalize_or_zero();
 
+        let preset_count = ButterflyPalettePreset::COUNT;
+        let texture_variant = if preset_count == 0 {
+            0
+        } else {
+            self.rng.random_range(0..preset_count)
+        };
+
         let spawn = ParticleSpawn {
             position,
             velocity: drift_direction * drift_strength * 0.35,
-            color: random_color(&mut self.rng, self.color_low, self.color_high),
+            color: Vec4::ONE,
             size: self.size,
             lifetime: f32::MAX,
             wind_factor: 0.0,
@@ -402,7 +410,7 @@ impl ButterflyEmitter {
             motion_mode: MotionMode::Free,
             sink_on_lifetime: false,
             sink_speed: 0.0,
-            texture_variant: self.rng.random_range(0..2), // random palette preset: grayscale or yellow
+            texture_variant,
             render_kind: self.render_kind,
         };
 

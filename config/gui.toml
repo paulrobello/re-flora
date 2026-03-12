@@ -787,24 +787,6 @@ value = 1.399999976158142
 min = 0.0
 max = 6.0
 
-[[section.param]]
-id = "butterfly_wing_color_low"
-kind = "color"
-label = "Wing Color Low"
-type = "Color"
-
-[section.param.data]
-value = "#F2E68C"
-
-[[section.param]]
-id = "butterfly_wing_color_high"
-kind = "color"
-label = "Wing Color High"
-type = "Color"
-
-[section.param.data]
-value = "#FFF7B8"
-
 [[section]]
 name = "Voxel"
 

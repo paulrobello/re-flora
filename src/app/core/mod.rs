@@ -1773,29 +1773,6 @@ impl App {
                                             )
                                             .changed();
 
-                                        ui.horizontal(|ui| {
-                                            ui.label("Wing Color Low:");
-                                            butterflies_changed |= ui
-                                                .color_edit_button_srgba(
-                                                    &mut self
-                                                        .gui_adjustables
-                                                        .butterfly_wing_color_low
-                                                        .value,
-                                                )
-                                                .changed();
-                                        });
-                                        ui.horizontal(|ui| {
-                                            ui.label("Wing Color High:");
-                                            butterflies_changed |= ui
-                                                .color_edit_button_srgba(
-                                                    &mut self
-                                                        .gui_adjustables
-                                                        .butterfly_wing_color_high
-                                                        .value,
-                                                )
-                                                .changed();
-                                        });
-
                                         if butterflies_changed {
                                             self.butterfly_emitter_desc =
                                                 Self::butterfly_desc_from_gui_adjustables(

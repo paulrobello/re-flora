@@ -293,14 +293,6 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
             "butterfly_bob_strength",
             crate::gui_adjustables::FloatParam
         ),
-        butterfly_wing_color_low: get_param!(
-            "butterfly_wing_color_low",
-            crate::gui_adjustables::ColorParam
-        ),
-        butterfly_wing_color_high: get_param!(
-            "butterfly_wing_color_high",
-            crate::gui_adjustables::ColorParam
-        ),
 
         voxel_dirt_color: get_param!("voxel_dirt_color", crate::gui_adjustables::ColorParam),
         voxel_cherry_wood_color: get_param!(
@@ -424,8 +416,6 @@ declare_gui_adjustables! {
         butterfly_steering_strength: crate::gui_adjustables::FloatParam = 0.9, float(0.0..=3.0), "Home Pull Strength",
         butterfly_bob_frequency_hz: crate::gui_adjustables::FloatParam = 2.2, float(0.0..=8.0), "Vertical Bob Frequency (Hz)",
         butterfly_bob_strength: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=6.0), "Vertical Bob Strength",
-        butterfly_wing_color_low: crate::gui_adjustables::ColorParam = Color32::from_rgb(242, 230, 140), color, "Wing Color Low",
-        butterfly_wing_color_high: crate::gui_adjustables::ColorParam = Color32::from_rgb(255, 247, 184), color, "Wing Color High",
     },
 
     [Voxel] {
@@ -630,8 +620,6 @@ impl GuiAdjustables {
             "ember_bloom_tip_color" => Some(&adjustables.ember_bloom_tip_color),
             "leaves_bottom_color" => Some(&adjustables.leaves_bottom_color),
             "leaves_tip_color" => Some(&adjustables.leaves_tip_color),
-            "butterfly_wing_color_low" => Some(&adjustables.butterfly_wing_color_low),
-            "butterfly_wing_color_high" => Some(&adjustables.butterfly_wing_color_high),
             "voxel_dirt_color" => Some(&adjustables.voxel_dirt_color),
             "voxel_cherry_wood_color" => Some(&adjustables.voxel_cherry_wood_color),
             "voxel_oak_wood_color" => Some(&adjustables.voxel_oak_wood_color),

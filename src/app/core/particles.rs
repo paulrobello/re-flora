@@ -83,8 +83,8 @@ impl App {
             steering_strength: gui_adjustables.butterfly_steering_strength.value,
             bob_frequency_hz: gui_adjustables.butterfly_bob_frequency_hz.value,
             bob_strength: gui_adjustables.butterfly_bob_strength.value,
-            color_low: Self::color32_to_vec4(gui_adjustables.butterfly_wing_color_low.value),
-            color_high: Self::color32_to_vec4(gui_adjustables.butterfly_wing_color_high.value),
+            color_low: Vec4::ONE,
+            color_high: Vec4::ONE,
         }
     }
 
