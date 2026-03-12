@@ -66,6 +66,11 @@ impl App {
             let max = gui_adjustables.butterfly_drift_frequency_max.value;
             (min.min(max), min.max(max))
         };
+        let (lifetime_min, lifetime_max) = {
+            let min = gui_adjustables.butterfly_lifetime_min.value;
+            let max = gui_adjustables.butterfly_lifetime_max.value;
+            (min.min(max), min.max(max))
+        };
 
         ButterflyEmitterDesc {
             enabled: gui_adjustables.butterflies_enabled.value,
@@ -83,6 +88,8 @@ impl App {
             steering_strength: gui_adjustables.butterfly_steering_strength.value,
             bob_frequency_hz: gui_adjustables.butterfly_bob_frequency_hz.value,
             bob_strength: gui_adjustables.butterfly_bob_strength.value,
+            lifetime_min,
+            lifetime_max,
             color_low: Vec4::ONE,
             color_high: Vec4::ONE,
         }

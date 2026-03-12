@@ -1773,6 +1773,55 @@ impl App {
                                             )
                                             .changed();
 
+                                        let lifetime_changed_min = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut self
+                                                        .gui_adjustables
+                                                        .butterfly_lifetime_min
+                                                        .value,
+                                                    1.0..=60.0,
+                                                )
+                                                .text("Lifetime Min (s)"),
+                                            )
+                                            .changed();
+                                        let lifetime_changed_max = ui
+                                            .add(
+                                                egui::Slider::new(
+                                                    &mut self
+                                                        .gui_adjustables
+                                                        .butterfly_lifetime_max
+                                                        .value,
+                                                    1.0..=60.0,
+                                                )
+                                                .text("Lifetime Max (s)"),
+                                            )
+                                            .changed();
+                                        if (lifetime_changed_min
+                                            || lifetime_changed_max)
+                                            && self
+                                                .gui_adjustables
+                                                .butterfly_lifetime_min
+                                                .value
+                                                > self
+                                                    .gui_adjustables
+                                                    .butterfly_lifetime_max
+                                                    .value
+                                        {
+                                            std::mem::swap(
+                                                &mut self
+                                                    .gui_adjustables
+                                                    .butterfly_lifetime_min
+                                                    .value,
+                                                &mut self
+                                                    .gui_adjustables
+                                                    .butterfly_lifetime_max
+                                                    .value,
+                                            );
+                                        }
+                                        butterflies_changed |=
+                                            lifetime_changed_min || lifetime_changed_max;
+
                                         if butterflies_changed {
                                             self.butterfly_emitter_desc =
                                                 Self::butterfly_desc_from_gui_adjustables(

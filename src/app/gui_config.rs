@@ -293,6 +293,14 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
             "butterfly_bob_strength",
             crate::gui_adjustables::FloatParam
         ),
+        butterfly_lifetime_min: get_param!(
+            "butterfly_lifetime_min",
+            crate::gui_adjustables::FloatParam
+        ),
+        butterfly_lifetime_max: get_param!(
+            "butterfly_lifetime_max",
+            crate::gui_adjustables::FloatParam
+        ),
 
         voxel_dirt_color: get_param!("voxel_dirt_color", crate::gui_adjustables::ColorParam),
         voxel_cherry_wood_color: get_param!(
@@ -416,6 +424,8 @@ declare_gui_adjustables! {
         butterfly_steering_strength: crate::gui_adjustables::FloatParam = 0.9, float(0.0..=3.0), "Home Pull Strength",
         butterfly_bob_frequency_hz: crate::gui_adjustables::FloatParam = 2.2, float(0.0..=8.0), "Vertical Bob Frequency (Hz)",
         butterfly_bob_strength: crate::gui_adjustables::FloatParam = 1.4, float(0.0..=6.0), "Vertical Bob Strength",
+        butterfly_lifetime_min: crate::gui_adjustables::FloatParam = 10.0, float(1.0..=60.0), "Lifetime Min (s)",
+        butterfly_lifetime_max: crate::gui_adjustables::FloatParam = 15.0, float(1.0..=60.0), "Lifetime Max (s)",
     },
 
     [Voxel] {
@@ -559,6 +569,8 @@ impl GuiAdjustables {
             "butterfly_steering_strength" => Some(&adjustables.butterfly_steering_strength),
             "butterfly_bob_frequency_hz" => Some(&adjustables.butterfly_bob_frequency_hz),
             "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
+            "butterfly_lifetime_min" => Some(&adjustables.butterfly_lifetime_min),
+            "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
             "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
             _ => None,
         }

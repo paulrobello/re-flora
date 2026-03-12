@@ -787,6 +787,28 @@ value = 1.399999976158142
 min = 0.0
 max = 6.0
 
+[[section.param]]
+id = "butterfly_lifetime_min"
+kind = "float"
+label = "Lifetime Min (s)"
+type = "Float"
+
+[section.param.data]
+value = 10.0
+min = 1.0
+max = 60.0
+
+[[section.param]]
+id = "butterfly_lifetime_max"
+kind = "float"
+label = "Lifetime Max (s)"
+type = "Float"
+
+[section.param.data]
+value = 15.0
+min = 1.0
+max = 60.0
+
 [[section]]
 name = "Voxel"
 

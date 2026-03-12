@@ -220,6 +220,8 @@ pub struct ButterflyEmitterDesc {
     pub steering_strength: f32,
     pub bob_frequency_hz: f32,
     pub bob_strength: f32,
+    pub lifetime_min: f32,
+    pub lifetime_max: f32,
     pub color_low: Vec4,
     pub color_high: Vec4,
 }
@@ -240,6 +242,8 @@ impl Default for ButterflyEmitterDesc {
             steering_strength: 0.9,
             bob_frequency_hz: 2.2,
             bob_strength: 1.4,
+            lifetime_min: 10.0,
+            lifetime_max: 15.0,
             color_low: Vec4::new(0.95, 0.9, 0.55, 1.0),
             color_high: Vec4::new(1.0, 0.97, 0.72, 1.0),
         }
@@ -257,6 +261,7 @@ pub struct ButterflyEmitter {
     pub steering_strength: f32,
     pub bob_frequency_hz: f32,
     pub bob_strength: f32,
+    pub lifetime: RangeInclusive<f32>,
     pub color_low: Vec4,
     pub color_high: Vec4,
     pub enabled: bool,
@@ -297,6 +302,8 @@ impl ButterflyEmitter {
             steering_strength: desc.steering_strength.max(0.0),
             bob_frequency_hz: desc.bob_frequency_hz.max(0.0),
             bob_strength: desc.bob_strength.max(0.0),
+            lifetime: desc.lifetime_min.min(desc.lifetime_max)
+                ..=desc.lifetime_max.max(desc.lifetime_min),
             color_low: desc.color_low,
             color_high: desc.color_high,
             enabled: desc.enabled,
@@ -324,6 +331,8 @@ impl ButterflyEmitter {
         self.steering_strength = desc.steering_strength.max(0.0);
         self.bob_frequency_hz = desc.bob_frequency_hz.max(0.0);
         self.bob_strength = desc.bob_strength.max(0.0);
+        self.lifetime =
+            desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
         self.color_low = desc.color_low;
         self.color_high = desc.color_high;
         self.clamp_height(self.center.y);
@@ -395,7 +404,7 @@ impl ButterflyEmitter {
             self.rng.random_range(0..preset_count)
         };
 
-        let lifetime = self.rng.random_range(10.0..=15.0);
+        let lifetime = random_in_range(&mut self.rng, &self.lifetime);
 
         let spawn = ParticleSpawn {
             position,
