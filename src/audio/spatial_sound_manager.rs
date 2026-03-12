@@ -176,6 +176,7 @@ impl SpatialSoundManager {
     }
 
     /// Add a one-shot spatial source at the given position.
+    #[allow(dead_code)]
     pub fn add_spatial_source(&self, path: &str, volume_db: f32, position: Vec3) -> Result<Uuid> {
         self.add_source(path, volume_db, position, LoopMode::Once)
     }

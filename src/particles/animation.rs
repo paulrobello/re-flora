@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
 pub struct AnimatedTextureSequence {
     pub start_frame: u32,
@@ -5,6 +6,7 @@ pub struct AnimatedTextureSequence {
 }
 
 impl AnimatedTextureSequence {
+    #[allow(dead_code)]
     pub const fn new(start_frame: u32, frame_count: u32) -> Self {
         Self {
             start_frame,

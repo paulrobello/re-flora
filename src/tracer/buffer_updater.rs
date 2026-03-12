@@ -129,6 +129,7 @@ impl BufferUpdater {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn update_gui_input(
         resources: &TracerResources,
         debug_float: f32,
