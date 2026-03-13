@@ -18,7 +18,11 @@ void main() {
     float base_alpha   = tex_alpha * alpha_mask;
     float fade         = vert_color.a;
     float masked_alpha = base_alpha * fade;
-    vec3 rgb           = vert_color.rgb * texel.rgb * masked_alpha;
+
+    // keep color intensity driven by lighting/texture and texture coverage,
+    // and let fade only influence the final alpha so we don't "double fade"
+    // the rgb during blending.
+    vec3 rgb           = vert_color.rgb * texel.rgb * base_alpha;
     out_color          = vec4(rgb, masked_alpha);
     gl_FragDepth       = mix(1.0, gl_FragCoord.z, alpha_mask);
 }
