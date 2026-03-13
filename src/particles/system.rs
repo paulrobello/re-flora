@@ -565,15 +565,48 @@ impl ParticleSystem {
         out.clear();
         out.reserve(self.alive_indices.len());
         for slot in &self.alive_indices {
+            let kind = self.render_kinds[*slot];
+            let mut color = self.colors[*slot];
+
+            if kind == ParticleRenderKind::Butterfly {
+                let age = self.ages[*slot];
+                let lifetime = self.lifetimes[*slot];
+                let fade = Self::butterfly_fade_factor(age, lifetime);
+
+                // fade butterflies by modulating alpha
+                color.w *= fade;
+            }
+
             out.push(ParticleSnapshot {
                 position_ws: self.positions[*slot],
                 velocity: self.velocities[*slot],
-                color: self.colors[*slot],
+                color,
                 size: self.sizes[*slot],
-                kind: self.render_kinds[*slot],
+                kind,
                 texture_variant: self.texture_variants[*slot],
                 animation_frame_offset: self.animation_frame_offsets[*slot],
             });
+        }
+    }
+
+    fn butterfly_fade_factor(age: f32, lifetime: f32) -> f32 {
+        if lifetime <= 0.0 {
+            return 1.0;
+        }
+
+        let t = (age / lifetime).clamp(0.0, 1.0);
+
+        let fade_in_end = 0.2_f32; // first 20% of lifetime
+        let fade_out_start = 0.8_f32; // last 20% of lifetime
+
+        if t < fade_in_end {
+            // 0 -> 1 over fade-in window
+            t / fade_in_end
+        } else if t > fade_out_start {
+            // 1 -> 0 over fade-out window
+            (1.0 - t) / (1.0 - fade_out_start)
+        } else {
+            1.0
         }
     }
 
