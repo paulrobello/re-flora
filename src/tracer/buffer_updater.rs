@@ -141,6 +141,8 @@ impl BufferUpdater {
         grass_bottom_light: Vec3,
         grass_tip_dark: Vec3,
         grass_tip_light: Vec3,
+        ocean_deep_color: Vec3,
+        ocean_shallow_color: Vec3,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -172,6 +174,14 @@ impl BufferUpdater {
             .set_field(
                 "grass_tip_light",
                 PlainMemberTypeWithData::Vec3(grass_tip_light.to_array()),
+            )
+            .set_field(
+                "ocean_deep_color",
+                PlainMemberTypeWithData::Vec3(ocean_deep_color.to_array()),
+            )
+            .set_field(
+                "ocean_shallow_color",
+                PlainMemberTypeWithData::Vec3(ocean_shallow_color.to_array()),
             )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;

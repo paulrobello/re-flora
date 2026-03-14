@@ -55,7 +55,7 @@ label = "Size (relative)"
 type = "Float"
 
 [section.param.data]
-value = 0.06499999761581421
+value = 0.05000000074505806
 min = 0.0
 max = 1.0
 
@@ -126,7 +126,7 @@ label = "Latitude"
 type = "Float"
 
 [section.param.data]
-value = -0.699999988079071
+value = -0.23999999463558197
 min = -1.0
 max = 1.0
 
@@ -475,6 +475,27 @@ type = "Color"
 value = "#94BE00"
 
 [[section]]
+name = "Ocean"
+
+[[section.param]]
+id = "ocean_deep_color"
+kind = "color"
+label = "Deep Ocean Color"
+type = "Color"
+
+[section.param.data]
+value = "#00C0FF"
+
+[[section.param]]
+id = "ocean_shallow_color"
+kind = "color"
+label = "Shallow Water Color"
+type = "Color"
+
+[section.param.data]
+value = "#2896D2"
+
+[[section]]
 name = "EmberBloom"
 
 [[section.param]]
@@ -717,9 +738,9 @@ label = "Flutter Strength Min"
 type = "Float"
 
 [section.param.data]
-value = 0.015
+value = 0.014999999664723873
 min = 0.0
-max = 0.1
+max = 0.10000000149011612
 
 [[section.param]]
 id = "butterfly_drift_strength_max"
@@ -728,9 +749,9 @@ label = "Flutter Strength Max"
 type = "Float"
 
 [section.param.data]
-value = 0.025
+value = 0.02500000037252903
 min = 0.0
-max = 0.1
+max = 0.10000000149011612
 
 [[section.param]]
 id = "butterfly_drift_frequency_min"

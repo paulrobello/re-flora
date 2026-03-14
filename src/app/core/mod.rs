@@ -899,6 +899,21 @@ impl App {
                                             });
                                         });
 
+                                        ui.collapsing("Ocean Settings", |ui| {
+                                            ui.horizontal(|ui| {
+                                                ui.label("Deep Ocean Color:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.ocean_deep_color.value,
+                                                );
+                                            });
+                                            ui.horizontal(|ui| {
+                                                ui.label("Shallow Water Color:");
+                                                ui.color_edit_button_srgba(
+                                                    &mut self.gui_adjustables.ocean_shallow_color.value,
+                                                );
+                                            });
+                                        });
+
                                         ui.collapsing("Starlight Settings", |ui| {
                                             ui.add(
                                                 egui::Slider::new(
@@ -2062,6 +2077,16 @@ impl App {
                             self.gui_adjustables.grass_tip_light_color.value.r() as f32 / 255.0,
                             self.gui_adjustables.grass_tip_light_color.value.g() as f32 / 255.0,
                             self.gui_adjustables.grass_tip_light_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.ocean_deep_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.ocean_deep_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.ocean_deep_color.value.b() as f32 / 255.0,
+                        ),
+                        Vec3::new(
+                            self.gui_adjustables.ocean_shallow_color.value.r() as f32 / 255.0,
+                            self.gui_adjustables.ocean_shallow_color.value.g() as f32 / 255.0,
+                            self.gui_adjustables.ocean_shallow_color.value.b() as f32 / 255.0,
                         ),
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,

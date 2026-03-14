@@ -195,6 +195,9 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
             crate::gui_adjustables::ColorParam
         ),
 
+        ocean_deep_color: get_param!("ocean_deep_color", crate::gui_adjustables::ColorParam),
+        ocean_shallow_color: get_param!("ocean_shallow_color", crate::gui_adjustables::ColorParam),
+
         ember_bloom_bottom_color: get_param!(
             "ember_bloom_bottom_color",
             crate::gui_adjustables::ColorParam
@@ -381,6 +384,11 @@ declare_gui_adjustables! {
         grass_bottom_light_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(0, 175, 108), color, "Bottom Light",
         grass_tip_dark_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(218, 219, 0), color, "Tip Dark",
         grass_tip_light_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(148, 190, 0), color, "Tip Light",
+    },
+
+    [Ocean] {
+        ocean_deep_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(10, 60, 130), color, "Deep Ocean Color",
+        ocean_shallow_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(40, 150, 210), color, "Shallow Water Color",
     },
 
     [EmberBloom] {
@@ -628,6 +636,8 @@ impl GuiAdjustables {
             "grass_bottom_light_color" => Some(&adjustables.grass_bottom_light_color),
             "grass_tip_dark_color" => Some(&adjustables.grass_tip_dark_color),
             "grass_tip_light_color" => Some(&adjustables.grass_tip_light_color),
+            "ocean_deep_color" => Some(&adjustables.ocean_deep_color),
+            "ocean_shallow_color" => Some(&adjustables.ocean_shallow_color),
             "ember_bloom_bottom_color" => Some(&adjustables.ember_bloom_bottom_color),
             "ember_bloom_tip_color" => Some(&adjustables.ember_bloom_tip_color),
             "leaves_bottom_color" => Some(&adjustables.leaves_bottom_color),

@@ -445,6 +445,8 @@ impl Tracer {
         grass_bottom_light: Vec3,
         grass_tip_dark: Vec3,
         grass_tip_light: Vec3,
+        ocean_deep_color: Vec3,
+        ocean_shallow_color: Vec3,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -546,6 +548,8 @@ impl Tracer {
             grass_bottom_light,
             grass_tip_dark,
             grass_tip_light,
+            ocean_deep_color,
+            ocean_shallow_color,
         )?;
 
         BufferUpdater::update_flora_growth_info(
