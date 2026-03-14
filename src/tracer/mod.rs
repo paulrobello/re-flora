@@ -447,6 +447,9 @@ impl Tracer {
         grass_tip_light: Vec3,
         ocean_deep_color: Vec3,
         ocean_shallow_color: Vec3,
+        ocean_normal_amplitude: f32,
+        ocean_noise_frequency: f32,
+        ocean_time_multiplier: f32,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -550,6 +553,9 @@ impl Tracer {
             grass_tip_light,
             ocean_deep_color,
             ocean_shallow_color,
+            ocean_normal_amplitude,
+            ocean_noise_frequency,
+            ocean_time_multiplier,
         )?;
 
         BufferUpdater::update_flora_growth_info(

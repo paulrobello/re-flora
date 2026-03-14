@@ -903,13 +903,73 @@ impl App {
                                             ui.horizontal(|ui| {
                                                 ui.label("Deep Ocean Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.ocean_deep_color.value,
+                                                    &mut self
+                                                        .gui_adjustables
+                                                        .ocean_deep_color
+                                                        .value,
                                                 );
                                             });
                                             ui.horizontal(|ui| {
                                                 ui.label("Shallow Water Color:");
                                                 ui.color_edit_button_srgba(
-                                                    &mut self.gui_adjustables.ocean_shallow_color.value,
+                                                    &mut self
+                                                        .gui_adjustables
+                                                        .ocean_shallow_color
+                                                        .value,
+                                                );
+                                            });
+
+                                            ui.horizontal(|ui| {
+                                                ui.label("Normal Amplitude:");
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        &mut self
+                                                            .gui_adjustables
+                                                            .ocean_normal_amplitude
+                                                            .value,
+                                                        self
+                                                            .gui_adjustables
+                                                            .ocean_normal_amplitude
+                                                            .range
+                                                            .clone(),
+                                                    )
+                                                    .text(""),
+                                                );
+                                            });
+
+                                            ui.horizontal(|ui| {
+                                                ui.label("Noise Frequency:");
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        &mut self
+                                                            .gui_adjustables
+                                                            .ocean_noise_frequency
+                                                            .value,
+                                                        self
+                                                            .gui_adjustables
+                                                            .ocean_noise_frequency
+                                                            .range
+                                                            .clone(),
+                                                    )
+                                                    .text(""),
+                                                );
+                                            });
+
+                                            ui.horizontal(|ui| {
+                                                ui.label("Time Multiplier:");
+                                                ui.add(
+                                                    egui::Slider::new(
+                                                        &mut self
+                                                            .gui_adjustables
+                                                            .ocean_time_multiplier
+                                                            .value,
+                                                        self
+                                                            .gui_adjustables
+                                                            .ocean_time_multiplier
+                                                            .range
+                                                            .clone(),
+                                                    )
+                                                    .text(""),
                                                 );
                                             });
                                         });
@@ -2088,6 +2148,9 @@ impl App {
                             self.gui_adjustables.ocean_shallow_color.value.g() as f32 / 255.0,
                             self.gui_adjustables.ocean_shallow_color.value.b() as f32 / 255.0,
                         ),
+                        self.gui_adjustables.ocean_normal_amplitude.value,
+                        self.gui_adjustables.ocean_noise_frequency.value,
+                        self.gui_adjustables.ocean_time_multiplier.value,
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
                         FLORA_FULL_GROWTH_TICKS,

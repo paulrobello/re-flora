@@ -16,6 +16,9 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     vec3 grass_tip_light;
     vec3 ocean_deep_color;
     vec3 ocean_shallow_color;
+    float ocean_normal_amplitude;
+    float ocean_noise_frequency;
+    float ocean_time_multiplier;
 }
 gui_input;
 layout(set = 0, binding = 1) uniform U_SunInfo {
@@ -74,6 +77,7 @@ layout(set = 0, binding = 13) uniform sampler2D sun_sprite_tex;
 #include "../include/core/color.glsl"
 #include "../include/core/dither.glsl"
 #include "../include/core/transform.glsl"
+#include "../include/core/fast_noise_lite.glsl"
 #include "../include/ray.glsl"
 #include "../include/skylight.glsl"
 #include "../include/starlight.glsl"
@@ -177,22 +181,38 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
 
     vec3 p = ro + rd * t;
 
-    float time = float(env_info.frame_serial_idx) * 0.016;
-    float wave1 = sin(p.x * 4.0 + time * 0.7);
-    float wave2 = cos(p.z * 4.5 + time * 0.9);
-    float wave = 0.5 + 0.5 * (wave1 + wave2) * 0.25;
+    float time = float(env_info.frame_serial_idx) * 0.016 * gui_input.ocean_time_multiplier;
+
+    // perlin-based normal perturbation for reflections (flat plane intersection kept intact)
+    const int OCEAN_NOISE_SEED      = 9041;
+    const float OCEAN_TIME_SCROLL_X = 0.15;
+    const float OCEAN_TIME_SCROLL_Z = 0.21;
+
+    fnl_state state = fnlCreateState(OCEAN_NOISE_SEED);
+    state.noise_type   = FNL_NOISE_PERLIN;
+    state.fractal_type = FNL_FRACTAL_FBM;
+    state.octaves      = 4;
+    state.frequency    = gui_input.ocean_noise_frequency;
+
+    vec2 sample_pos = p.xz;
+    float n_x = fnlGetNoise2D(state, sample_pos.x + time * OCEAN_TIME_SCROLL_X, sample_pos.y);
+    float n_z = fnlGetNoise2D(state, sample_pos.x, sample_pos.y + time * OCEAN_TIME_SCROLL_Z);
+
+    vec2 n = vec2(n_x, n_z); // [-1, 1]
+    vec3 wave_normal = normalize(
+        vec3(n.x * gui_input.ocean_normal_amplitude, 1.0, n.y * gui_input.ocean_normal_amplitude));
 
     // colors come from GUI in sRGB
-    vec3 deep = srgb_to_linear(gui_input.ocean_deep_color);
+    vec3 deep       = srgb_to_linear(gui_input.ocean_deep_color);
     vec3 water_base = deep;
 
     vec3 up = vec3(0.0, 1.0, 0.0);
-    float facing = clamp(dot(up, -rd), 0.0, 1.0);
+    float facing = clamp(dot(wave_normal, -rd), 0.0, 1.0);
 
     // slightly stronger fresnel to emphasize reflection at grazing angles
     float fresnel = pow(1.0 - facing, 2.0);
 
-    // mirror view direction across the water plane for environment reflection
+    // mirror view direction across the ideal water plane for environment reflection
     vec3 refl_dir_env = normalize(vec3(rd.x, -rd.y, rd.z));
     vec3 sky_ref      = compute_sky_with_sun_and_stars(refl_dir_env);
 
@@ -203,7 +223,7 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
     // explicit sun glint: specular highlight based on sun direction
     vec3 L = normalize(sun_info.sun_dir);
     vec3 V = normalize(-rd);
-    vec3 R = reflect(-L, up);
+    vec3 R = reflect(-L, wave_normal);
     float spec = max(dot(R, V), 0.0);
     spec = pow(spec, 64.0);
 
@@ -211,7 +231,6 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
     vec3 sun_glint = sun_info.sun_color * sun_info.sun_display_luminance * (0.4 * spec * sun_visibility);
 
     water_color += sun_glint;
-    water_color *= 0.95 + 0.05 * wave;
 
     hit_ocean = true;
     return water_color;

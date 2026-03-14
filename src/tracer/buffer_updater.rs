@@ -143,6 +143,9 @@ impl BufferUpdater {
         grass_tip_light: Vec3,
         ocean_deep_color: Vec3,
         ocean_shallow_color: Vec3,
+        ocean_normal_amplitude: f32,
+        ocean_noise_frequency: f32,
+        ocean_time_multiplier: f32,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -182,6 +185,18 @@ impl BufferUpdater {
             .set_field(
                 "ocean_shallow_color",
                 PlainMemberTypeWithData::Vec3(ocean_shallow_color.to_array()),
+            )
+            .set_field(
+                "ocean_normal_amplitude",
+                PlainMemberTypeWithData::Float(ocean_normal_amplitude),
+            )
+            .set_field(
+                "ocean_noise_frequency",
+                PlainMemberTypeWithData::Float(ocean_noise_frequency),
+            )
+            .set_field(
+                "ocean_time_multiplier",
+                PlainMemberTypeWithData::Float(ocean_time_multiplier),
             )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;

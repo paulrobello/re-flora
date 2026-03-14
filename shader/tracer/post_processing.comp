@@ -16,6 +16,9 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     vec3 grass_tip_light;
     vec3 ocean_deep_color;
     vec3 ocean_shallow_color;
+    float ocean_normal_amplitude;
+    float ocean_noise_frequency;
+    float ocean_time_multiplier;
 }
 gui_input;
 layout(set = 0, binding = 1) uniform U_PostProcessingInfo { float scaling_factor; }

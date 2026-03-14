@@ -197,6 +197,18 @@ fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
 
         ocean_deep_color: get_param!("ocean_deep_color", crate::gui_adjustables::ColorParam),
         ocean_shallow_color: get_param!("ocean_shallow_color", crate::gui_adjustables::ColorParam),
+        ocean_normal_amplitude: get_param!(
+            "ocean_normal_amplitude",
+            crate::gui_adjustables::FloatParam
+        ),
+        ocean_noise_frequency: get_param!(
+            "ocean_noise_frequency",
+            crate::gui_adjustables::FloatParam
+        ),
+        ocean_time_multiplier: get_param!(
+            "ocean_time_multiplier",
+            crate::gui_adjustables::FloatParam
+        ),
 
         ember_bloom_bottom_color: get_param!(
             "ember_bloom_bottom_color",
@@ -389,6 +401,9 @@ declare_gui_adjustables! {
     [Ocean] {
         ocean_deep_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(10, 60, 130), color, "Deep Ocean Color",
         ocean_shallow_color: crate::gui_adjustables::ColorParam = Color32::from_rgb(40, 150, 210), color, "Shallow Water Color",
+        ocean_normal_amplitude: crate::gui_adjustables::FloatParam = 0.18, float(0.0..=0.6), "Normal Amplitude",
+        ocean_noise_frequency: crate::gui_adjustables::FloatParam = 0.0045, float(0.0005..=1.0), "Noise Frequency",
+        ocean_time_multiplier: crate::gui_adjustables::FloatParam = 1.0, float(0.0..=5.0), "Time Multiplier",
     },
 
     [EmberBloom] {
@@ -579,6 +594,9 @@ impl GuiAdjustables {
             "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
             "butterfly_lifetime_min" => Some(&adjustables.butterfly_lifetime_min),
             "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
+            "ocean_normal_amplitude" => Some(&adjustables.ocean_normal_amplitude),
+            "ocean_noise_frequency" => Some(&adjustables.ocean_noise_frequency),
+            "ocean_time_multiplier" => Some(&adjustables.ocean_time_multiplier),
             "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
             _ => None,
         }
