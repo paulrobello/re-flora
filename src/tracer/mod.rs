@@ -869,7 +869,7 @@ impl Tracer {
                 cmdbuf,
                 Some(vk::ImageLayout::GENERAL),
                 0,
-                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 1.0])),
+                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
             );
         self.resources
             .extent_dependent_resources
@@ -926,7 +926,7 @@ impl Tracer {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
+                    float32: [0.0, 0.0, 0.0, 0.0],
                 },
             },
             vk::ClearValue {
@@ -1029,7 +1029,7 @@ impl Tracer {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 1.0],
+                    float32: [0.0, 0.0, 0.0, 0.0],
                 },
             },
             vk::ClearValue {
