@@ -187,13 +187,30 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
     vec3 water_base = deep;
 
     vec3 up = vec3(0.0, 1.0, 0.0);
-    float facing = clamp(dot(normalize(up), -rd), 0.0, 1.0);
-    float fresnel = pow(1.0 - facing, 3.0);
+    float facing = clamp(dot(up, -rd), 0.0, 1.0);
 
-    vec3 sky_dir = normalize(vec3(rd.x, -rd.y, rd.z));
-    vec3 sky_ref = get_sky_color(sky_dir, sun_info.sun_dir);
+    // slightly stronger fresnel to emphasize reflection at grazing angles
+    float fresnel = pow(1.0 - facing, 2.0);
 
-    vec3 water_color = mix(water_base, sky_ref, fresnel);
+    // mirror view direction across the water plane for environment reflection
+    vec3 refl_dir_env = normalize(vec3(rd.x, -rd.y, rd.z));
+    vec3 sky_ref      = compute_sky_with_sun_and_stars(refl_dir_env);
+
+    // boost reflection intensity a bit for a clearer environment reflection
+    float reflection_weight = clamp(fresnel * 1.4, 0.0, 1.0);
+    vec3 water_color        = mix(water_base, sky_ref, reflection_weight);
+
+    // explicit sun glint: specular highlight based on sun direction
+    vec3 L = normalize(sun_info.sun_dir);
+    vec3 V = normalize(-rd);
+    vec3 R = reflect(-L, up);
+    float spec = max(dot(R, V), 0.0);
+    spec = pow(spec, 64.0);
+
+    float sun_visibility = sun_luminance_from_dir(sun_info.sun_dir, 1.0);
+    vec3 sun_glint = sun_info.sun_color * sun_info.sun_display_luminance * (0.4 * spec * sun_visibility);
+
+    water_color += sun_glint;
     water_color *= 0.95 + 0.05 * wave;
 
     hit_ocean = true;
