@@ -54,54 +54,52 @@ impl GuiAdjustables {
                     continue;
                 }
 
-                let value_updated = match param.kind {
+                match param.kind {
                     GuiParamKind::Float => {
-                        if let Some(field) = Self::get_float_param(self, &param.id) {
-                            param.value.set_float(field.value);
-                            true
-                        } else {
-                            false
-                        }
+                        let field = Self::get_float_param(self, &param.id).unwrap_or_else(|| {
+                            panic!(
+                                "GUI param '{}' (section '{}') missing FloatParam in GuiAdjustables; rebuild required",
+                                param.id, section.name
+                            )
+                        });
+                        param.value.set_float(field.value);
                     }
                     GuiParamKind::Int => {
-                        if let Some(field) = Self::get_int_param(self, &param.id) {
-                            param.value.set_int(field.value);
-                            true
-                        } else {
-                            false
-                        }
+                        let field = Self::get_int_param(self, &param.id).unwrap_or_else(|| {
+                            panic!(
+                                "GUI param '{}' (section '{}') missing IntParam in GuiAdjustables; rebuild required",
+                                param.id, section.name
+                            )
+                        });
+                        param.value.set_int(field.value);
                     }
                     GuiParamKind::Uint => {
-                        if let Some(field) = Self::get_uint_param(self, &param.id) {
-                            param.value.set_uint(field.value);
-                            true
-                        } else {
-                            false
-                        }
+                        let field = Self::get_uint_param(self, &param.id).unwrap_or_else(|| {
+                            panic!(
+                                "GUI param '{}' (section '{}') missing UintParam in GuiAdjustables; rebuild required",
+                                param.id, section.name
+                            )
+                        });
+                        param.value.set_uint(field.value);
                     }
                     GuiParamKind::Bool => {
-                        if let Some(field) = Self::get_bool_param(self, &param.id) {
-                            param.value.set_bool(field.value);
-                            true
-                        } else {
-                            false
-                        }
+                        let field = Self::get_bool_param(self, &param.id).unwrap_or_else(|| {
+                            panic!(
+                                "GUI param '{}' (section '{}') missing BoolParam in GuiAdjustables; rebuild required",
+                                param.id, section.name
+                            )
+                        });
+                        param.value.set_bool(field.value);
                     }
                     GuiParamKind::Color => {
-                        if let Some(field) = Self::get_color_param(self, &param.id) {
-                            param.value.set_color(color_to_hex(field.value));
-                            true
-                        } else {
-                            false
-                        }
+                        let field = Self::get_color_param(self, &param.id).unwrap_or_else(|| {
+                            panic!(
+                                "GUI param '{}' (section '{}') missing ColorParam in GuiAdjustables; rebuild required",
+                                param.id, section.name
+                            )
+                        });
+                        param.value.set_color(color_to_hex(field.value));
                     }
-                };
-                if !value_updated {
-                    log::warn!(
-                        "Failed to update config value for param '{}' in section '{}'",
-                        param.id,
-                        section.name
-                    );
                 }
             }
         }
@@ -202,59 +200,66 @@ pub fn render_gui_from_config(
             for param in &section.param {
                 match (&param.kind, &param.value) {
                     (GuiParamKind::Float, GuiParamValue::Float { min, max, .. }) => {
-                        if let Some(field) =
-                            GuiAdjustables::get_float_param_mut(adjustables, &param.id)
-                        {
-                            let range = min.unwrap_or(0.0)..=max.unwrap_or(1.0);
-                            ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
-                        } else {
-                            ui.label(format!("[UNWIRED] {}", param.label));
-                        }
+                        let field = GuiAdjustables::get_float_param_mut(adjustables, &param.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "GUI param '{}' (section '{}') missing FloatParam in GuiAdjustables; rebuild required",
+                                    param.id, section.name
+                                )
+                            });
+                        let range = min.unwrap_or(0.0)..=max.unwrap_or(1.0);
+                        ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
                     }
                     (GuiParamKind::Int, GuiParamValue::Int { min, max, .. }) => {
-                        if let Some(field) =
-                            GuiAdjustables::get_int_param_mut(adjustables, &param.id)
-                        {
-                            let range = min.unwrap_or(0)..=max.unwrap_or(100);
-                            ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
-                        } else {
-                            ui.label(format!("[UNWIRED] {}", param.label));
-                        }
+                        let field = GuiAdjustables::get_int_param_mut(adjustables, &param.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "GUI param '{}' (section '{}') missing IntParam in GuiAdjustables; rebuild required",
+                                    param.id, section.name
+                                )
+                            });
+                        let range = min.unwrap_or(0)..=max.unwrap_or(100);
+                        ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
                     }
                     (GuiParamKind::Uint, GuiParamValue::Uint { min, max, .. }) => {
-                        if let Some(field) =
-                            GuiAdjustables::get_uint_param_mut(adjustables, &param.id)
-                        {
-                            let range = min.unwrap_or(0)..=max.unwrap_or(100);
-                            ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
-                        } else {
-                            ui.label(format!("[UNWIRED] {}", param.label));
-                        }
+                        let field = GuiAdjustables::get_uint_param_mut(adjustables, &param.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "GUI param '{}' (section '{}') missing UintParam in GuiAdjustables; rebuild required",
+                                    param.id, section.name
+                                )
+                            });
+                        let range = min.unwrap_or(0)..=max.unwrap_or(100);
+                        ui.add(egui::Slider::new(&mut field.value, range).text(&param.label));
                     }
                     (GuiParamKind::Bool, GuiParamValue::Bool { .. }) => {
-                        if let Some(field) =
-                            GuiAdjustables::get_bool_param_mut(adjustables, &param.id)
-                        {
-                            ui.checkbox(&mut field.value, &param.label);
-                        } else {
-                            ui.label(format!("[UNWIRED] {}", param.label));
-                        }
+                        let field = GuiAdjustables::get_bool_param_mut(adjustables, &param.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "GUI param '{}' (section '{}') missing BoolParam in GuiAdjustables; rebuild required",
+                                    param.id, section.name
+                                )
+                            });
+                        ui.checkbox(&mut field.value, &param.label);
                     }
                     (GuiParamKind::Color, GuiParamValue::Color { .. }) => {
-                        if let Some(field) =
-                            GuiAdjustables::get_color_param_mut(adjustables, &param.id)
-                        {
-                            ui.horizontal(|ui| {
-                                ui.label(&param.label);
-                                ui.color_edit_button_srgba(&mut field.value);
+                        let field = GuiAdjustables::get_color_param_mut(adjustables, &param.id)
+                            .unwrap_or_else(|| {
+                                panic!(
+                                    "GUI param '{}' (section '{}') missing ColorParam in GuiAdjustables; rebuild required",
+                                    param.id, section.name
+                                )
                             });
-                        } else {
-                            ui.label(format!("[UNWIRED] {}", param.label));
-                        }
+                        ui.horizontal(|ui| {
+                            ui.label(&param.label);
+                            ui.color_edit_button_srgba(&mut field.value);
+                        });
                     }
-                    _ => {
-                        ui.label(format!("[TYPE MISMATCH] {}", param.label));
-                    }
+                    _ => unreachable!(
+                        "GUI param '{}' (section '{}') has kind that is not supported by the GUI renderer",
+                        param.id,
+                        section.name
+                    ),
                 }
             }
         });
