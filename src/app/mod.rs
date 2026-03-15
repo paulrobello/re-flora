@@ -8,4 +8,4 @@ mod world_edits;
 mod world_ops;
 
 pub use app_controller::AppController;
-pub use gui_config::GuiAdjustables;
+pub use gui_config::{render_gui_from_config, GuiAdjustables};
