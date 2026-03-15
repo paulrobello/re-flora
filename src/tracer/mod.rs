@@ -41,7 +41,7 @@ use crate::builder::{
 };
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
 use crate::geom::UAabb3;
-use crate::particles::{ParticleSnapshot, BUTTERFLY_VIEW_BUCKET_HALF_WIDTH, PARTICLE_CAPACITY};
+use crate::particles::{ParticleSnapshot, PARTICLE_CAPACITY};
 use crate::resource::ResourceContainer;
 use crate::util::{ShaderCompiler, TimeInfo};
 use crate::vkn::{
@@ -1635,10 +1635,11 @@ impl Tracer {
         let camera_right_xz =
             Vec2::new(self.camera.vectors().right.x, self.camera.vectors().right.z)
                 .normalize_or_zero();
-        let camera_pos_xz = Vec2::new(self.camera.position().x, self.camera.position().z);
+        let camera_forward_xz =
+            Vec2::new(self.camera.vectors().front.x, self.camera.vectors().front.z)
+                .normalize_or_zero();
         const SPRITE_FLIP_BIT: u32 = 1 << 31;
         const MIN_SPEED_SQ: f32 = 0.01 * 0.01;
-        const MIN_DIR_SQ: f32 = 0.0001; // for to_cam direction
 
         let is_moving_right_relative_to_player = |velocity: Vec3| -> bool {
             let velocity_xz = Vec2::new(velocity.x, velocity.z);
@@ -1665,38 +1666,20 @@ impl Tracer {
         for snap in snapshots.iter().take(capacity) {
             let butterfly_tex_index = {
                 let vel_xz = Vec2::new(snap.velocity.x, snap.velocity.z);
-                let butterfly_pos_xz = Vec2::new(snap.position_ws.x, snap.position_ws.z);
-                let to_cam_xz = camera_pos_xz - butterfly_pos_xz;
-
                 let vel_dir_xz = if vel_xz.length_squared() > MIN_SPEED_SQ {
                     vel_xz.normalize()
                 } else {
                     Vec2::ZERO
                 };
-
-                let to_cam_dir_xz = if to_cam_xz.length_squared() > MIN_DIR_SQ {
-                    to_cam_xz.normalize()
+                let view_index = if vel_dir_xz == Vec2::ZERO {
+                    0
                 } else {
-                    Vec2::ZERO
-                };
+                    let z = vel_dir_xz.dot(camera_forward_xz);
 
-                let view_index = if vel_dir_xz == Vec2::ZERO || to_cam_dir_xz == Vec2::ZERO {
-                    2 // side view default
-                } else {
-                    let dot = (-vel_dir_xz).dot(to_cam_dir_xz).clamp(-1.0, 1.0);
-                    let angle = dot.acos();
-
-                    let half_width = BUTTERFLY_VIEW_BUCKET_HALF_WIDTH;
-                    if angle < half_width {
-                        0 // front
-                    } else if angle < half_width * 3.0 {
-                        1 // front-side
-                    } else if angle < half_width * 5.0 {
-                        2 // side
-                    } else if angle < half_width * 7.0 {
-                        3 // back-side
+                    if z >= 0.0 {
+                        0
                     } else {
-                        4 // back
+                        1
                     }
                 };
 

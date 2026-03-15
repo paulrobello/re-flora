@@ -1,6 +1,6 @@
 use crate::{
     flora::species,
-    particles::{PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM},
+    particles::{BUTTERFLY_ATLAS_ROW_FOR_VIEW, PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM},
     resource::Resource,
     tracer::{
         leaves_construct::generate_indexed_voxel_leaves, load_butterfly_and_remap,
@@ -754,7 +754,8 @@ impl TracerResources {
             let config = preset.config();
             let rgba = load_butterfly_and_remap(butterfly_atlas_path, &config);
             let label = format!("{} ({})", atlas_path_str, preset.name());
-            for row in 0..layout.butterfly_view_count() {
+            for view in 0..layout.butterfly_view_count() {
+                let row = BUTTERFLY_ATLAS_ROW_FOR_VIEW[view as usize];
                 if let Some(frames) = Self::extract_row_sequence_layers(
                     &rgba,
                     row,
@@ -764,8 +765,8 @@ impl TracerResources {
                     butterfly_layers.extend(frames);
                 } else {
                     panic!(
-                        "Failed to extract butterfly frames from row {} of '{}'",
-                        row, label
+                        "Failed to extract butterfly frames for view {} (row {}) of '{}'",
+                        view, row, label
                     );
                 }
             }
