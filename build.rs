@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -24,111 +25,165 @@ fn project_root() -> PathBuf {
     PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR is not set"))
 }
 
+fn kind_to_type(kind: &str, id: &str) -> &'static str {
+    match kind {
+        "float" => "crate::gui_adjustables::FloatParam",
+        "int" => "crate::gui_adjustables::IntParam",
+        "uint" => "crate::gui_adjustables::UintParam",
+        "bool" => "crate::gui_adjustables::BoolParam",
+        "color" => "crate::gui_adjustables::ColorParam",
+        other => panic!(
+            "GUI config generation failed: unsupported kind '{}' for param '{}'",
+            other, id
+        ),
+    }
+}
+
 fn generate_gui_adjustables() {
     let root = project_root();
     let config_path = root.join("config").join("gui.toml");
 
-    let content = match fs::read_to_string(&config_path) {
-        Ok(c) => c,
-        Err(e) => {
-            log!(
-                "skipping GUI codegen: failed to read {}: {}",
-                config_path.display(),
-                e
-            );
-            return;
-        }
-    };
+    let content = fs::read_to_string(&config_path).unwrap_or_else(|e| {
+        panic!(
+            "GUI config generation failed: unable to read {}: {}",
+            config_path.display(),
+            e
+        )
+    });
 
-    let parsed: toml::Value = match content.parse() {
-        Ok(v) => v,
-        Err(e) => {
-            log!(
-                "skipping GUI codegen: failed to parse {}: {}",
-                config_path.display(),
-                e
-            );
-            return;
-        }
-    };
+    let parsed: toml::Value = content.parse().unwrap_or_else(|e| {
+        panic!(
+            "GUI config generation failed: unable to parse {}: {}",
+            config_path.display(),
+            e
+        )
+    });
 
     let schema_version = parsed
         .get("schema_version")
         .and_then(|v| v.as_integer())
-        .unwrap_or(0);
+        .unwrap_or_else(|| {
+            panic!(
+                "GUI config generation failed: missing or invalid integer schema_version in {}",
+                config_path.display()
+            )
+        });
 
     let mut descriptors: Vec<(String, String, String, String)> = Vec::new();
+    let mut seen_sections = HashSet::new();
+    let mut seen_ids = HashSet::new();
+    let sections = parsed
+        .get("section")
+        .and_then(|v| v.as_array())
+        .unwrap_or_else(|| {
+            panic!(
+                "GUI config generation failed: missing or invalid [[section]] array in {}",
+                config_path.display()
+            )
+        });
 
-    if let Some(sections) = parsed.get("section").and_then(|v| v.as_array()) {
-        for section in sections {
-            let table = match section.as_table() {
-                Some(t) => t,
-                None => continue,
-            };
+    for (section_idx, section) in sections.iter().enumerate() {
+        let table = section.as_table().unwrap_or_else(|| {
+            panic!(
+                "GUI config generation failed: section at index {} is not a table",
+                section_idx
+            )
+        });
 
-            let section_name = match table.get("name").and_then(|v| v.as_str()) {
-                Some(name) => name.to_owned(),
-                None => {
-                    log!("GUI config generation: section without name, skipping");
-                    continue;
-                }
-            };
+        let section_name = table
+            .get("name")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| {
+                panic!(
+                    "GUI config generation failed: section at index {} has missing/empty name",
+                    section_idx
+                )
+            })
+            .to_owned();
 
-            if let Some(params) = table.get("param").and_then(|v| v.as_array()) {
-                for param in params {
-                    let param_tbl = match param.as_table() {
-                        Some(t) => t,
-                        None => continue,
-                    };
+        if !seen_sections.insert(section_name.clone()) {
+            panic!(
+                "GUI config generation failed: duplicate section name '{}'",
+                section_name
+            );
+        }
 
-                    let id = match param_tbl.get("id").and_then(|v| v.as_str()) {
-                        Some(id) => id.to_owned(),
-                        None => {
-                            log!(
-                                "GUI config generation: param without id in section '{}', skipping",
-                                section_name
-                            );
-                            continue;
-                        }
-                    };
+        let params = table
+            .get("param")
+            .and_then(|v| v.as_array())
+            .unwrap_or_else(|| {
+                panic!(
+                    "GUI config generation failed: section '{}' has missing/invalid param array",
+                    section_name
+                )
+            });
 
-                    let kind = match param_tbl.get("kind").and_then(|v| v.as_str()) {
-                        Some(kind) => kind.to_owned(),
-                        None => {
-                            log!(
-                                "GUI config generation: param '{}' in section '{}' missing kind, skipping",
-                                id, section_name
-                            );
-                            continue;
-                        }
-                    };
+        for (param_idx, param) in params.iter().enumerate() {
+            let param_tbl = param.as_table().unwrap_or_else(|| {
+                panic!(
+                    "GUI config generation failed: section '{}' param at index {} is not a table",
+                    section_name, param_idx
+                )
+            });
 
-                    let label = match param_tbl.get("label").and_then(|v| v.as_str()) {
-                        Some(label) => label.to_owned(),
-                        None => {
-                            log!(
-                                "GUI config generation: param '{}' in section '{}' missing label, skipping",
-                                id, section_name
-                            );
-                            continue;
-                        }
-                    };
+            let id = param_tbl
+                .get("id")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|id| !id.is_empty())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "GUI config generation failed: section '{}' param at index {} missing/empty id",
+                        section_name, param_idx
+                    )
+                })
+                .to_owned();
 
-                    descriptors.push((section_name.clone(), id, kind, label));
-                }
+            if !seen_ids.insert(id.clone()) {
+                panic!("GUI config generation failed: duplicate param id '{}'", id);
             }
+
+            let kind = param_tbl
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|kind| !kind.is_empty())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "GUI config generation failed: section '{}' param '{}' missing/empty kind",
+                        section_name, id
+                    )
+                })
+                .to_owned();
+            let _ = kind_to_type(&kind, &id);
+
+            let label = param_tbl
+                .get("label")
+                .and_then(|v| v.as_str())
+                .map(str::trim)
+                .filter(|label| !label.is_empty())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "GUI config generation failed: section '{}' param '{}' missing/empty label",
+                        section_name, id
+                    )
+                })
+                .to_owned();
+
+            descriptors.push((section_name.clone(), id, kind, label));
         }
     }
 
     let generated_dir = root.join("src").join("app").join("generated");
-    if let Err(e) = fs::create_dir_all(&generated_dir) {
-        log!(
-            "skipping GUI codegen: failed to create {}: {}",
+    fs::create_dir_all(&generated_dir).unwrap_or_else(|e| {
+        panic!(
+            "GUI config generation failed: unable to create {}: {}",
             generated_dir.display(),
             e
-        );
-        return;
-    }
+        )
+    });
 
     let out_path = generated_dir.join("gui_adjustables_gen.rs");
 
@@ -176,21 +231,7 @@ fn generate_gui_adjustables() {
     code.push_str("#[allow(dead_code)]\n");
     code.push_str("pub struct GuiAdjustables {\n");
     for (_section, id, kind, _label) in &descriptors {
-        let ty = match kind.as_str() {
-            "float" => "crate::gui_adjustables::FloatParam",
-            "int" => "crate::gui_adjustables::IntParam",
-            "uint" => "crate::gui_adjustables::UintParam",
-            "bool" => "crate::gui_adjustables::BoolParam",
-            "color" => "crate::gui_adjustables::ColorParam",
-            other => {
-                log!(
-                    "GUI config generation: unsupported kind '{}' for id '{}', skipping field",
-                    other,
-                    id
-                );
-                continue;
-            }
-        };
+        let ty = kind_to_type(kind, id);
 
         code.push_str(&format!("    pub {}: {},\n", id, ty));
     }
@@ -213,14 +254,7 @@ fn generate_gui_adjustables() {
 
     // one local Option per field
     for (_section, id, kind, _label) in &descriptors {
-        let ty = match kind.as_str() {
-            "float" => "crate::gui_adjustables::FloatParam",
-            "int" => "crate::gui_adjustables::IntParam",
-            "uint" => "crate::gui_adjustables::UintParam",
-            "bool" => "crate::gui_adjustables::BoolParam",
-            "color" => "crate::gui_adjustables::ColorParam",
-            _ => continue,
-        };
+        let ty = kind_to_type(kind, id);
         code.push_str(&format!(
             "        let mut {id}_field: Option<{ty}> = None;\n",
             id = id,
@@ -306,10 +340,7 @@ fn generate_gui_adjustables() {
 
     code.push_str("        GuiAdjustables {\n");
     for (_section, id, kind, _label) in &descriptors {
-        let expects_field = matches!(kind.as_str(), "float" | "int" | "uint" | "bool" | "color");
-        if !expects_field {
-            continue;
-        }
+        let _ = kind_to_type(kind, id);
         code.push_str(&format!(
             "            {id}: {id}_field.expect(\"Missing parameter: {id}\"),\n",
             id = id
@@ -490,15 +521,14 @@ fn generate_gui_adjustables() {
     code.push_str("    }\n");
     code.push_str("}\n");
 
-    if let Err(e) = fs::write(&out_path, code) {
-        log!(
-            "failed to write generated GUI code to {}: {}",
+    fs::write(&out_path, code).unwrap_or_else(|e| {
+        panic!(
+            "GUI config generation failed: unable to write {}: {}",
             out_path.display(),
             e
-        );
-    } else {
-        log!("wrote generated GUI descriptors to {}", out_path.display());
-    }
+        )
+    });
+    log!("wrote generated GUI descriptors to {}", out_path.display());
 }
 
 fn main() {
