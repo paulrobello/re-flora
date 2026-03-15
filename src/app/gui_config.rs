@@ -354,68 +354,7 @@ impl GuiAdjustables {
         adjustables: &'a GuiAdjustables,
         id: &str,
     ) -> Option<&'a crate::gui_adjustables::FloatParam> {
-        match id {
-            "debug_float" => Some(&adjustables.debug_float),
-            "lod_distance" => Some(&adjustables.lod_distance),
-            "sun_size" => Some(&adjustables.sun_size),
-            "sun_luminance" => Some(&adjustables.sun_luminance),
-            "sun_display_luminance" => Some(&adjustables.sun_display_luminance),
-            "time_of_day" => Some(&adjustables.time_of_day),
-            "latitude" => Some(&adjustables.latitude),
-            "season" => Some(&adjustables.season),
-            "day_cycle_minutes" => Some(&adjustables.day_cycle_minutes),
-            "starlight_formuparam" => Some(&adjustables.starlight_formuparam),
-            "starlight_stepsize" => Some(&adjustables.starlight_stepsize),
-            "starlight_zoom" => Some(&adjustables.starlight_zoom),
-            "starlight_tile" => Some(&adjustables.starlight_tile),
-            "starlight_speed" => Some(&adjustables.starlight_speed),
-            "starlight_brightness" => Some(&adjustables.starlight_brightness),
-            "starlight_darkmatter" => Some(&adjustables.starlight_darkmatter),
-            "starlight_distfading" => Some(&adjustables.starlight_distfading),
-            "starlight_saturation" => Some(&adjustables.starlight_saturation),
-            "temporal_position_phi" => Some(&adjustables.temporal_position_phi),
-            "temporal_alpha" => Some(&adjustables.temporal_alpha),
-            "god_ray_max_depth" => Some(&adjustables.god_ray_max_depth),
-            "god_ray_weight" => Some(&adjustables.god_ray_weight),
-            "phi_c" => Some(&adjustables.phi_c),
-            "phi_n" => Some(&adjustables.phi_n),
-            "phi_p" => Some(&adjustables.phi_p),
-            "min_phi_z" => Some(&adjustables.min_phi_z),
-            "max_phi_z" => Some(&adjustables.max_phi_z),
-            "phi_z_stable_sample_count" => Some(&adjustables.phi_z_stable_sample_count),
-            "flora_instance_hue_offset" => Some(&adjustables.flora_instance_hue_offset),
-            "flora_instance_saturation_offset" => {
-                Some(&adjustables.flora_instance_saturation_offset)
-            }
-            "flora_instance_value_offset" => Some(&adjustables.flora_instance_value_offset),
-            "flora_voxel_hue_offset" => Some(&adjustables.flora_voxel_hue_offset),
-            "flora_voxel_saturation_offset" => Some(&adjustables.flora_voxel_saturation_offset),
-            "flora_voxel_value_offset" => Some(&adjustables.flora_voxel_value_offset),
-            "leaves_inner_density" => Some(&adjustables.leaves_inner_density),
-            "leaves_outer_density" => Some(&adjustables.leaves_outer_density),
-            "leaves_inner_radius" => Some(&adjustables.leaves_inner_radius),
-            "leaves_outer_radius" => Some(&adjustables.leaves_outer_radius),
-            "particle_full_update_seconds" => Some(&adjustables.particle_full_update_seconds),
-            "butterflies_per_chunk" => Some(&adjustables.butterflies_per_chunk),
-            "butterfly_wander_radius" => Some(&adjustables.butterfly_wander_radius),
-            "butterfly_height_offset_min" => Some(&adjustables.butterfly_height_offset_min),
-            "butterfly_height_offset_max" => Some(&adjustables.butterfly_height_offset_max),
-            "butterfly_size" => Some(&adjustables.butterfly_size),
-            "butterfly_drift_strength_min" => Some(&adjustables.butterfly_drift_strength_min),
-            "butterfly_drift_strength_max" => Some(&adjustables.butterfly_drift_strength_max),
-            "butterfly_drift_frequency_min" => Some(&adjustables.butterfly_drift_frequency_min),
-            "butterfly_drift_frequency_max" => Some(&adjustables.butterfly_drift_frequency_max),
-            "butterfly_steering_strength" => Some(&adjustables.butterfly_steering_strength),
-            "butterfly_bob_frequency_hz" => Some(&adjustables.butterfly_bob_frequency_hz),
-            "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
-            "butterfly_lifetime_min" => Some(&adjustables.butterfly_lifetime_min),
-            "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
-            "ocean_normal_amplitude" => Some(&adjustables.ocean_normal_amplitude),
-            "ocean_noise_frequency" => Some(&adjustables.ocean_noise_frequency),
-            "ocean_time_multiplier" => Some(&adjustables.ocean_time_multiplier),
-            "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
-            _ => None,
-        }
+        generated::get_float_param(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -423,11 +362,7 @@ impl GuiAdjustables {
         adjustables: &'a GuiAdjustables,
         id: &str,
     ) -> Option<&'a crate::gui_adjustables::IntParam> {
-        match id {
-            "starlight_iterations" => Some(&adjustables.starlight_iterations),
-            "starlight_volsteps" => Some(&adjustables.starlight_volsteps),
-            _ => None,
-        }
+        generated::get_int_param(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -435,12 +370,7 @@ impl GuiAdjustables {
         adjustables: &'a GuiAdjustables,
         id: &str,
     ) -> Option<&'a crate::gui_adjustables::UintParam> {
-        match id {
-            "debug_uint" => Some(&adjustables.debug_uint),
-            "god_ray_max_checks" => Some(&adjustables.god_ray_max_checks),
-            "a_trous_iteration_count" => Some(&adjustables.a_trous_iteration_count),
-            _ => None,
-        }
+        generated::get_uint_param(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -448,14 +378,7 @@ impl GuiAdjustables {
         adjustables: &'a GuiAdjustables,
         id: &str,
     ) -> Option<&'a crate::gui_adjustables::BoolParam> {
-        match id {
-            "debug_bool" => Some(&adjustables.debug_bool),
-            "auto_daynight_cycle" => Some(&adjustables.auto_daynight_cycle),
-            "is_changing_lum_phi" => Some(&adjustables.is_changing_lum_phi),
-            "is_spatial_denoising_enabled" => Some(&adjustables.is_spatial_denoising_enabled),
-            "butterflies_enabled" => Some(&adjustables.butterflies_enabled),
-            _ => None,
-        }
+        generated::get_bool_param(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -463,24 +386,7 @@ impl GuiAdjustables {
         adjustables: &'a GuiAdjustables,
         id: &str,
     ) -> Option<&'a crate::gui_adjustables::ColorParam> {
-        match id {
-            "sun_color" => Some(&adjustables.sun_color),
-            "ambient_light" => Some(&adjustables.ambient_light),
-            "grass_bottom_dark_color" => Some(&adjustables.grass_bottom_dark_color),
-            "grass_bottom_light_color" => Some(&adjustables.grass_bottom_light_color),
-            "grass_tip_dark_color" => Some(&adjustables.grass_tip_dark_color),
-            "grass_tip_light_color" => Some(&adjustables.grass_tip_light_color),
-            "ocean_deep_color" => Some(&adjustables.ocean_deep_color),
-            "ocean_shallow_color" => Some(&adjustables.ocean_shallow_color),
-            "ember_bloom_bottom_color" => Some(&adjustables.ember_bloom_bottom_color),
-            "ember_bloom_tip_color" => Some(&adjustables.ember_bloom_tip_color),
-            "leaves_bottom_color" => Some(&adjustables.leaves_bottom_color),
-            "leaves_tip_color" => Some(&adjustables.leaves_tip_color),
-            "voxel_dirt_color" => Some(&adjustables.voxel_dirt_color),
-            "voxel_cherry_wood_color" => Some(&adjustables.voxel_cherry_wood_color),
-            "voxel_oak_wood_color" => Some(&adjustables.voxel_oak_wood_color),
-            _ => None,
-        }
+        generated::get_color_param(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -488,68 +394,7 @@ impl GuiAdjustables {
         adjustables: &'a mut GuiAdjustables,
         id: &str,
     ) -> Option<&'a mut crate::gui_adjustables::FloatParam> {
-        match id {
-            "debug_float" => Some(&mut adjustables.debug_float),
-            "lod_distance" => Some(&mut adjustables.lod_distance),
-            "sun_size" => Some(&mut adjustables.sun_size),
-            "sun_luminance" => Some(&mut adjustables.sun_luminance),
-            "sun_display_luminance" => Some(&mut adjustables.sun_display_luminance),
-            "time_of_day" => Some(&mut adjustables.time_of_day),
-            "latitude" => Some(&mut adjustables.latitude),
-            "season" => Some(&mut adjustables.season),
-            "day_cycle_minutes" => Some(&mut adjustables.day_cycle_minutes),
-            "starlight_formuparam" => Some(&mut adjustables.starlight_formuparam),
-            "starlight_stepsize" => Some(&mut adjustables.starlight_stepsize),
-            "starlight_zoom" => Some(&mut adjustables.starlight_zoom),
-            "starlight_tile" => Some(&mut adjustables.starlight_tile),
-            "starlight_speed" => Some(&mut adjustables.starlight_speed),
-            "starlight_brightness" => Some(&mut adjustables.starlight_brightness),
-            "starlight_darkmatter" => Some(&mut adjustables.starlight_darkmatter),
-            "starlight_distfading" => Some(&mut adjustables.starlight_distfading),
-            "starlight_saturation" => Some(&mut adjustables.starlight_saturation),
-            "temporal_position_phi" => Some(&mut adjustables.temporal_position_phi),
-            "temporal_alpha" => Some(&mut adjustables.temporal_alpha),
-            "god_ray_max_depth" => Some(&mut adjustables.god_ray_max_depth),
-            "god_ray_weight" => Some(&mut adjustables.god_ray_weight),
-            "phi_c" => Some(&mut adjustables.phi_c),
-            "phi_n" => Some(&mut adjustables.phi_n),
-            "phi_p" => Some(&mut adjustables.phi_p),
-            "min_phi_z" => Some(&mut adjustables.min_phi_z),
-            "max_phi_z" => Some(&mut adjustables.max_phi_z),
-            "phi_z_stable_sample_count" => Some(&mut adjustables.phi_z_stable_sample_count),
-            "flora_instance_hue_offset" => Some(&mut adjustables.flora_instance_hue_offset),
-            "flora_instance_saturation_offset" => {
-                Some(&mut adjustables.flora_instance_saturation_offset)
-            }
-            "flora_instance_value_offset" => Some(&mut adjustables.flora_instance_value_offset),
-            "flora_voxel_hue_offset" => Some(&mut adjustables.flora_voxel_hue_offset),
-            "flora_voxel_saturation_offset" => Some(&mut adjustables.flora_voxel_saturation_offset),
-            "flora_voxel_value_offset" => Some(&mut adjustables.flora_voxel_value_offset),
-            "leaves_inner_density" => Some(&mut adjustables.leaves_inner_density),
-            "leaves_outer_density" => Some(&mut adjustables.leaves_outer_density),
-            "leaves_inner_radius" => Some(&mut adjustables.leaves_inner_radius),
-            "leaves_outer_radius" => Some(&mut adjustables.leaves_outer_radius),
-            "particle_full_update_seconds" => Some(&mut adjustables.particle_full_update_seconds),
-            "butterflies_per_chunk" => Some(&mut adjustables.butterflies_per_chunk),
-            "butterfly_wander_radius" => Some(&mut adjustables.butterfly_wander_radius),
-            "butterfly_height_offset_min" => Some(&mut adjustables.butterfly_height_offset_min),
-            "butterfly_height_offset_max" => Some(&mut adjustables.butterfly_height_offset_max),
-            "butterfly_size" => Some(&mut adjustables.butterfly_size),
-            "butterfly_drift_strength_min" => Some(&mut adjustables.butterfly_drift_strength_min),
-            "butterfly_drift_strength_max" => Some(&mut adjustables.butterfly_drift_strength_max),
-            "butterfly_drift_frequency_min" => Some(&mut adjustables.butterfly_drift_frequency_min),
-            "butterfly_drift_frequency_max" => Some(&mut adjustables.butterfly_drift_frequency_max),
-            "butterfly_steering_strength" => Some(&mut adjustables.butterfly_steering_strength),
-            "butterfly_bob_frequency_hz" => Some(&mut adjustables.butterfly_bob_frequency_hz),
-            "butterfly_bob_strength" => Some(&mut adjustables.butterfly_bob_strength),
-            "butterfly_lifetime_min" => Some(&mut adjustables.butterfly_lifetime_min),
-            "butterfly_lifetime_max" => Some(&mut adjustables.butterfly_lifetime_max),
-            "ocean_normal_amplitude" => Some(&mut adjustables.ocean_normal_amplitude),
-            "ocean_noise_frequency" => Some(&mut adjustables.ocean_noise_frequency),
-            "ocean_time_multiplier" => Some(&mut adjustables.ocean_time_multiplier),
-            "voxel_color_variance" => Some(&mut adjustables.voxel_color_variance),
-            _ => None,
-        }
+        generated::get_float_param_mut(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -557,11 +402,7 @@ impl GuiAdjustables {
         adjustables: &'a mut GuiAdjustables,
         id: &str,
     ) -> Option<&'a mut crate::gui_adjustables::IntParam> {
-        match id {
-            "starlight_iterations" => Some(&mut adjustables.starlight_iterations),
-            "starlight_volsteps" => Some(&mut adjustables.starlight_volsteps),
-            _ => None,
-        }
+        generated::get_int_param_mut(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -569,12 +410,7 @@ impl GuiAdjustables {
         adjustables: &'a mut GuiAdjustables,
         id: &str,
     ) -> Option<&'a mut crate::gui_adjustables::UintParam> {
-        match id {
-            "debug_uint" => Some(&mut adjustables.debug_uint),
-            "god_ray_max_checks" => Some(&mut adjustables.god_ray_max_checks),
-            "a_trous_iteration_count" => Some(&mut adjustables.a_trous_iteration_count),
-            _ => None,
-        }
+        generated::get_uint_param_mut(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -582,14 +418,7 @@ impl GuiAdjustables {
         adjustables: &'a mut GuiAdjustables,
         id: &str,
     ) -> Option<&'a mut crate::gui_adjustables::BoolParam> {
-        match id {
-            "debug_bool" => Some(&mut adjustables.debug_bool),
-            "auto_daynight_cycle" => Some(&mut adjustables.auto_daynight_cycle),
-            "is_changing_lum_phi" => Some(&mut adjustables.is_changing_lum_phi),
-            "is_spatial_denoising_enabled" => Some(&mut adjustables.is_spatial_denoising_enabled),
-            "butterflies_enabled" => Some(&mut adjustables.butterflies_enabled),
-            _ => None,
-        }
+        generated::get_bool_param_mut(adjustables, id)
     }
 
     #[allow(dead_code)]
@@ -597,24 +426,7 @@ impl GuiAdjustables {
         adjustables: &'a mut GuiAdjustables,
         id: &str,
     ) -> Option<&'a mut crate::gui_adjustables::ColorParam> {
-        match id {
-            "sun_color" => Some(&mut adjustables.sun_color),
-            "ambient_light" => Some(&mut adjustables.ambient_light),
-            "grass_bottom_dark_color" => Some(&mut adjustables.grass_bottom_dark_color),
-            "grass_bottom_light_color" => Some(&mut adjustables.grass_bottom_light_color),
-            "grass_tip_dark_color" => Some(&mut adjustables.grass_tip_dark_color),
-            "grass_tip_light_color" => Some(&mut adjustables.grass_tip_light_color),
-            "ocean_deep_color" => Some(&mut adjustables.ocean_deep_color),
-            "ocean_shallow_color" => Some(&mut adjustables.ocean_shallow_color),
-            "ember_bloom_bottom_color" => Some(&mut adjustables.ember_bloom_bottom_color),
-            "ember_bloom_tip_color" => Some(&mut adjustables.ember_bloom_tip_color),
-            "leaves_bottom_color" => Some(&mut adjustables.leaves_bottom_color),
-            "leaves_tip_color" => Some(&mut adjustables.leaves_tip_color),
-            "voxel_dirt_color" => Some(&mut adjustables.voxel_dirt_color),
-            "voxel_cherry_wood_color" => Some(&mut adjustables.voxel_cherry_wood_color),
-            "voxel_oak_wood_color" => Some(&mut adjustables.voxel_oak_wood_color),
-            _ => None,
-        }
+        generated::get_color_param_mut(adjustables, id)
     }
 }
 

@@ -317,6 +317,177 @@ fn generate_gui_adjustables() {
     }
     code.push_str("        }\n");
     code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    // generated accessors operating on GuiAdjustables by id
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::FloatParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "float" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_int_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::IntParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "int" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_uint_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::UintParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "uint" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_bool_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::BoolParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "bool" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_color_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::ColorParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "color" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::FloatParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "float" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&mut adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_int_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::IntParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "int" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&mut adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_uint_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::UintParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "uint" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&mut adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_bool_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::BoolParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "bool" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&mut adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str(
+        "pub fn get_color_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::ColorParam> {\n",
+    );
+    code.push_str("    match id {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        if kind == "color" {
+            code.push_str(&format!(
+                "        \"{}\" => Some(&mut adjustables.{}),\n",
+                id, id
+            ));
+        }
+    }
+    code.push_str("        _ => None,\n");
+    code.push_str("    }\n");
     code.push_str("}\n");
 
     if let Err(e) = fs::write(&out_path, code) {
