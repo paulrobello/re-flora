@@ -45,308 +45,104 @@ fn color_to_hex(color: Color32) -> String {
 }
 
 fn load_from_config(config: &GuiConfigFile) -> GuiAdjustables {
-    let mut params: std::collections::HashMap<String, Box<dyn std::any::Any>> =
-        std::collections::HashMap::new();
-
-    for section in &config.section {
-        for param in &section.param {
-            match &param.kind {
-                GuiParamKind::Float => {
-                    if let Some((value, min, max)) = param.value.get_float() {
-                        let min = min.unwrap_or(0.0);
-                        let max = max.unwrap_or(1.0);
-                        params.insert(
-                            param.id.clone(),
-                            Box::new(crate::gui_adjustables::FloatParam::new(value, min..=max)),
-                        );
-                    }
-                }
-                GuiParamKind::Int => {
-                    if let Some((value, min, max)) = param.value.get_int() {
-                        let min = min.unwrap_or(0);
-                        let max = max.unwrap_or(100);
-                        params.insert(
-                            param.id.clone(),
-                            Box::new(crate::gui_adjustables::IntParam::new(value, min..=max)),
-                        );
-                    }
-                }
-                GuiParamKind::Uint => {
-                    if let Some((value, min, max)) = param.value.get_uint() {
-                        let min = min.unwrap_or(0);
-                        let max = max.unwrap_or(100);
-                        params.insert(
-                            param.id.clone(),
-                            Box::new(crate::gui_adjustables::UintParam::new(value, min..=max)),
-                        );
-                    }
-                }
-                GuiParamKind::Bool => {
-                    if let Some(value) = param.value.get_bool() {
-                        params.insert(
-                            param.id.clone(),
-                            Box::new(crate::gui_adjustables::BoolParam::new(value)),
-                        );
-                    }
-                }
-                GuiParamKind::Color => {
-                    if let Some(hex) = param.value.get_color() {
-                        params.insert(
-                            param.id.clone(),
-                            Box::new(crate::gui_adjustables::ColorParam::new(parse_color(&hex))),
-                        );
-                    }
-                }
-            }
-        }
-    }
-
-    macro_rules! get_param {
-        ($id:literal, $type:ty) => {
-            *params
-                .remove($id)
-                .unwrap_or_else(|| panic!("Missing parameter: {}", $id))
-                .downcast::<$type>()
-                .unwrap()
-        };
-    }
-
-    if !params.is_empty() {
-        let unwired: Vec<_> = params.keys().cloned().collect();
-        log::warn!(
-            "GUI config has params that are not wired into GuiAdjustables: {:?}",
-            unwired
-        );
-    }
+    let generated = GeneratedGuiAdjustables::from_config(config);
 
     GuiAdjustables {
-        debug_float: get_param!("debug_float", crate::gui_adjustables::FloatParam),
-        debug_uint: get_param!("debug_uint", crate::gui_adjustables::UintParam),
-        lod_distance: get_param!("lod_distance", crate::gui_adjustables::FloatParam),
-        debug_bool: get_param!("debug_bool", crate::gui_adjustables::BoolParam),
+        debug_float: generated.debug_float,
+        debug_uint: generated.debug_uint,
+        lod_distance: generated.lod_distance,
+        debug_bool: generated.debug_bool,
 
-        sun_size: get_param!("sun_size", crate::gui_adjustables::FloatParam),
-        sun_color: get_param!("sun_color", crate::gui_adjustables::ColorParam),
-        sun_luminance: get_param!("sun_luminance", crate::gui_adjustables::FloatParam),
-        sun_display_luminance: get_param!(
-            "sun_display_luminance",
-            crate::gui_adjustables::FloatParam
-        ),
-        ambient_light: get_param!("ambient_light", crate::gui_adjustables::ColorParam),
-        auto_daynight_cycle: get_param!("auto_daynight_cycle", crate::gui_adjustables::BoolParam),
-        time_of_day: get_param!("time_of_day", crate::gui_adjustables::FloatParam),
-        latitude: get_param!("latitude", crate::gui_adjustables::FloatParam),
-        season: get_param!("season", crate::gui_adjustables::FloatParam),
-        day_cycle_minutes: get_param!("day_cycle_minutes", crate::gui_adjustables::FloatParam),
+        sun_size: generated.sun_size,
+        sun_color: generated.sun_color,
+        sun_luminance: generated.sun_luminance,
+        sun_display_luminance: generated.sun_display_luminance,
+        ambient_light: generated.ambient_light,
+        auto_daynight_cycle: generated.auto_daynight_cycle,
+        time_of_day: generated.time_of_day,
+        latitude: generated.latitude,
+        season: generated.season,
+        day_cycle_minutes: generated.day_cycle_minutes,
 
-        starlight_iterations: get_param!("starlight_iterations", crate::gui_adjustables::IntParam),
-        starlight_formuparam: get_param!(
-            "starlight_formuparam",
-            crate::gui_adjustables::FloatParam
-        ),
-        starlight_volsteps: get_param!("starlight_volsteps", crate::gui_adjustables::IntParam),
-        starlight_stepsize: get_param!("starlight_stepsize", crate::gui_adjustables::FloatParam),
-        starlight_zoom: get_param!("starlight_zoom", crate::gui_adjustables::FloatParam),
-        starlight_tile: get_param!("starlight_tile", crate::gui_adjustables::FloatParam),
-        starlight_speed: get_param!("starlight_speed", crate::gui_adjustables::FloatParam),
-        starlight_brightness: get_param!(
-            "starlight_brightness",
-            crate::gui_adjustables::FloatParam
-        ),
-        starlight_darkmatter: get_param!(
-            "starlight_darkmatter",
-            crate::gui_adjustables::FloatParam
-        ),
-        starlight_distfading: get_param!(
-            "starlight_distfading",
-            crate::gui_adjustables::FloatParam
-        ),
-        starlight_saturation: get_param!(
-            "starlight_saturation",
-            crate::gui_adjustables::FloatParam
-        ),
+        starlight_iterations: generated.starlight_iterations,
+        starlight_formuparam: generated.starlight_formuparam,
+        starlight_volsteps: generated.starlight_volsteps,
+        starlight_stepsize: generated.starlight_stepsize,
+        starlight_zoom: generated.starlight_zoom,
+        starlight_tile: generated.starlight_tile,
+        starlight_speed: generated.starlight_speed,
+        starlight_brightness: generated.starlight_brightness,
+        starlight_darkmatter: generated.starlight_darkmatter,
+        starlight_distfading: generated.starlight_distfading,
+        starlight_saturation: generated.starlight_saturation,
 
-        temporal_position_phi: get_param!(
-            "temporal_position_phi",
-            crate::gui_adjustables::FloatParam
-        ),
-        temporal_alpha: get_param!("temporal_alpha", crate::gui_adjustables::FloatParam),
+        temporal_position_phi: generated.temporal_position_phi,
+        temporal_alpha: generated.temporal_alpha,
 
-        god_ray_max_depth: get_param!("god_ray_max_depth", crate::gui_adjustables::FloatParam),
-        god_ray_max_checks: get_param!("god_ray_max_checks", crate::gui_adjustables::UintParam),
-        god_ray_weight: get_param!("god_ray_weight", crate::gui_adjustables::FloatParam),
+        god_ray_max_depth: generated.god_ray_max_depth,
+        god_ray_max_checks: generated.god_ray_max_checks,
+        god_ray_weight: generated.god_ray_weight,
 
-        phi_c: get_param!("phi_c", crate::gui_adjustables::FloatParam),
-        phi_n: get_param!("phi_n", crate::gui_adjustables::FloatParam),
-        phi_p: get_param!("phi_p", crate::gui_adjustables::FloatParam),
-        min_phi_z: get_param!("min_phi_z", crate::gui_adjustables::FloatParam),
-        max_phi_z: get_param!("max_phi_z", crate::gui_adjustables::FloatParam),
-        phi_z_stable_sample_count: get_param!(
-            "phi_z_stable_sample_count",
-            crate::gui_adjustables::FloatParam
-        ),
-        is_changing_lum_phi: get_param!("is_changing_lum_phi", crate::gui_adjustables::BoolParam),
-        is_spatial_denoising_enabled: get_param!(
-            "is_spatial_denoising_enabled",
-            crate::gui_adjustables::BoolParam
-        ),
-        a_trous_iteration_count: get_param!(
-            "a_trous_iteration_count",
-            crate::gui_adjustables::UintParam
-        ),
+        phi_c: generated.phi_c,
+        phi_n: generated.phi_n,
+        phi_p: generated.phi_p,
+        min_phi_z: generated.min_phi_z,
+        max_phi_z: generated.max_phi_z,
+        phi_z_stable_sample_count: generated.phi_z_stable_sample_count,
+        is_changing_lum_phi: generated.is_changing_lum_phi,
+        is_spatial_denoising_enabled: generated.is_spatial_denoising_enabled,
+        a_trous_iteration_count: generated.a_trous_iteration_count,
 
-        grass_bottom_dark_color: get_param!(
-            "grass_bottom_dark_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        grass_bottom_light_color: get_param!(
-            "grass_bottom_light_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        grass_tip_dark_color: get_param!(
-            "grass_tip_dark_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        grass_tip_light_color: get_param!(
-            "grass_tip_light_color",
-            crate::gui_adjustables::ColorParam
-        ),
+        grass_bottom_dark_color: generated.grass_bottom_dark_color,
+        grass_bottom_light_color: generated.grass_bottom_light_color,
+        grass_tip_dark_color: generated.grass_tip_dark_color,
+        grass_tip_light_color: generated.grass_tip_light_color,
 
-        ocean_deep_color: get_param!("ocean_deep_color", crate::gui_adjustables::ColorParam),
-        ocean_shallow_color: get_param!("ocean_shallow_color", crate::gui_adjustables::ColorParam),
-        ocean_normal_amplitude: get_param!(
-            "ocean_normal_amplitude",
-            crate::gui_adjustables::FloatParam
-        ),
-        ocean_noise_frequency: get_param!(
-            "ocean_noise_frequency",
-            crate::gui_adjustables::FloatParam
-        ),
-        ocean_time_multiplier: get_param!(
-            "ocean_time_multiplier",
-            crate::gui_adjustables::FloatParam
-        ),
+        ocean_deep_color: generated.ocean_deep_color,
+        ocean_shallow_color: generated.ocean_shallow_color,
+        ocean_normal_amplitude: generated.ocean_normal_amplitude,
+        ocean_noise_frequency: generated.ocean_noise_frequency,
+        ocean_time_multiplier: generated.ocean_time_multiplier,
 
-        ember_bloom_bottom_color: get_param!(
-            "ember_bloom_bottom_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        ember_bloom_tip_color: get_param!(
-            "ember_bloom_tip_color",
-            crate::gui_adjustables::ColorParam
-        ),
+        ember_bloom_bottom_color: generated.ember_bloom_bottom_color,
+        ember_bloom_tip_color: generated.ember_bloom_tip_color,
 
-        flora_instance_hue_offset: get_param!(
-            "flora_instance_hue_offset",
-            crate::gui_adjustables::FloatParam
-        ),
-        flora_instance_saturation_offset: get_param!(
-            "flora_instance_saturation_offset",
-            crate::gui_adjustables::FloatParam
-        ),
-        flora_instance_value_offset: get_param!(
-            "flora_instance_value_offset",
-            crate::gui_adjustables::FloatParam
-        ),
-        flora_voxel_hue_offset: get_param!(
-            "flora_voxel_hue_offset",
-            crate::gui_adjustables::FloatParam
-        ),
-        flora_voxel_saturation_offset: get_param!(
-            "flora_voxel_saturation_offset",
-            crate::gui_adjustables::FloatParam
-        ),
-        flora_voxel_value_offset: get_param!(
-            "flora_voxel_value_offset",
-            crate::gui_adjustables::FloatParam
-        ),
+        flora_instance_hue_offset: generated.flora_instance_hue_offset,
+        flora_instance_saturation_offset: generated.flora_instance_saturation_offset,
+        flora_instance_value_offset: generated.flora_instance_value_offset,
+        flora_voxel_hue_offset: generated.flora_voxel_hue_offset,
+        flora_voxel_saturation_offset: generated.flora_voxel_saturation_offset,
+        flora_voxel_value_offset: generated.flora_voxel_value_offset,
 
-        leaves_inner_density: get_param!(
-            "leaves_inner_density",
-            crate::gui_adjustables::FloatParam
-        ),
-        leaves_outer_density: get_param!(
-            "leaves_outer_density",
-            crate::gui_adjustables::FloatParam
-        ),
-        leaves_inner_radius: get_param!("leaves_inner_radius", crate::gui_adjustables::FloatParam),
-        leaves_outer_radius: get_param!("leaves_outer_radius", crate::gui_adjustables::FloatParam),
-        leaves_bottom_color: get_param!("leaves_bottom_color", crate::gui_adjustables::ColorParam),
-        leaves_tip_color: get_param!("leaves_tip_color", crate::gui_adjustables::ColorParam),
+        leaves_inner_density: generated.leaves_inner_density,
+        leaves_outer_density: generated.leaves_outer_density,
+        leaves_inner_radius: generated.leaves_inner_radius,
+        leaves_outer_radius: generated.leaves_outer_radius,
+        leaves_bottom_color: generated.leaves_bottom_color,
+        leaves_tip_color: generated.leaves_tip_color,
 
-        particle_full_update_seconds: get_param!(
-            "particle_full_update_seconds",
-            crate::gui_adjustables::FloatParam
-        ),
+        particle_full_update_seconds: generated.particle_full_update_seconds,
 
-        butterflies_enabled: get_param!("butterflies_enabled", crate::gui_adjustables::BoolParam),
-        butterflies_per_chunk: get_param!(
-            "butterflies_per_chunk",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_wander_radius: get_param!(
-            "butterfly_wander_radius",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_height_offset_min: get_param!(
-            "butterfly_height_offset_min",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_height_offset_max: get_param!(
-            "butterfly_height_offset_max",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_size: get_param!("butterfly_size", crate::gui_adjustables::FloatParam),
-        butterfly_drift_strength_min: get_param!(
-            "butterfly_drift_strength_min",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_drift_strength_max: get_param!(
-            "butterfly_drift_strength_max",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_drift_frequency_min: get_param!(
-            "butterfly_drift_frequency_min",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_drift_frequency_max: get_param!(
-            "butterfly_drift_frequency_max",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_steering_strength: get_param!(
-            "butterfly_steering_strength",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_bob_frequency_hz: get_param!(
-            "butterfly_bob_frequency_hz",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_bob_strength: get_param!(
-            "butterfly_bob_strength",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_lifetime_min: get_param!(
-            "butterfly_lifetime_min",
-            crate::gui_adjustables::FloatParam
-        ),
-        butterfly_lifetime_max: get_param!(
-            "butterfly_lifetime_max",
-            crate::gui_adjustables::FloatParam
-        ),
+        butterflies_enabled: generated.butterflies_enabled,
+        butterflies_per_chunk: generated.butterflies_per_chunk,
+        butterfly_wander_radius: generated.butterfly_wander_radius,
+        butterfly_height_offset_min: generated.butterfly_height_offset_min,
+        butterfly_height_offset_max: generated.butterfly_height_offset_max,
+        butterfly_size: generated.butterfly_size,
+        butterfly_drift_strength_min: generated.butterfly_drift_strength_min,
+        butterfly_drift_strength_max: generated.butterfly_drift_strength_max,
+        butterfly_drift_frequency_min: generated.butterfly_drift_frequency_min,
+        butterfly_drift_frequency_max: generated.butterfly_drift_frequency_max,
+        butterfly_steering_strength: generated.butterfly_steering_strength,
+        butterfly_bob_frequency_hz: generated.butterfly_bob_frequency_hz,
+        butterfly_bob_strength: generated.butterfly_bob_strength,
+        butterfly_lifetime_min: generated.butterfly_lifetime_min,
+        butterfly_lifetime_max: generated.butterfly_lifetime_max,
 
-        voxel_dirt_color: get_param!("voxel_dirt_color", crate::gui_adjustables::ColorParam),
-        voxel_cherry_wood_color: get_param!(
-            "voxel_cherry_wood_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        voxel_oak_wood_color: get_param!(
-            "voxel_oak_wood_color",
-            crate::gui_adjustables::ColorParam
-        ),
-        voxel_color_variance: get_param!(
-            "voxel_color_variance",
-            crate::gui_adjustables::FloatParam
-        ),
+        voxel_dirt_color: generated.voxel_dirt_color,
+        voxel_cherry_wood_color: generated.voxel_cherry_wood_color,
+        voxel_oak_wood_color: generated.voxel_oak_wood_color,
+        voxel_color_variance: generated.voxel_color_variance,
     }
 }
 
