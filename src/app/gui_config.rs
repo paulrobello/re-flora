@@ -10,9 +10,7 @@ mod generated {
     include!("generated/gui_adjustables_gen.rs");
 }
 
-pub use generated::{
-    GeneratedGuiParamDescriptor, GuiAdjustables, GENERATED_GUI_PARAMS, GENERATED_SCHEMA_VERSION,
-};
+pub use generated::GuiAdjustables;
 
 fn parse_color(hex: &str) -> Color32 {
     let hex = hex.trim_start_matches('#');

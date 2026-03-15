@@ -14,6 +14,7 @@
 use egui::Color32;
 
 /// Helper trait for types that can be rendered as GUI controls
+#[allow(dead_code)]
 pub trait GuiRenderable {
     fn render(&mut self, ui: &mut egui::Ui, label: &str) -> bool;
 }
@@ -22,6 +23,7 @@ pub trait GuiRenderable {
 #[derive(Debug, Clone)]
 pub struct FloatParam {
     pub value: f32,
+    #[allow(dead_code)]
     pub range: std::ops::RangeInclusive<f32>,
 }
 
@@ -52,6 +54,7 @@ impl GuiRenderable for FloatParam {
 #[derive(Debug, Clone)]
 pub struct IntParam {
     pub value: i32,
+    #[allow(dead_code)]
     pub range: std::ops::RangeInclusive<i32>,
 }
 
@@ -77,6 +80,7 @@ impl GuiRenderable for IntParam {
 #[derive(Debug, Clone)]
 pub struct UintParam {
     pub value: u32,
+    #[allow(dead_code)]
     pub range: std::ops::RangeInclusive<u32>,
 }
 

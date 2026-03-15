@@ -39,6 +39,7 @@ impl App {
             .clamp(0.0, u32::MAX as f32) as u32
     }
 
+    #[allow(dead_code)]
     pub(super) fn color32_to_vec4(color: Color32) -> Vec4 {
         Vec4::new(
             color.r() as f32 / 255.0,

@@ -65,6 +65,7 @@ pub enum GuiParamValue {
 }
 
 impl GuiParamValue {
+    #[allow(dead_code)]
     pub fn get_float(&self) -> Option<(f32, Option<f32>, Option<f32>)> {
         match self {
             GuiParamValue::Float { value, min, max } => Some((*value, *min, *max)),
@@ -72,6 +73,7 @@ impl GuiParamValue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_int(&self) -> Option<(i32, Option<i32>, Option<i32>)> {
         match self {
             GuiParamValue::Int { value, min, max } => Some((*value, *min, *max)),
@@ -79,6 +81,7 @@ impl GuiParamValue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_uint(&self) -> Option<(u32, Option<u32>, Option<u32>)> {
         match self {
             GuiParamValue::Uint { value, min, max } => Some((*value, *min, *max)),
@@ -86,6 +89,7 @@ impl GuiParamValue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_bool(&self) -> Option<bool> {
         match self {
             GuiParamValue::Bool { value } => Some(*value),
@@ -93,6 +97,7 @@ impl GuiParamValue {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_color(&self) -> Option<String> {
         match self {
             GuiParamValue::Color { value } => Some(value.clone()),

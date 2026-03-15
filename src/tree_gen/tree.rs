@@ -75,6 +75,7 @@ impl Default for TreeDesc {
 }
 
 impl TreeDesc {
+    #[allow(dead_code)]
     pub fn edit_by_gui(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 

@@ -50,6 +50,7 @@ impl Default for TreeVariationConfig {
 }
 
 impl TreeVariationConfig {
+    #[allow(dead_code)]
     pub fn edit_by_gui(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -420,6 +421,7 @@ impl App {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(super) fn edit_tree_with_variance(
         tree_desc: &mut TreeDesc,
         tree_variation_config: &mut TreeVariationConfig,

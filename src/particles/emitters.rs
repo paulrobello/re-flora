@@ -253,6 +253,7 @@ impl Default for ButterflyEmitterDesc {
 pub struct ButterflyEmitter {
     pub center: Vec3,
     pub wander_radius: f32,
+    #[allow(dead_code)]
     min_wander_radius: f32,
     pub height_offset: RangeInclusive<f32>,
     pub size: f32,
@@ -262,7 +263,9 @@ pub struct ButterflyEmitter {
     pub bob_frequency_hz: f32,
     pub bob_strength: f32,
     pub lifetime: RangeInclusive<f32>,
+    #[allow(dead_code)]
     pub color_low: Vec4,
+    #[allow(dead_code)]
     pub color_high: Vec4,
     pub enabled: bool,
     pub butterfly_count: u32,
@@ -317,6 +320,7 @@ impl ButterflyEmitter {
         emitter
     }
 
+    #[allow(dead_code)]
     pub fn apply_desc(&mut self, desc: &ButterflyEmitterDesc) {
         self.enabled = desc.enabled;
         self.butterfly_count = desc.butterfly_count;

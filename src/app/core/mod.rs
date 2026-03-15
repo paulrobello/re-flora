@@ -14,8 +14,7 @@ use crate::app::environment;
 use crate::app::gui_config_loader::GuiConfigLoader;
 use crate::app::gui_config_model::GuiConfigFile;
 use crate::app::world_edits::{
-    BuildEdit, ClearVoxelRegionEdit, TreeAddOptions, TreePlacement, VoxelEdit, WorldBuildBackend,
-    WorldEditPlan,
+    BuildEdit, TreeAddOptions, TreePlacement, VoxelEdit, WorldBuildBackend, WorldEditPlan,
 };
 use crate::app::world_ops;
 use crate::app::GuiAdjustables;
@@ -695,7 +694,7 @@ impl App {
                     self.tracer.handle_mouse(self.smoothed_mouse_delta);
                 }
 
-                let mut tree_desc_changed = false;
+                let tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
@@ -989,7 +988,7 @@ impl App {
                         self.gui_adjustables.ocean_normal_amplitude.value,
                         self.gui_adjustables.ocean_noise_frequency.value,
                         self.gui_adjustables.ocean_time_multiplier.value,
-                        self.gui_adjustables.flora_update_bucket_count.value as u32,
+                        self.gui_adjustables.flora_update_bucket_count.value,
                         self.gui_adjustables.flora_full_update_seconds.value,
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
