@@ -174,7 +174,7 @@ fn generate_gui_adjustables() {
 
     // generated struct with one field per GUI param
     code.push_str("#[allow(dead_code)]\n");
-    code.push_str("pub struct GeneratedGuiAdjustables {\n");
+    code.push_str("pub struct GuiAdjustables {\n");
     for (_section, id, kind, _label) in &descriptors {
         let ty = match kind.as_str() {
             "float" => "crate::gui_adjustables::FloatParam",
@@ -197,7 +197,7 @@ fn generate_gui_adjustables() {
     code.push_str("}\n\n");
 
     // Default implementation that loads the config file
-    code.push_str("impl Default for GeneratedGuiAdjustables {\n");
+    code.push_str("impl Default for GuiAdjustables {\n");
     code.push_str("    fn default() -> Self {\n");
     code.push_str("        let config = crate::app::gui_config_loader::GuiConfigLoader::load();\n");
     code.push_str("        Self::from_config(&config)\n");
@@ -205,7 +205,7 @@ fn generate_gui_adjustables() {
     code.push_str("}\n\n");
 
     // from_config constructor that materializes params from GuiConfigFile
-    code.push_str("impl GeneratedGuiAdjustables {\n");
+    code.push_str("impl GuiAdjustables {\n");
     code.push_str(
         "    pub fn from_config(config: &crate::app::gui_config_model::GuiConfigFile) -> Self {\n",
     );
@@ -304,7 +304,7 @@ fn generate_gui_adjustables() {
     code.push_str("            }\n");
     code.push_str("        }\n\n");
 
-    code.push_str("        GeneratedGuiAdjustables {\n");
+    code.push_str("        GuiAdjustables {\n");
     for (_section, id, kind, _label) in &descriptors {
         let expects_field = matches!(kind.as_str(), "float" | "int" | "uint" | "bool" | "color");
         if !expects_field {
