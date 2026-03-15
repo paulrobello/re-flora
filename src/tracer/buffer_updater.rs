@@ -146,6 +146,8 @@ impl BufferUpdater {
         ocean_normal_amplitude: f32,
         ocean_noise_frequency: f32,
         ocean_time_multiplier: f32,
+        flora_update_bucket_count: u32,
+        flora_full_update_seconds: f32,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -197,6 +199,14 @@ impl BufferUpdater {
             .set_field(
                 "ocean_time_multiplier",
                 PlainMemberTypeWithData::Float(ocean_time_multiplier),
+            )
+            .set_field(
+                "flora_update_bucket_count",
+                PlainMemberTypeWithData::UInt(flora_update_bucket_count),
+            )
+            .set_field(
+                "flora_full_update_seconds",
+                PlainMemberTypeWithData::Float(flora_full_update_seconds),
             )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;

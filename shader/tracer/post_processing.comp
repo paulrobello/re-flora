@@ -19,6 +19,8 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     float ocean_normal_amplitude;
     float ocean_noise_frequency;
     float ocean_time_multiplier;
+    uint flora_update_bucket_count;
+    float flora_full_update_seconds;
 }
 gui_input;
 layout(set = 0, binding = 1) uniform U_PostProcessingInfo { float scaling_factor; }

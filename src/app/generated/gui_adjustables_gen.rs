@@ -506,6 +506,18 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         kind: "float",
         label: "Hash Color Variance",
     },
+    GeneratedGuiParamDescriptor {
+        section: "FloraVariation",
+        id: "flora_update_bucket_count",
+        kind: "uint",
+        label: "Flora Update Bucket Count",
+    },
+    GeneratedGuiParamDescriptor {
+        section: "FloraVariation",
+        id: "flora_full_update_seconds",
+        kind: "float",
+        label: "Flora Full Update Time (s)",
+    },
 ];
 
 #[allow(dead_code)]
@@ -592,6 +604,8 @@ pub struct GuiAdjustables {
     pub voxel_cherry_wood_color: crate::gui_adjustables::ColorParam,
     pub voxel_oak_wood_color: crate::gui_adjustables::ColorParam,
     pub voxel_color_variance: crate::gui_adjustables::FloatParam,
+    pub flora_update_bucket_count: crate::gui_adjustables::UintParam,
+    pub flora_full_update_seconds: crate::gui_adjustables::FloatParam,
 }
 
 impl Default for GuiAdjustables {
@@ -642,7 +656,8 @@ impl GuiAdjustables {
         let mut max_phi_z_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut phi_z_stable_sample_count_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut is_changing_lum_phi_field: Option<crate::gui_adjustables::BoolParam> = None;
-        let mut is_spatial_denoising_enabled_field: Option<crate::gui_adjustables::BoolParam> = None;
+        let mut is_spatial_denoising_enabled_field: Option<crate::gui_adjustables::BoolParam> =
+            None;
         let mut a_trous_iteration_count_field: Option<crate::gui_adjustables::UintParam> = None;
         let mut grass_bottom_dark_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut grass_bottom_light_color_field: Option<crate::gui_adjustables::ColorParam> = None;
@@ -656,10 +671,13 @@ impl GuiAdjustables {
         let mut ember_bloom_bottom_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut ember_bloom_tip_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut flora_instance_hue_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut flora_instance_saturation_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut flora_instance_value_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut flora_instance_saturation_offset_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut flora_instance_value_offset_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
         let mut flora_voxel_hue_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut flora_voxel_saturation_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut flora_voxel_saturation_offset_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
         let mut flora_voxel_value_offset_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut leaves_inner_density_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut leaves_outer_density_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -667,18 +685,26 @@ impl GuiAdjustables {
         let mut leaves_outer_radius_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut leaves_bottom_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut leaves_tip_color_field: Option<crate::gui_adjustables::ColorParam> = None;
-        let mut particle_full_update_seconds_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut particle_full_update_seconds_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
         let mut butterflies_enabled_field: Option<crate::gui_adjustables::BoolParam> = None;
         let mut butterflies_per_chunk_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_wander_radius_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_height_offset_min_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_height_offset_max_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut butterfly_height_offset_min_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut butterfly_height_offset_max_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
         let mut butterfly_size_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_strength_min_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_strength_max_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_frequency_min_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_frequency_max_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_steering_strength_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut butterfly_drift_strength_min_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut butterfly_drift_strength_max_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut butterfly_drift_frequency_min_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut butterfly_drift_frequency_max_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
+        let mut butterfly_steering_strength_field: Option<crate::gui_adjustables::FloatParam> =
+            None;
         let mut butterfly_bob_frequency_hz_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_bob_strength_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_lifetime_min_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -687,542 +713,834 @@ impl GuiAdjustables {
         let mut voxel_cherry_wood_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut voxel_oak_wood_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut voxel_color_variance_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut flora_update_bucket_count_field: Option<crate::gui_adjustables::UintParam> = None;
+        let mut flora_full_update_seconds_field: Option<crate::gui_adjustables::FloatParam> = None;
 
         for section in &config.section {
             for param in &section.param {
                 match param.id.as_str() {
                     "debug_float" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            debug_float_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            debug_float_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "debug_uint" => {
-                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0);
                             let max = max.unwrap_or(100);
-                            debug_uint_field = Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
+                            debug_uint_field =
+                                Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
                         }
                     }
                     "lod_distance" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            lod_distance_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            lod_distance_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "debug_bool" => {
-                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) =
+                            (&param.kind, &param.value)
+                        {
                             debug_bool_field = Some(crate::gui_adjustables::BoolParam::new(*value));
                         }
                     }
                     "sun_size" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            sun_size_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            sun_size_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "sun_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            sun_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            sun_color_field = Some(crate::gui_adjustables::ColorParam::new(
+                                crate::app::gui_config::parse_color(value),
+                            ));
                         }
                     }
                     "sun_luminance" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            sun_luminance_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            sun_luminance_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "sun_display_luminance" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            sun_display_luminance_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            sun_display_luminance_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "ambient_light" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            ambient_light_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            ambient_light_field = Some(crate::gui_adjustables::ColorParam::new(
+                                crate::app::gui_config::parse_color(value),
+                            ));
                         }
                     }
                     "auto_daynight_cycle" => {
-                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
-                            auto_daynight_cycle_field = Some(crate::gui_adjustables::BoolParam::new(*value));
+                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            auto_daynight_cycle_field =
+                                Some(crate::gui_adjustables::BoolParam::new(*value));
                         }
                     }
                     "time_of_day" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            time_of_day_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            time_of_day_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "latitude" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            latitude_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            latitude_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "season" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            season_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            season_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "day_cycle_minutes" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            day_cycle_minutes_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            day_cycle_minutes_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_iterations" => {
-                        if let (GuiParamKind::Int, GuiParamValue::Int { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Int, GuiParamValue::Int { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0);
                             let max = max.unwrap_or(100);
-                            starlight_iterations_field = Some(crate::gui_adjustables::IntParam::new(*value, min..=max));
+                            starlight_iterations_field =
+                                Some(crate::gui_adjustables::IntParam::new(*value, min..=max));
                         }
                     }
                     "starlight_formuparam" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_formuparam_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_formuparam_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_volsteps" => {
-                        if let (GuiParamKind::Int, GuiParamValue::Int { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Int, GuiParamValue::Int { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0);
                             let max = max.unwrap_or(100);
-                            starlight_volsteps_field = Some(crate::gui_adjustables::IntParam::new(*value, min..=max));
+                            starlight_volsteps_field =
+                                Some(crate::gui_adjustables::IntParam::new(*value, min..=max));
                         }
                     }
                     "starlight_stepsize" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_stepsize_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_stepsize_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_zoom" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_zoom_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_zoom_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_tile" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_tile_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_tile_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_speed" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_speed_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_speed_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_brightness" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_brightness_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_brightness_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_darkmatter" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_darkmatter_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_darkmatter_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_distfading" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_distfading_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_distfading_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "starlight_saturation" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            starlight_saturation_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            starlight_saturation_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "temporal_position_phi" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            temporal_position_phi_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            temporal_position_phi_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "temporal_alpha" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            temporal_alpha_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            temporal_alpha_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "god_ray_max_depth" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            god_ray_max_depth_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            god_ray_max_depth_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "god_ray_max_checks" => {
-                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0);
                             let max = max.unwrap_or(100);
-                            god_ray_max_checks_field = Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
+                            god_ray_max_checks_field =
+                                Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
                         }
                     }
                     "god_ray_weight" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            god_ray_weight_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            god_ray_weight_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "phi_c" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            phi_c_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            phi_c_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "phi_n" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            phi_n_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            phi_n_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "phi_p" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            phi_p_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            phi_p_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "min_phi_z" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            min_phi_z_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            min_phi_z_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "max_phi_z" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            max_phi_z_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            max_phi_z_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "phi_z_stable_sample_count" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            phi_z_stable_sample_count_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            phi_z_stable_sample_count_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "is_changing_lum_phi" => {
-                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
-                            is_changing_lum_phi_field = Some(crate::gui_adjustables::BoolParam::new(*value));
+                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            is_changing_lum_phi_field =
+                                Some(crate::gui_adjustables::BoolParam::new(*value));
                         }
                     }
                     "is_spatial_denoising_enabled" => {
-                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
-                            is_spatial_denoising_enabled_field = Some(crate::gui_adjustables::BoolParam::new(*value));
+                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            is_spatial_denoising_enabled_field =
+                                Some(crate::gui_adjustables::BoolParam::new(*value));
                         }
                     }
                     "a_trous_iteration_count" => {
-                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0);
                             let max = max.unwrap_or(100);
-                            a_trous_iteration_count_field = Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
+                            a_trous_iteration_count_field =
+                                Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
                         }
                     }
                     "grass_bottom_dark_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            grass_bottom_dark_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            grass_bottom_dark_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "grass_bottom_light_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            grass_bottom_light_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            grass_bottom_light_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "grass_tip_dark_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            grass_tip_dark_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            grass_tip_dark_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "grass_tip_light_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            grass_tip_light_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            grass_tip_light_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "ocean_deep_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            ocean_deep_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            ocean_deep_color_field = Some(crate::gui_adjustables::ColorParam::new(
+                                crate::app::gui_config::parse_color(value),
+                            ));
                         }
                     }
                     "ocean_shallow_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            ocean_shallow_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            ocean_shallow_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "ocean_normal_amplitude" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            ocean_normal_amplitude_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            ocean_normal_amplitude_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "ocean_noise_frequency" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            ocean_noise_frequency_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            ocean_noise_frequency_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "ocean_time_multiplier" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            ocean_time_multiplier_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            ocean_time_multiplier_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "ember_bloom_bottom_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            ember_bloom_bottom_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            ember_bloom_bottom_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "ember_bloom_tip_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            ember_bloom_tip_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            ember_bloom_tip_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "flora_instance_hue_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_instance_hue_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_instance_hue_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "flora_instance_saturation_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_instance_saturation_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_instance_saturation_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "flora_instance_value_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_instance_value_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_instance_value_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "flora_voxel_hue_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_voxel_hue_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_voxel_hue_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "flora_voxel_saturation_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_voxel_saturation_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_voxel_saturation_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "flora_voxel_value_offset" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            flora_voxel_value_offset_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            flora_voxel_value_offset_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "leaves_inner_density" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            leaves_inner_density_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            leaves_inner_density_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "leaves_outer_density" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            leaves_outer_density_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            leaves_outer_density_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "leaves_inner_radius" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            leaves_inner_radius_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            leaves_inner_radius_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "leaves_outer_radius" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            leaves_outer_radius_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            leaves_outer_radius_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "leaves_bottom_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            leaves_bottom_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            leaves_bottom_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "leaves_tip_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            leaves_tip_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            leaves_tip_color_field = Some(crate::gui_adjustables::ColorParam::new(
+                                crate::app::gui_config::parse_color(value),
+                            ));
                         }
                     }
                     "particle_full_update_seconds" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            particle_full_update_seconds_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            particle_full_update_seconds_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterflies_enabled" => {
-                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
-                            butterflies_enabled_field = Some(crate::gui_adjustables::BoolParam::new(*value));
+                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            butterflies_enabled_field =
+                                Some(crate::gui_adjustables::BoolParam::new(*value));
                         }
                     }
                     "butterflies_per_chunk" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterflies_per_chunk_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterflies_per_chunk_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_wander_radius" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_wander_radius_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_wander_radius_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_height_offset_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_height_offset_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_height_offset_min_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_height_offset_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_height_offset_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_height_offset_max_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_size" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_size_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_size_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_drift_strength_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_drift_strength_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_drift_strength_min_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_drift_strength_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_drift_strength_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_drift_strength_max_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_drift_frequency_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_drift_frequency_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_drift_frequency_min_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_drift_frequency_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_drift_frequency_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_drift_frequency_max_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_steering_strength" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_steering_strength_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_steering_strength_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_bob_frequency_hz" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_bob_frequency_hz_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_bob_frequency_hz_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_bob_strength" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_bob_strength_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_bob_strength_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_lifetime_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_lifetime_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_lifetime_min_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_lifetime_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            butterfly_lifetime_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            butterfly_lifetime_max_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "voxel_dirt_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            voxel_dirt_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            voxel_dirt_color_field = Some(crate::gui_adjustables::ColorParam::new(
+                                crate::app::gui_config::parse_color(value),
+                            ));
                         }
                     }
                     "voxel_cherry_wood_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            voxel_cherry_wood_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            voxel_cherry_wood_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "voxel_oak_wood_color" => {
-                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
-                            voxel_oak_wood_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
+                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) =
+                            (&param.kind, &param.value)
+                        {
+                            voxel_oak_wood_color_field =
+                                Some(crate::gui_adjustables::ColorParam::new(
+                                    crate::app::gui_config::parse_color(value),
+                                ));
                         }
                     }
                     "voxel_color_variance" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
-                            voxel_color_variance_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                            voxel_color_variance_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
+                    "flora_update_bucket_count" => {
+                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
+                            let min = min.unwrap_or(1);
+                            let max = max.unwrap_or(16);
+                            flora_update_bucket_count_field =
+                                Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
+                        }
+                    }
+                    "flora_full_update_seconds" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) =
+                            (&param.kind, &param.value)
+                        {
+                            let min = min.unwrap_or(0.01);
+                            let max = max.unwrap_or(1.0);
+                            flora_full_update_seconds_field =
+                                Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     _ => {}
@@ -1238,87 +1556,151 @@ impl GuiAdjustables {
             sun_size: sun_size_field.expect("Missing parameter: sun_size"),
             sun_color: sun_color_field.expect("Missing parameter: sun_color"),
             sun_luminance: sun_luminance_field.expect("Missing parameter: sun_luminance"),
-            sun_display_luminance: sun_display_luminance_field.expect("Missing parameter: sun_display_luminance"),
+            sun_display_luminance: sun_display_luminance_field
+                .expect("Missing parameter: sun_display_luminance"),
             ambient_light: ambient_light_field.expect("Missing parameter: ambient_light"),
-            auto_daynight_cycle: auto_daynight_cycle_field.expect("Missing parameter: auto_daynight_cycle"),
+            auto_daynight_cycle: auto_daynight_cycle_field
+                .expect("Missing parameter: auto_daynight_cycle"),
             time_of_day: time_of_day_field.expect("Missing parameter: time_of_day"),
             latitude: latitude_field.expect("Missing parameter: latitude"),
             season: season_field.expect("Missing parameter: season"),
-            day_cycle_minutes: day_cycle_minutes_field.expect("Missing parameter: day_cycle_minutes"),
-            starlight_iterations: starlight_iterations_field.expect("Missing parameter: starlight_iterations"),
-            starlight_formuparam: starlight_formuparam_field.expect("Missing parameter: starlight_formuparam"),
-            starlight_volsteps: starlight_volsteps_field.expect("Missing parameter: starlight_volsteps"),
-            starlight_stepsize: starlight_stepsize_field.expect("Missing parameter: starlight_stepsize"),
+            day_cycle_minutes: day_cycle_minutes_field
+                .expect("Missing parameter: day_cycle_minutes"),
+            starlight_iterations: starlight_iterations_field
+                .expect("Missing parameter: starlight_iterations"),
+            starlight_formuparam: starlight_formuparam_field
+                .expect("Missing parameter: starlight_formuparam"),
+            starlight_volsteps: starlight_volsteps_field
+                .expect("Missing parameter: starlight_volsteps"),
+            starlight_stepsize: starlight_stepsize_field
+                .expect("Missing parameter: starlight_stepsize"),
             starlight_zoom: starlight_zoom_field.expect("Missing parameter: starlight_zoom"),
             starlight_tile: starlight_tile_field.expect("Missing parameter: starlight_tile"),
             starlight_speed: starlight_speed_field.expect("Missing parameter: starlight_speed"),
-            starlight_brightness: starlight_brightness_field.expect("Missing parameter: starlight_brightness"),
-            starlight_darkmatter: starlight_darkmatter_field.expect("Missing parameter: starlight_darkmatter"),
-            starlight_distfading: starlight_distfading_field.expect("Missing parameter: starlight_distfading"),
-            starlight_saturation: starlight_saturation_field.expect("Missing parameter: starlight_saturation"),
-            temporal_position_phi: temporal_position_phi_field.expect("Missing parameter: temporal_position_phi"),
+            starlight_brightness: starlight_brightness_field
+                .expect("Missing parameter: starlight_brightness"),
+            starlight_darkmatter: starlight_darkmatter_field
+                .expect("Missing parameter: starlight_darkmatter"),
+            starlight_distfading: starlight_distfading_field
+                .expect("Missing parameter: starlight_distfading"),
+            starlight_saturation: starlight_saturation_field
+                .expect("Missing parameter: starlight_saturation"),
+            temporal_position_phi: temporal_position_phi_field
+                .expect("Missing parameter: temporal_position_phi"),
             temporal_alpha: temporal_alpha_field.expect("Missing parameter: temporal_alpha"),
-            god_ray_max_depth: god_ray_max_depth_field.expect("Missing parameter: god_ray_max_depth"),
-            god_ray_max_checks: god_ray_max_checks_field.expect("Missing parameter: god_ray_max_checks"),
+            god_ray_max_depth: god_ray_max_depth_field
+                .expect("Missing parameter: god_ray_max_depth"),
+            god_ray_max_checks: god_ray_max_checks_field
+                .expect("Missing parameter: god_ray_max_checks"),
             god_ray_weight: god_ray_weight_field.expect("Missing parameter: god_ray_weight"),
             phi_c: phi_c_field.expect("Missing parameter: phi_c"),
             phi_n: phi_n_field.expect("Missing parameter: phi_n"),
             phi_p: phi_p_field.expect("Missing parameter: phi_p"),
             min_phi_z: min_phi_z_field.expect("Missing parameter: min_phi_z"),
             max_phi_z: max_phi_z_field.expect("Missing parameter: max_phi_z"),
-            phi_z_stable_sample_count: phi_z_stable_sample_count_field.expect("Missing parameter: phi_z_stable_sample_count"),
-            is_changing_lum_phi: is_changing_lum_phi_field.expect("Missing parameter: is_changing_lum_phi"),
-            is_spatial_denoising_enabled: is_spatial_denoising_enabled_field.expect("Missing parameter: is_spatial_denoising_enabled"),
-            a_trous_iteration_count: a_trous_iteration_count_field.expect("Missing parameter: a_trous_iteration_count"),
-            grass_bottom_dark_color: grass_bottom_dark_color_field.expect("Missing parameter: grass_bottom_dark_color"),
-            grass_bottom_light_color: grass_bottom_light_color_field.expect("Missing parameter: grass_bottom_light_color"),
-            grass_tip_dark_color: grass_tip_dark_color_field.expect("Missing parameter: grass_tip_dark_color"),
-            grass_tip_light_color: grass_tip_light_color_field.expect("Missing parameter: grass_tip_light_color"),
+            phi_z_stable_sample_count: phi_z_stable_sample_count_field
+                .expect("Missing parameter: phi_z_stable_sample_count"),
+            is_changing_lum_phi: is_changing_lum_phi_field
+                .expect("Missing parameter: is_changing_lum_phi"),
+            is_spatial_denoising_enabled: is_spatial_denoising_enabled_field
+                .expect("Missing parameter: is_spatial_denoising_enabled"),
+            a_trous_iteration_count: a_trous_iteration_count_field
+                .expect("Missing parameter: a_trous_iteration_count"),
+            grass_bottom_dark_color: grass_bottom_dark_color_field
+                .expect("Missing parameter: grass_bottom_dark_color"),
+            grass_bottom_light_color: grass_bottom_light_color_field
+                .expect("Missing parameter: grass_bottom_light_color"),
+            grass_tip_dark_color: grass_tip_dark_color_field
+                .expect("Missing parameter: grass_tip_dark_color"),
+            grass_tip_light_color: grass_tip_light_color_field
+                .expect("Missing parameter: grass_tip_light_color"),
             ocean_deep_color: ocean_deep_color_field.expect("Missing parameter: ocean_deep_color"),
-            ocean_shallow_color: ocean_shallow_color_field.expect("Missing parameter: ocean_shallow_color"),
-            ocean_normal_amplitude: ocean_normal_amplitude_field.expect("Missing parameter: ocean_normal_amplitude"),
-            ocean_noise_frequency: ocean_noise_frequency_field.expect("Missing parameter: ocean_noise_frequency"),
-            ocean_time_multiplier: ocean_time_multiplier_field.expect("Missing parameter: ocean_time_multiplier"),
-            ember_bloom_bottom_color: ember_bloom_bottom_color_field.expect("Missing parameter: ember_bloom_bottom_color"),
-            ember_bloom_tip_color: ember_bloom_tip_color_field.expect("Missing parameter: ember_bloom_tip_color"),
-            flora_instance_hue_offset: flora_instance_hue_offset_field.expect("Missing parameter: flora_instance_hue_offset"),
-            flora_instance_saturation_offset: flora_instance_saturation_offset_field.expect("Missing parameter: flora_instance_saturation_offset"),
-            flora_instance_value_offset: flora_instance_value_offset_field.expect("Missing parameter: flora_instance_value_offset"),
-            flora_voxel_hue_offset: flora_voxel_hue_offset_field.expect("Missing parameter: flora_voxel_hue_offset"),
-            flora_voxel_saturation_offset: flora_voxel_saturation_offset_field.expect("Missing parameter: flora_voxel_saturation_offset"),
-            flora_voxel_value_offset: flora_voxel_value_offset_field.expect("Missing parameter: flora_voxel_value_offset"),
-            leaves_inner_density: leaves_inner_density_field.expect("Missing parameter: leaves_inner_density"),
-            leaves_outer_density: leaves_outer_density_field.expect("Missing parameter: leaves_outer_density"),
-            leaves_inner_radius: leaves_inner_radius_field.expect("Missing parameter: leaves_inner_radius"),
-            leaves_outer_radius: leaves_outer_radius_field.expect("Missing parameter: leaves_outer_radius"),
-            leaves_bottom_color: leaves_bottom_color_field.expect("Missing parameter: leaves_bottom_color"),
+            ocean_shallow_color: ocean_shallow_color_field
+                .expect("Missing parameter: ocean_shallow_color"),
+            ocean_normal_amplitude: ocean_normal_amplitude_field
+                .expect("Missing parameter: ocean_normal_amplitude"),
+            ocean_noise_frequency: ocean_noise_frequency_field
+                .expect("Missing parameter: ocean_noise_frequency"),
+            ocean_time_multiplier: ocean_time_multiplier_field
+                .expect("Missing parameter: ocean_time_multiplier"),
+            ember_bloom_bottom_color: ember_bloom_bottom_color_field
+                .expect("Missing parameter: ember_bloom_bottom_color"),
+            ember_bloom_tip_color: ember_bloom_tip_color_field
+                .expect("Missing parameter: ember_bloom_tip_color"),
+            flora_instance_hue_offset: flora_instance_hue_offset_field
+                .expect("Missing parameter: flora_instance_hue_offset"),
+            flora_instance_saturation_offset: flora_instance_saturation_offset_field
+                .expect("Missing parameter: flora_instance_saturation_offset"),
+            flora_instance_value_offset: flora_instance_value_offset_field
+                .expect("Missing parameter: flora_instance_value_offset"),
+            flora_voxel_hue_offset: flora_voxel_hue_offset_field
+                .expect("Missing parameter: flora_voxel_hue_offset"),
+            flora_voxel_saturation_offset: flora_voxel_saturation_offset_field
+                .expect("Missing parameter: flora_voxel_saturation_offset"),
+            flora_voxel_value_offset: flora_voxel_value_offset_field
+                .expect("Missing parameter: flora_voxel_value_offset"),
+            leaves_inner_density: leaves_inner_density_field
+                .expect("Missing parameter: leaves_inner_density"),
+            leaves_outer_density: leaves_outer_density_field
+                .expect("Missing parameter: leaves_outer_density"),
+            leaves_inner_radius: leaves_inner_radius_field
+                .expect("Missing parameter: leaves_inner_radius"),
+            leaves_outer_radius: leaves_outer_radius_field
+                .expect("Missing parameter: leaves_outer_radius"),
+            leaves_bottom_color: leaves_bottom_color_field
+                .expect("Missing parameter: leaves_bottom_color"),
             leaves_tip_color: leaves_tip_color_field.expect("Missing parameter: leaves_tip_color"),
-            particle_full_update_seconds: particle_full_update_seconds_field.expect("Missing parameter: particle_full_update_seconds"),
-            butterflies_enabled: butterflies_enabled_field.expect("Missing parameter: butterflies_enabled"),
-            butterflies_per_chunk: butterflies_per_chunk_field.expect("Missing parameter: butterflies_per_chunk"),
-            butterfly_wander_radius: butterfly_wander_radius_field.expect("Missing parameter: butterfly_wander_radius"),
-            butterfly_height_offset_min: butterfly_height_offset_min_field.expect("Missing parameter: butterfly_height_offset_min"),
-            butterfly_height_offset_max: butterfly_height_offset_max_field.expect("Missing parameter: butterfly_height_offset_max"),
+            particle_full_update_seconds: particle_full_update_seconds_field
+                .expect("Missing parameter: particle_full_update_seconds"),
+            butterflies_enabled: butterflies_enabled_field
+                .expect("Missing parameter: butterflies_enabled"),
+            butterflies_per_chunk: butterflies_per_chunk_field
+                .expect("Missing parameter: butterflies_per_chunk"),
+            butterfly_wander_radius: butterfly_wander_radius_field
+                .expect("Missing parameter: butterfly_wander_radius"),
+            butterfly_height_offset_min: butterfly_height_offset_min_field
+                .expect("Missing parameter: butterfly_height_offset_min"),
+            butterfly_height_offset_max: butterfly_height_offset_max_field
+                .expect("Missing parameter: butterfly_height_offset_max"),
             butterfly_size: butterfly_size_field.expect("Missing parameter: butterfly_size"),
-            butterfly_drift_strength_min: butterfly_drift_strength_min_field.expect("Missing parameter: butterfly_drift_strength_min"),
-            butterfly_drift_strength_max: butterfly_drift_strength_max_field.expect("Missing parameter: butterfly_drift_strength_max"),
-            butterfly_drift_frequency_min: butterfly_drift_frequency_min_field.expect("Missing parameter: butterfly_drift_frequency_min"),
-            butterfly_drift_frequency_max: butterfly_drift_frequency_max_field.expect("Missing parameter: butterfly_drift_frequency_max"),
-            butterfly_steering_strength: butterfly_steering_strength_field.expect("Missing parameter: butterfly_steering_strength"),
-            butterfly_bob_frequency_hz: butterfly_bob_frequency_hz_field.expect("Missing parameter: butterfly_bob_frequency_hz"),
-            butterfly_bob_strength: butterfly_bob_strength_field.expect("Missing parameter: butterfly_bob_strength"),
-            butterfly_lifetime_min: butterfly_lifetime_min_field.expect("Missing parameter: butterfly_lifetime_min"),
-            butterfly_lifetime_max: butterfly_lifetime_max_field.expect("Missing parameter: butterfly_lifetime_max"),
+            butterfly_drift_strength_min: butterfly_drift_strength_min_field
+                .expect("Missing parameter: butterfly_drift_strength_min"),
+            butterfly_drift_strength_max: butterfly_drift_strength_max_field
+                .expect("Missing parameter: butterfly_drift_strength_max"),
+            butterfly_drift_frequency_min: butterfly_drift_frequency_min_field
+                .expect("Missing parameter: butterfly_drift_frequency_min"),
+            butterfly_drift_frequency_max: butterfly_drift_frequency_max_field
+                .expect("Missing parameter: butterfly_drift_frequency_max"),
+            butterfly_steering_strength: butterfly_steering_strength_field
+                .expect("Missing parameter: butterfly_steering_strength"),
+            butterfly_bob_frequency_hz: butterfly_bob_frequency_hz_field
+                .expect("Missing parameter: butterfly_bob_frequency_hz"),
+            butterfly_bob_strength: butterfly_bob_strength_field
+                .expect("Missing parameter: butterfly_bob_strength"),
+            butterfly_lifetime_min: butterfly_lifetime_min_field
+                .expect("Missing parameter: butterfly_lifetime_min"),
+            butterfly_lifetime_max: butterfly_lifetime_max_field
+                .expect("Missing parameter: butterfly_lifetime_max"),
             voxel_dirt_color: voxel_dirt_color_field.expect("Missing parameter: voxel_dirt_color"),
-            voxel_cherry_wood_color: voxel_cherry_wood_color_field.expect("Missing parameter: voxel_cherry_wood_color"),
-            voxel_oak_wood_color: voxel_oak_wood_color_field.expect("Missing parameter: voxel_oak_wood_color"),
-            voxel_color_variance: voxel_color_variance_field.expect("Missing parameter: voxel_color_variance"),
+            voxel_cherry_wood_color: voxel_cherry_wood_color_field
+                .expect("Missing parameter: voxel_cherry_wood_color"),
+            voxel_oak_wood_color: voxel_oak_wood_color_field
+                .expect("Missing parameter: voxel_oak_wood_color"),
+            voxel_color_variance: voxel_color_variance_field
+                .expect("Missing parameter: voxel_color_variance"),
+            flora_update_bucket_count: flora_update_bucket_count_field
+                .expect("Missing parameter: flora_update_bucket_count"),
+            flora_full_update_seconds: flora_full_update_seconds_field
+                .expect("Missing parameter: flora_full_update_seconds"),
         }
     }
 }
 
 #[allow(dead_code)]
-pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::FloatParam> {
+pub fn get_float_param<'a>(
+    adjustables: &'a crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a crate::gui_adjustables::FloatParam> {
     match id {
         "debug_float" => Some(&adjustables.debug_float),
         "lod_distance" => Some(&adjustables.lod_distance),
@@ -1377,12 +1759,16 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
         "butterfly_lifetime_min" => Some(&adjustables.butterfly_lifetime_min),
         "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
         "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
+        "flora_full_update_seconds" => Some(&adjustables.flora_full_update_seconds),
         _ => None,
     }
 }
 
 #[allow(dead_code)]
-pub fn get_int_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::IntParam> {
+pub fn get_int_param<'a>(
+    adjustables: &'a crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a crate::gui_adjustables::IntParam> {
     match id {
         "starlight_iterations" => Some(&adjustables.starlight_iterations),
         "starlight_volsteps" => Some(&adjustables.starlight_volsteps),
@@ -1391,17 +1777,24 @@ pub fn get_int_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) 
 }
 
 #[allow(dead_code)]
-pub fn get_uint_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::UintParam> {
+pub fn get_uint_param<'a>(
+    adjustables: &'a crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a crate::gui_adjustables::UintParam> {
     match id {
         "debug_uint" => Some(&adjustables.debug_uint),
         "god_ray_max_checks" => Some(&adjustables.god_ray_max_checks),
         "a_trous_iteration_count" => Some(&adjustables.a_trous_iteration_count),
+        "flora_update_bucket_count" => Some(&adjustables.flora_update_bucket_count),
         _ => None,
     }
 }
 
 #[allow(dead_code)]
-pub fn get_bool_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::BoolParam> {
+pub fn get_bool_param<'a>(
+    adjustables: &'a crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a crate::gui_adjustables::BoolParam> {
     match id {
         "debug_bool" => Some(&adjustables.debug_bool),
         "auto_daynight_cycle" => Some(&adjustables.auto_daynight_cycle),
@@ -1413,7 +1806,10 @@ pub fn get_bool_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str)
 }
 
 #[allow(dead_code)]
-pub fn get_color_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::ColorParam> {
+pub fn get_color_param<'a>(
+    adjustables: &'a crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a crate::gui_adjustables::ColorParam> {
     match id {
         "sun_color" => Some(&adjustables.sun_color),
         "ambient_light" => Some(&adjustables.ambient_light),
@@ -1435,7 +1831,10 @@ pub fn get_color_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
 }
 
 #[allow(dead_code)]
-pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::FloatParam> {
+pub fn get_float_param_mut<'a>(
+    adjustables: &'a mut crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a mut crate::gui_adjustables::FloatParam> {
     match id {
         "debug_float" => Some(&mut adjustables.debug_float),
         "lod_distance" => Some(&mut adjustables.lod_distance),
@@ -1469,7 +1868,9 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "ocean_noise_frequency" => Some(&mut adjustables.ocean_noise_frequency),
         "ocean_time_multiplier" => Some(&mut adjustables.ocean_time_multiplier),
         "flora_instance_hue_offset" => Some(&mut adjustables.flora_instance_hue_offset),
-        "flora_instance_saturation_offset" => Some(&mut adjustables.flora_instance_saturation_offset),
+        "flora_instance_saturation_offset" => {
+            Some(&mut adjustables.flora_instance_saturation_offset)
+        }
         "flora_instance_value_offset" => Some(&mut adjustables.flora_instance_value_offset),
         "flora_voxel_hue_offset" => Some(&mut adjustables.flora_voxel_hue_offset),
         "flora_voxel_saturation_offset" => Some(&mut adjustables.flora_voxel_saturation_offset),
@@ -1494,12 +1895,16 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "butterfly_lifetime_min" => Some(&mut adjustables.butterfly_lifetime_min),
         "butterfly_lifetime_max" => Some(&mut adjustables.butterfly_lifetime_max),
         "voxel_color_variance" => Some(&mut adjustables.voxel_color_variance),
+        "flora_full_update_seconds" => Some(&mut adjustables.flora_full_update_seconds),
         _ => None,
     }
 }
 
 #[allow(dead_code)]
-pub fn get_int_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::IntParam> {
+pub fn get_int_param_mut<'a>(
+    adjustables: &'a mut crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a mut crate::gui_adjustables::IntParam> {
     match id {
         "starlight_iterations" => Some(&mut adjustables.starlight_iterations),
         "starlight_volsteps" => Some(&mut adjustables.starlight_volsteps),
@@ -1508,17 +1913,24 @@ pub fn get_int_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id
 }
 
 #[allow(dead_code)]
-pub fn get_uint_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::UintParam> {
+pub fn get_uint_param_mut<'a>(
+    adjustables: &'a mut crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a mut crate::gui_adjustables::UintParam> {
     match id {
         "debug_uint" => Some(&mut adjustables.debug_uint),
         "god_ray_max_checks" => Some(&mut adjustables.god_ray_max_checks),
         "a_trous_iteration_count" => Some(&mut adjustables.a_trous_iteration_count),
+        "flora_update_bucket_count" => Some(&mut adjustables.flora_update_bucket_count),
         _ => None,
     }
 }
 
 #[allow(dead_code)]
-pub fn get_bool_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::BoolParam> {
+pub fn get_bool_param_mut<'a>(
+    adjustables: &'a mut crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a mut crate::gui_adjustables::BoolParam> {
     match id {
         "debug_bool" => Some(&mut adjustables.debug_bool),
         "auto_daynight_cycle" => Some(&mut adjustables.auto_daynight_cycle),
@@ -1530,7 +1942,10 @@ pub fn get_bool_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, i
 }
 
 #[allow(dead_code)]
-pub fn get_color_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::ColorParam> {
+pub fn get_color_param_mut<'a>(
+    adjustables: &'a mut crate::app::GuiAdjustables,
+    id: &str,
+) -> Option<&'a mut crate::gui_adjustables::ColorParam> {
     match id {
         "sun_color" => Some(&mut adjustables.sun_color),
         "ambient_light" => Some(&mut adjustables.ambient_light),

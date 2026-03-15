@@ -989,6 +989,8 @@ impl App {
                         self.gui_adjustables.ocean_normal_amplitude.value,
                         self.gui_adjustables.ocean_noise_frequency.value,
                         self.gui_adjustables.ocean_time_multiplier.value,
+                        self.gui_adjustables.flora_update_bucket_count.value as u32,
+                        self.gui_adjustables.flora_full_update_seconds.value,
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
                         FLORA_FULL_GROWTH_TICKS,

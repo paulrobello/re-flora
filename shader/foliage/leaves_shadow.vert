@@ -29,6 +29,13 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     vec3 grass_bottom_light;
     vec3 grass_tip_dark;
     vec3 grass_tip_light;
+    vec3 ocean_deep_color;
+    vec3 ocean_shallow_color;
+    float ocean_normal_amplitude;
+    float ocean_noise_frequency;
+    float ocean_time_multiplier;
+    uint flora_update_bucket_count;
+    float flora_full_update_seconds;
 }
 gui_input;
 

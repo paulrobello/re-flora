@@ -450,6 +450,8 @@ impl Tracer {
         ocean_normal_amplitude: f32,
         ocean_noise_frequency: f32,
         ocean_time_multiplier: f32,
+        flora_update_bucket_count: u32,
+        flora_full_update_seconds: f32,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -556,6 +558,8 @@ impl Tracer {
             ocean_normal_amplitude,
             ocean_noise_frequency,
             ocean_time_multiplier,
+            flora_update_bucket_count,
+            flora_full_update_seconds,
         )?;
 
         BufferUpdater::update_flora_growth_info(

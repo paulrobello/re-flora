@@ -31,6 +31,13 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     vec3 grass_bottom_light;
     vec3 grass_tip_dark;
     vec3 grass_tip_light;
+    vec3 ocean_deep_color;
+    vec3 ocean_shallow_color;
+    float ocean_normal_amplitude;
+    float ocean_noise_frequency;
+    float ocean_time_multiplier;
+    uint flora_update_bucket_count;
+    float flora_full_update_seconds;
 }
 gui_input;
 
@@ -98,9 +105,9 @@ const uint grass_max_height_voxels     = 8u;
 const float grass_height_mean_voxels   = 6.0;
 const float grass_height_stddev_voxels = 1.0;
 
-// bucketed wind update for flora instances (mirrors particle update buckets)
-const uint  FLORA_UPDATE_BUCKET_COUNT = 4u;
-const float FLORA_FULL_UPDATE_SECONDS = 0.15f;
+// gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
+const uint  FLORA_UPDATE_BUCKET_COUNT_DEFAULT = 4u;
+const float FLORA_FULL_UPDATE_SECONDS_DEFAULT = 0.15f;
 
 float sample_standard_normal(uint seed) {
     float sum  = 0.0;
@@ -139,15 +146,26 @@ float get_shadow_weight(ivec3 vox_local_pos) {
     return shadow_weight;
 }
 
+uint get_flora_update_bucket_count() {
+    uint bucket_count = gui_input.flora_update_bucket_count;
+    return bucket_count == 0u ? FLORA_UPDATE_BUCKET_COUNT_DEFAULT : bucket_count;
+}
+
+float get_flora_full_update_seconds() {
+    float seconds = gui_input.flora_full_update_seconds;
+    return seconds <= 0.0f ? FLORA_FULL_UPDATE_SECONDS_DEFAULT : seconds;
+}
+
 // remap global time to a per-instance bucketed time T
-// bucket size is fixed (FLORA_UPDATE_BUCKET_COUNT) and full cycle is FLORA_FULL_UPDATE_SECONDS
+// bucket size is gui-configurable and full cycle is gui-configurable
 float flora_bucketed_time(float raw_time, uint instance_seed) {
-    const uint bucket_count = FLORA_UPDATE_BUCKET_COUNT;
-    if (bucket_count <= 1u || FLORA_FULL_UPDATE_SECONDS <= 0.0f) {
+    uint bucket_count = get_flora_update_bucket_count();
+    float full_cycle  = get_flora_full_update_seconds();
+
+    if (bucket_count <= 1u || full_cycle <= 0.0f) {
         return raw_time;
     }
 
-    float full_cycle = FLORA_FULL_UPDATE_SECONDS;
     float step       = full_cycle / float(bucket_count);
 
     // global scheduler tick index
