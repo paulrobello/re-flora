@@ -57,7 +57,7 @@ fn generate_gui_adjustables() {
         .and_then(|v| v.as_integer())
         .unwrap_or(0);
 
-    let mut descriptors = Vec::new();
+    let mut descriptors: Vec<(String, String, String, String)> = Vec::new();
 
     if let Some(sections) = parsed.get("section").and_then(|v| v.as_array()) {
         for section in sections {
@@ -152,7 +152,7 @@ fn generate_gui_adjustables() {
     code.push_str("#[allow(dead_code)]\n");
     code.push_str("pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[\n");
 
-    for (section, id, kind, label) in descriptors {
+    for (section, id, kind, label) in &descriptors {
         code.push_str("    GeneratedGuiParamDescriptor {\n");
         code.push_str(&format!(
             "        section: \"{}\",\n",
@@ -170,7 +170,154 @@ fn generate_gui_adjustables() {
         code.push_str("    },\n");
     }
 
-    code.push_str("];\n");
+    code.push_str("];\n\n");
+
+    // generated struct with one field per GUI param
+    code.push_str("#[allow(dead_code)]\n");
+    code.push_str("pub struct GeneratedGuiAdjustables {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        let ty = match kind.as_str() {
+            "float" => "crate::gui_adjustables::FloatParam",
+            "int" => "crate::gui_adjustables::IntParam",
+            "uint" => "crate::gui_adjustables::UintParam",
+            "bool" => "crate::gui_adjustables::BoolParam",
+            "color" => "crate::gui_adjustables::ColorParam",
+            other => {
+                log!(
+                    "GUI config generation: unsupported kind '{}' for id '{}', skipping field",
+                    other,
+                    id
+                );
+                continue;
+            }
+        };
+
+        code.push_str(&format!("    pub {}: {},\n", id, ty));
+    }
+    code.push_str("}\n\n");
+
+    // Default implementation that loads the config file
+    code.push_str("impl Default for GeneratedGuiAdjustables {\n");
+    code.push_str("    fn default() -> Self {\n");
+    code.push_str("        let config = crate::app::gui_config_loader::GuiConfigLoader::load();\n");
+    code.push_str("        Self::from_config(&config)\n");
+    code.push_str("    }\n");
+    code.push_str("}\n\n");
+
+    // from_config constructor that materializes params from GuiConfigFile
+    code.push_str("impl GeneratedGuiAdjustables {\n");
+    code.push_str(
+        "    pub fn from_config(config: &crate::app::gui_config_model::GuiConfigFile) -> Self {\n",
+    );
+    code.push_str("        use crate::app::gui_config_model::{GuiParamKind, GuiParamValue};\n\n");
+
+    // one local Option per field
+    for (_section, id, kind, _label) in &descriptors {
+        let ty = match kind.as_str() {
+            "float" => "crate::gui_adjustables::FloatParam",
+            "int" => "crate::gui_adjustables::IntParam",
+            "uint" => "crate::gui_adjustables::UintParam",
+            "bool" => "crate::gui_adjustables::BoolParam",
+            "color" => "crate::gui_adjustables::ColorParam",
+            _ => continue,
+        };
+        code.push_str(&format!(
+            "        let mut {id}_field: Option<{ty}> = None;\n",
+            id = id,
+            ty = ty
+        ));
+    }
+
+    code.push_str("\n        for section in &config.section {\n");
+    code.push_str("            for param in &section.param {\n");
+    code.push_str("                match param.id.as_str() {\n");
+
+    for (_section, id, kind, _label) in &descriptors {
+        code.push_str(&format!("                    \"{}\" => {{\n", id));
+        match kind.as_str() {
+            "float" => {
+                code.push_str(
+                    "                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {\n",
+                );
+                code.push_str(
+                    "                            let min = min.unwrap_or(0.0);\n                            let max = max.unwrap_or(1.0);\n",
+                );
+                code.push_str(&format!(
+                    "                            {id}_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));\n",
+                    id = id
+                ));
+                code.push_str("                        }\n");
+            }
+            "int" => {
+                code.push_str(
+                    "                        if let (GuiParamKind::Int, GuiParamValue::Int { value, min, max }) = (&param.kind, &param.value) {\n",
+                );
+                code.push_str(
+                    "                            let min = min.unwrap_or(0);\n                            let max = max.unwrap_or(100);\n",
+                );
+                code.push_str(&format!(
+                    "                            {id}_field = Some(crate::gui_adjustables::IntParam::new(*value, min..=max));\n",
+                    id = id
+                ));
+                code.push_str("                        }\n");
+            }
+            "uint" => {
+                code.push_str(
+                    "                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) = (&param.kind, &param.value) {\n",
+                );
+                code.push_str(
+                    "                            let min = min.unwrap_or(0);\n                            let max = max.unwrap_or(100);\n",
+                );
+                code.push_str(&format!(
+                    "                            {id}_field = Some(crate::gui_adjustables::UintParam::new(*value, min..=max));\n",
+                    id = id
+                ));
+                code.push_str("                        }\n");
+            }
+            "bool" => {
+                code.push_str(
+                    "                        if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {\n",
+                );
+                code.push_str(&format!(
+                    "                            {id}_field = Some(crate::gui_adjustables::BoolParam::new(*value));\n",
+                    id = id
+                ));
+                code.push_str("                        }\n");
+            }
+            "color" => {
+                code.push_str(
+                    "                        if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {\n",
+                );
+                code.push_str(&format!(
+                    "                            {id}_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));\n",
+                    id = id
+                ));
+                code.push_str("                        }\n");
+            }
+            _ => {}
+        }
+        code.push_str("                    }\n");
+    }
+
+    code.push_str("                    _ => {}\n");
+    code.push_str("                }\n");
+    code.push_str("            }\n");
+    code.push_str("        }\n\n");
+
+    code.push_str("        GeneratedGuiAdjustables {\n");
+    for (_section, id, kind, _label) in &descriptors {
+        let expects_field = matches!(kind.as_str(), "float" | "int" | "uint" | "bool" | "color");
+        if !expects_field {
+            continue;
+        }
+        code.push_str(&format!(
+            "            {id}: {id}_field.expect(\"Missing parameter: {id}\"),\n",
+            id = id
+        ));
+    }
+    code.push_str("        }\n");
+    code.push_str("    }\n");
+    code.push_str("}\n");
 
     if let Err(e) = fs::write(&out_path, code) {
         log!(
