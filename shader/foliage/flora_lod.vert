@@ -98,6 +98,10 @@ const uint grass_max_height_voxels     = 8u;
 const float grass_height_mean_voxels   = 6.0;
 const float grass_height_stddev_voxels = 1.0;
 
+// bucketed wind update for flora instances (mirrors particle update buckets)
+const uint  FLORA_UPDATE_BUCKET_COUNT = 4u;
+const float FLORA_FULL_UPDATE_SECONDS = 0.15f;
+
 float sample_standard_normal(uint seed) {
     float sum  = 0.0;
     uint state = seed ^ 0xA511E9B3u;
@@ -142,6 +146,35 @@ vec3 clamp_to_grid(vec3 position) {
     return round(position / clamp_fac) * clamp_fac;
 }
 
+// remap global time to a per-instance bucketed time T
+// bucket size is fixed (FLORA_UPDATE_BUCKET_COUNT) and full cycle is FLORA_FULL_UPDATE_SECONDS
+float flora_bucketed_time(float raw_time, uint instance_seed) {
+    const uint bucket_count = FLORA_UPDATE_BUCKET_COUNT;
+    if (bucket_count <= 1u || FLORA_FULL_UPDATE_SECONDS <= 0.0f) {
+        return raw_time;
+    }
+
+    float full_cycle = FLORA_FULL_UPDATE_SECONDS;
+    float step       = full_cycle / float(bucket_count);
+
+    // global scheduler tick index
+    float s = floor(raw_time / step);
+
+    uint bucket_id = instance_seed % bucket_count;
+
+    float last_step_index;
+    if (s < float(bucket_id)) {
+        // bucket has not received an update yet; pin to t = 0
+        last_step_index = 0.0;
+    } else {
+        // last scheduler tick where this bucket was active: n = bucket_id + k * bucket_count
+        float k = floor((s - float(bucket_id)) / float(bucket_count));
+        last_step_index = float(bucket_id) + k * float(bucket_count);
+    }
+
+    return last_step_index * step;
+}
+
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -166,7 +199,8 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    vec3 wind_vec    = get_wind(instance_pos, pc.time);
+    float wind_time = flora_bucketed_time(pc.time, instance_seed);
+    vec3 wind_vec    = get_wind(instance_pos, wind_time);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos  = clamp_to_grid((vox_local_pos + wind_offset) * scaling_factor + instance_pos);
     vec3 voxel_pos   = clamp_to_grid(anchor_pos + vec3(0.5) * scaling_factor);
