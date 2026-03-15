@@ -43,6 +43,9 @@ toml = "0.8"
 # or use a local development version
 # petalsonic = { path = "../petalsonic/petalsonic" }
 
+[build-dependencies]
+toml = "0.8"
+
 [features]
 default = []
 no_validation_layer = []
