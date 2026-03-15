@@ -139,13 +139,6 @@ float get_shadow_weight(ivec3 vox_local_pos) {
     return shadow_weight;
 }
 
-vec3 clamp_to_grid(vec3 position) {
-    // lower the grid size here to reduce chunky feeling, but maintain a good impression of pixel
-    // vibe
-    const float clamp_fac = scaling_factor * 0.5;
-    return round(position / clamp_fac) * clamp_fac;
-}
-
 // remap global time to a per-instance bucketed time T
 // bucket size is fixed (FLORA_UPDATE_BUCKET_COUNT) and full cycle is FLORA_FULL_UPDATE_SECONDS
 float flora_bucketed_time(float raw_time, uint instance_seed) {
@@ -206,9 +199,9 @@ void main() {
     float wind_time = flora_bucketed_time(pc.time, instance_seed);
     vec3 wind_vec    = get_wind(instance_pos, wind_time);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
-    vec3 anchor_pos  = clamp_to_grid((vox_local_pos + wind_offset) * scaling_factor + instance_pos);
-    vec3 voxel_pos   = clamp_to_grid(anchor_pos + vec3(0.5) * scaling_factor);
-    vec3 vert_pos    = clamp_to_grid(anchor_pos + vert_offset_in_vox * scaling_factor);
+    vec3 anchor_pos  = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
+    vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
+    vec3 vert_pos    = anchor_pos + vec3(vert_offset_in_vox) * scaling_factor;
 
     if (should_trim_voxel) {
         voxel_pos = anchor_pos;
