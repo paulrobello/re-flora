@@ -344,7 +344,7 @@ label = "Lens Flare Intensity"
 type = "Float"
 
 [section.param.data]
-value = 0.05999999865889549
+value = 0.25
 min = 0.0
 max = 1.0
 
@@ -355,7 +355,7 @@ label = "Lens Flare Occlusion Min"
 type = "Float"
 
 [section.param.data]
-value = 0.20000000298023224
+value = 0.20499999821186066
 min = 0.0
 max = 1.0
 
