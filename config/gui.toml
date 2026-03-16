@@ -32,7 +32,7 @@ label = "LOD Distance"
 type = "Float"
 
 [section.param.data]
-value = 0.0
+value = 1.25
 min = 0.0
 max = 10.0
 
@@ -55,7 +55,7 @@ label = "Size (relative)"
 type = "Float"
 
 [section.param.data]
-value = 0.05000000074505806
+value = 0.054999999701976776
 min = 0.0
 max = 1.0
 
@@ -344,7 +344,7 @@ label = "Lens Flare Intensity"
 type = "Float"
 
 [section.param.data]
-value = 0.25
+value = 0.5
 min = 0.0
 max = 1.0
 
