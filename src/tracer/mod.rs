@@ -452,6 +452,8 @@ impl Tracer {
         ocean_time_multiplier: f32,
         flora_update_bucket_count: u32,
         flora_full_update_seconds: f32,
+        lens_flare_intensity: f32,
+        lens_flare_occlusion_min: f32,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -560,6 +562,8 @@ impl Tracer {
             ocean_time_multiplier,
             flora_update_bucket_count,
             flora_full_update_seconds,
+            lens_flare_intensity,
+            lens_flare_occlusion_min,
         )?;
 
         BufferUpdater::update_flora_growth_info(

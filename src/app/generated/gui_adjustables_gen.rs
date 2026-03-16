@@ -195,6 +195,18 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         label: "Weight",
     },
     GeneratedGuiParamDescriptor {
+        section: "GodRay",
+        id: "lens_flare_intensity",
+        kind: "float",
+        label: "Lens Flare Intensity",
+    },
+    GeneratedGuiParamDescriptor {
+        section: "GodRay",
+        id: "lens_flare_occlusion_min",
+        kind: "float",
+        label: "Lens Flare Occlusion Min",
+    },
+    GeneratedGuiParamDescriptor {
         section: "Spatial",
         id: "phi_c",
         kind: "float",
@@ -552,6 +564,8 @@ pub struct GuiAdjustables {
     pub god_ray_max_depth: crate::gui_adjustables::FloatParam,
     pub god_ray_max_checks: crate::gui_adjustables::UintParam,
     pub god_ray_weight: crate::gui_adjustables::FloatParam,
+    pub lens_flare_intensity: crate::gui_adjustables::FloatParam,
+    pub lens_flare_occlusion_min: crate::gui_adjustables::FloatParam,
     pub phi_c: crate::gui_adjustables::FloatParam,
     pub phi_n: crate::gui_adjustables::FloatParam,
     pub phi_p: crate::gui_adjustables::FloatParam,
@@ -649,6 +663,8 @@ impl GuiAdjustables {
         let mut god_ray_max_depth_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut god_ray_max_checks_field: Option<crate::gui_adjustables::UintParam> = None;
         let mut god_ray_weight_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut lens_flare_intensity_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut lens_flare_occlusion_min_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut phi_c_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut phi_n_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut phi_p_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -907,6 +923,20 @@ impl GuiAdjustables {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
                             god_ray_weight_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
+                    "lens_flare_intensity" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0.0);
+                            let max = max.unwrap_or(1.0);
+                            lens_flare_intensity_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
+                    "lens_flare_occlusion_min" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0.0);
+                            let max = max.unwrap_or(1.0);
+                            lens_flare_occlusion_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "phi_c" => {
@@ -1291,6 +1321,8 @@ impl GuiAdjustables {
             god_ray_max_depth: god_ray_max_depth_field.expect("Missing parameter: god_ray_max_depth"),
             god_ray_max_checks: god_ray_max_checks_field.expect("Missing parameter: god_ray_max_checks"),
             god_ray_weight: god_ray_weight_field.expect("Missing parameter: god_ray_weight"),
+            lens_flare_intensity: lens_flare_intensity_field.expect("Missing parameter: lens_flare_intensity"),
+            lens_flare_occlusion_min: lens_flare_occlusion_min_field.expect("Missing parameter: lens_flare_occlusion_min"),
             phi_c: phi_c_field.expect("Missing parameter: phi_c"),
             phi_n: phi_n_field.expect("Missing parameter: phi_n"),
             phi_p: phi_p_field.expect("Missing parameter: phi_p"),
@@ -1374,6 +1406,8 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
         "temporal_alpha" => Some(&adjustables.temporal_alpha),
         "god_ray_max_depth" => Some(&adjustables.god_ray_max_depth),
         "god_ray_weight" => Some(&adjustables.god_ray_weight),
+        "lens_flare_intensity" => Some(&adjustables.lens_flare_intensity),
+        "lens_flare_occlusion_min" => Some(&adjustables.lens_flare_occlusion_min),
         "phi_c" => Some(&adjustables.phi_c),
         "phi_n" => Some(&adjustables.phi_n),
         "phi_p" => Some(&adjustables.phi_p),
@@ -1493,6 +1527,8 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "temporal_alpha" => Some(&mut adjustables.temporal_alpha),
         "god_ray_max_depth" => Some(&mut adjustables.god_ray_max_depth),
         "god_ray_weight" => Some(&mut adjustables.god_ray_weight),
+        "lens_flare_intensity" => Some(&mut adjustables.lens_flare_intensity),
+        "lens_flare_occlusion_min" => Some(&mut adjustables.lens_flare_occlusion_min),
         "phi_c" => Some(&mut adjustables.phi_c),
         "phi_n" => Some(&mut adjustables.phi_n),
         "phi_p" => Some(&mut adjustables.phi_p),
