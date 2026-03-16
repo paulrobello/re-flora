@@ -12,6 +12,7 @@ pub struct ExtentDependentResources {
     pub compute_output_tex: Resource<Texture>,
     pub gfx_output_tex: Resource<Texture>,
     pub god_ray_output_tex: Resource<Texture>,
+    pub lens_flare_output_tex: Resource<Texture>,
     pub screen_output_tex: Resource<Texture>,
     pub composited_tex: Resource<Texture>,
 }
@@ -33,6 +34,8 @@ impl ExtentDependentResources {
             Self::create_gfx_output_tex(device.clone(), allocator.clone(), rendering_extent);
         let god_ray_output_tex =
             Self::create_god_ray_output_tex(device.clone(), allocator.clone(), rendering_extent);
+        let lens_flare_output_tex =
+            Self::create_lens_flare_output_tex(device.clone(), allocator.clone(), rendering_extent);
         let screen_output_tex =
             Self::create_screen_output_tex(device.clone(), allocator.clone(), screen_extent);
         let composited_tex = Self::create_composited_tex(device, allocator, rendering_extent);
@@ -43,6 +46,7 @@ impl ExtentDependentResources {
             compute_output_tex: Resource::new(compute_output_tex),
             gfx_output_tex: Resource::new(gfx_output_tex),
             god_ray_output_tex: Resource::new(god_ray_output_tex),
+            lens_flare_output_tex: Resource::new(lens_flare_output_tex),
             screen_output_tex: Resource::new(screen_output_tex),
             composited_tex: Resource::new(composited_tex),
         }
@@ -156,6 +160,26 @@ impl ExtentDependentResources {
             usage: vk::ImageUsageFlags::STORAGE
                 | vk::ImageUsageFlags::TRANSFER_SRC
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        Texture::new(device, allocator, &tex_desc, &Default::default())
+    }
+
+    fn create_lens_flare_output_tex(
+        device: Device,
+        allocator: Allocator,
+        rendering_extent: Extent2D,
+    ) -> Texture {
+        let lens_flare_extent = Extent2D::new(
+            (rendering_extent.width / 4).max(1),
+            (rendering_extent.height / 4).max(1),
+        );
+        let tex_desc = ImageDesc {
+            extent: lens_flare_extent.into(),
+            format: vk::Format::B10G11R11_UFLOAT_PACK32,
+            usage: vk::ImageUsageFlags::STORAGE,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
