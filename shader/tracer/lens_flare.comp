@@ -45,8 +45,8 @@ layout(set = 0, binding = 2) uniform U_CameraInfo {
     mat4 view_proj_mat_inv;
 }
 camera_info;
-layout(set = 0, binding = 3, r32f) uniform readonly image2D gfx_depth_tex;
-layout(set = 0, binding = 4, r32f) uniform readonly image2D compute_depth_tex;
+layout(set = 0, binding = 3, r32ui) uniform readonly uimage1D lens_flare_required_count_tex;
+layout(set = 0, binding = 4, r32ui) uniform readonly uimage1D lens_flare_visible_count_tex;
 layout(set = 0, binding = 5, r11f_g11f_b10f) uniform writeonly image2D lens_flare_full_output_tex;
 
 #include "../include/core/hash.glsl"
@@ -138,22 +138,13 @@ void main() {
         return;
     }
 
-    ivec2 full_size = imageSize(gfx_depth_tex);
-    ivec2 sun_uvi = ivec2(clamp(sun_uv * vec2(full_size), vec2(0.0), vec2(full_size - ivec2(1))));
-    float visible_samples = 0.0;
-    for (int y = -1; y <= 1; ++y) {
-        for (int x = -1; x <= 1; ++x) {
-            ivec2 sample_uvi = clamp(sun_uvi + ivec2(x, y), ivec2(0), full_size - ivec2(1));
-            float sun_gfx_depth = imageLoad(gfx_depth_tex, sample_uvi).r;
-            float sun_rt_depth  = imageLoad(compute_depth_tex, sample_uvi).r;
-            visible_samples += (sun_gfx_depth >= 1.0 && sun_rt_depth >= 1.0) ? 1.0 : 0.0;
-        }
-    }
-    float visible_ratio = visible_samples / 9.0;
-    if (visible_ratio <= 0.0) {
+    uint required_count = imageLoad(lens_flare_required_count_tex, 0).r;
+    uint visible_count = imageLoad(lens_flare_visible_count_tex, 0).r;
+    if (required_count == 0u || visible_count == 0u) {
         imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
     }
+    float visible_ratio = float(visible_count) / float(required_count);
 
     vec2 uv  = lens_flare_uv - vec2(0.5);
     vec2 pos = sun_uv - vec2(0.5);

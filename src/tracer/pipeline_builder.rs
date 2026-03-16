@@ -96,6 +96,22 @@ impl PipelineBuilder {
         )
         .unwrap();
 
+        let lens_flare_sun_required_sm = ShaderModule::from_glsl(
+            vulkan_ctx.device(),
+            shader_compiler,
+            "shader/tracer/lens_flare_sun_required.comp",
+            "main",
+        )
+        .unwrap();
+
+        let lens_flare_sun_visible_sm = ShaderModule::from_glsl(
+            vulkan_ctx.device(),
+            shader_compiler,
+            "shader/tracer/lens_flare_sun_visible.comp",
+            "main",
+        )
+        .unwrap();
+
         let lens_flare_downsample_sm = ShaderModule::from_glsl(
             vulkan_ctx.device(),
             shader_compiler,
@@ -193,6 +209,8 @@ impl PipelineBuilder {
             spatial_sm,
             composition_sm,
             lens_flare_sm,
+            lens_flare_sun_required_sm,
+            lens_flare_sun_visible_sm,
             lens_flare_downsample_sm,
             post_processing_sm,
             player_collider_sm,
@@ -261,6 +279,18 @@ impl PipelineBuilder {
             ComputePipeline::new(device, &shader_modules.composition_sm, pool, &[resources]);
         let lens_flare_ppl =
             ComputePipeline::new(device, &shader_modules.lens_flare_sm, pool, &[resources]);
+        let lens_flare_sun_required_ppl = ComputePipeline::new(
+            device,
+            &shader_modules.lens_flare_sun_required_sm,
+            pool,
+            &[resources],
+        );
+        let lens_flare_sun_visible_ppl = ComputePipeline::new(
+            device,
+            &shader_modules.lens_flare_sun_visible_sm,
+            pool,
+            &[resources],
+        );
         let lens_flare_downsample_ppl = ComputePipeline::new(
             device,
             &shader_modules.lens_flare_downsample_sm,
@@ -285,6 +315,8 @@ impl PipelineBuilder {
             temporal_ppl,
             spatial_ppl,
             lens_flare_ppl,
+            lens_flare_sun_required_ppl,
+            lens_flare_sun_visible_ppl,
             lens_flare_downsample_ppl,
             composition_ppl,
             player_collider_ppl,
@@ -445,6 +477,8 @@ pub struct ShaderModules {
     pub spatial_sm: ShaderModule,
     pub composition_sm: ShaderModule,
     pub lens_flare_sm: ShaderModule,
+    pub lens_flare_sun_required_sm: ShaderModule,
+    pub lens_flare_sun_visible_sm: ShaderModule,
     pub lens_flare_downsample_sm: ShaderModule,
     pub post_processing_sm: ShaderModule,
     pub player_collider_sm: ShaderModule,
@@ -468,6 +502,8 @@ pub struct ComputePipelines {
     pub temporal_ppl: ComputePipeline,
     pub spatial_ppl: ComputePipeline,
     pub lens_flare_ppl: ComputePipeline,
+    pub lens_flare_sun_required_ppl: ComputePipeline,
+    pub lens_flare_sun_visible_ppl: ComputePipeline,
     pub lens_flare_downsample_ppl: ComputePipeline,
     pub composition_ppl: ComputePipeline,
     pub player_collider_ppl: ComputePipeline,
