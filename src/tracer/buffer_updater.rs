@@ -149,7 +149,6 @@ impl BufferUpdater {
         flora_update_bucket_count: u32,
         flora_full_update_seconds: f32,
         lens_flare_intensity: f32,
-        lens_flare_occlusion_min: f32,
     ) -> Result<()> {
         let data = StructMemberDataBuilder::from_buffer(&resources.gui_input)
             .set_field("debug_float", PlainMemberTypeWithData::Float(debug_float))
@@ -213,10 +212,6 @@ impl BufferUpdater {
             .set_field(
                 "lens_flare_intensity",
                 PlainMemberTypeWithData::Float(lens_flare_intensity),
-            )
-            .set_field(
-                "lens_flare_occlusion_min",
-                PlainMemberTypeWithData::Float(lens_flare_occlusion_min),
             )
             .build()?;
         resources.gui_input.fill_with_raw_u8(&data)?;
