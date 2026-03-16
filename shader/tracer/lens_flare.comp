@@ -47,7 +47,7 @@ layout(set = 0, binding = 2) uniform U_CameraInfo {
 camera_info;
 layout(set = 0, binding = 3, r32f) uniform readonly image2D gfx_depth_tex;
 layout(set = 0, binding = 4, r32f) uniform readonly image2D compute_depth_tex;
-layout(set = 0, binding = 5, r11f_g11f_b10f) uniform writeonly image2D lens_flare_output_tex;
+layout(set = 0, binding = 5, r11f_g11f_b10f) uniform writeonly image2D lens_flare_full_output_tex;
 
 #include "../include/core/hash.glsl"
 #include "../include/sunlight.glsl"
@@ -115,7 +115,7 @@ vec3 _lens_flare_color_correct(vec3 color, float factor, float factor2) {
 
 void main() {
     ivec2 uvi = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 lens_flare_size = imageSize(lens_flare_output_tex);
+    ivec2 lens_flare_size = imageSize(lens_flare_full_output_tex);
     if (any(greaterThanEqual(uvi, lens_flare_size))) {
         return;
     }
@@ -125,7 +125,7 @@ void main() {
     vec3 sun_world_pos = camera_info.pos.xyz + sun_info.sun_dir * 10000.0;
     vec4 sun_clip_pos  = camera_info.view_proj_mat * vec4(sun_world_pos, 1.0);
     if (sun_clip_pos.w <= 0.0) {
-        imageStore(lens_flare_output_tex, uvi, vec4(0.0));
+        imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
     }
 
@@ -134,7 +134,7 @@ void main() {
     float edge_factor = 1.0 - smoothstep(0.45, 0.8, max(sun_uv_dist_from_center.x,
                                                          sun_uv_dist_from_center.y));
     if (edge_factor <= 0.0) {
-        imageStore(lens_flare_output_tex, uvi, vec4(0.0));
+        imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
     }
 
@@ -151,7 +151,7 @@ void main() {
     }
     float visible_ratio = visible_samples / 9.0;
     if (visible_ratio <= 0.0) {
-        imageStore(lens_flare_output_tex, uvi, vec4(0.0));
+        imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
     }
 
@@ -167,5 +167,5 @@ void main() {
     float sun_visibility = sun_luminance_from_dir(sun_info.sun_dir, 1.0);
     float intensity = gui_input.lens_flare_intensity * sun_visibility * edge_factor * visible_ratio;
     vec3 lens_flare_color = max(flare, vec3(0.0)) * intensity;
-    imageStore(lens_flare_output_tex, uvi, vec4(lens_flare_color, 1.0));
+    imageStore(lens_flare_full_output_tex, uvi, vec4(lens_flare_color, 1.0));
 }
