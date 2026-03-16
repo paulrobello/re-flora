@@ -115,12 +115,17 @@ vec4 _sample_sun_sprite(vec3 view_dir, vec3 sun_dir, float sun_size) {
         return vec4(0.0);
     }
 
-    vec3 up = abs(sun_dir.y) < 0.99999 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
-    vec3 t  = normalize(cross(up, sun_dir));
-    vec3 b  = normalize(cross(sun_dir, t));
+    vec3 view_dir_vs = normalize((camera_info.view_mat * vec4(view_dir, 0.0)).xyz);
+    vec3 sun_dir_vs  = normalize((camera_info.view_mat * vec4(sun_dir, 0.0)).xyz);
+    float view_z = -view_dir_vs.z;
+    float sun_z  = -sun_dir_vs.z;
+    if (view_z <= 1e-5 || sun_z <= 1e-5) {
+        return vec4(0.0);
+    }
 
-    vec2 sun_plane_uv = vec2(dot(view_dir, t), dot(view_dir, b));
-    vec2 uv           = sun_plane_uv / max(sun_size, 0.0001) + vec2(0.5);
+    vec2 view_proj = view_dir_vs.xy / view_z;
+    vec2 sun_proj  = sun_dir_vs.xy / sun_z;
+    vec2 uv        = (view_proj - sun_proj) / max(sun_size, 0.0001) + vec2(0.5);
     if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) {
         return vec4(0.0);
     }
