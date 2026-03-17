@@ -405,10 +405,6 @@ impl Tracer {
         update_compute_fn(&self.compute_pipelines.spatial_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.lens_flare_ppl, tracer_resources);
         update_compute_fn(
-            &self.compute_pipelines.lens_flare_sun_required_ppl,
-            tracer_resources,
-        );
-        update_compute_fn(
             &self.compute_pipelines.lens_flare_sun_visible_ppl,
             tracer_resources,
         );
@@ -466,6 +462,7 @@ impl Tracer {
         flora_update_bucket_count: u32,
         flora_full_update_seconds: f32,
         lens_flare_intensity: f32,
+        lens_flare_sun_pixel_scale: f32,
         flora_tick: u32,
         sprout_delay_ticks: u32,
         full_growth_ticks: u32,
@@ -575,6 +572,7 @@ impl Tracer {
             flora_update_bucket_count,
             flora_full_update_seconds,
             lens_flare_intensity,
+            lens_flare_sun_pixel_scale,
         )?;
 
         BufferUpdater::update_flora_growth_info(
@@ -828,8 +826,6 @@ impl Tracer {
         self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
 
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_sun_required_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_lens_flare_sun_visible_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_lens_flare_pass(cmdbuf);
@@ -926,16 +922,6 @@ impl Tracer {
             ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
         );
 
-        self.resources
-            .extent_dependent_resources
-            .lens_flare_required_count_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
-            );
         self.resources
             .extent_dependent_resources
             .lens_flare_visible_count_tex
@@ -1565,19 +1551,6 @@ impl Tracer {
             .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
 
         self.compute_pipelines.lens_flare_ppl.record(
-            cmdbuf,
-            self.resources
-                .extent_dependent_resources
-                .lens_flare_full_output_tex
-                .get_image()
-                .get_desc()
-                .extent,
-            None,
-        );
-    }
-
-    fn record_lens_flare_sun_required_pass(&self, cmdbuf: &CommandBuffer) {
-        self.compute_pipelines.lens_flare_sun_required_ppl.record(
             cmdbuf,
             self.resources
                 .extent_dependent_resources

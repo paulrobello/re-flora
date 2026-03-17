@@ -22,6 +22,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     uint flora_update_bucket_count;
     float flora_full_update_seconds;
     float lens_flare_intensity;
+    float lens_flare_sun_pixel_scale;
 }
 gui_input;
 layout(set = 0, binding = 1) uniform U_SunInfo {
@@ -44,7 +45,6 @@ layout(set = 0, binding = 2) uniform U_CameraInfo {
     mat4 view_proj_mat_inv;
 }
 camera_info;
-layout(set = 0, binding = 3, r32ui) uniform readonly uimage1D lens_flare_required_count_tex;
 layout(set = 0, binding = 4, r32ui) uniform readonly uimage1D lens_flare_visible_count_tex;
 layout(set = 0, binding = 5, r11f_g11f_b10f) uniform writeonly image2D lens_flare_full_output_tex;
 
@@ -137,13 +137,20 @@ void main() {
         return;
     }
 
-    uint required_count = imageLoad(lens_flare_required_count_tex, 0).r;
     uint visible_count = imageLoad(lens_flare_visible_count_tex, 0).r;
-    if (required_count == 0u || visible_count == 0u) {
+    if (visible_count == 0u) {
         imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
     }
-    float visible_ratio = float(visible_count) / float(required_count);
+
+    float sun_radius_px = 0.5 * max(sun_info.sun_size, 0.0001)
+                          * camera_info.proj_mat[1][1]
+                          * float(lens_flare_size.y);
+    float estimated_total_pixels = gui_input.lens_flare_sun_pixel_scale
+                                   * 3.14159265
+                                   * sun_radius_px
+                                   * sun_radius_px;
+    float visible_ratio = clamp(float(visible_count) / max(estimated_total_pixels, 1.0), 0.0, 1.0);
 
     vec2 uv  = lens_flare_uv - vec2(0.5);
     vec2 pos = sun_uv - vec2(0.5);

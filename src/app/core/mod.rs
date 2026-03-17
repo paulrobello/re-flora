@@ -991,6 +991,7 @@ impl App {
                         self.gui_adjustables.flora_update_bucket_count.value,
                         self.gui_adjustables.flora_full_update_seconds.value,
                         self.gui_adjustables.lens_flare_intensity.value,
+                        self.gui_adjustables.lens_flare_sun_pixel_scale.value,
                         self.flora_tick,
                         FLORA_SPROUT_DELAY_TICKS,
                         FLORA_FULL_GROWTH_TICKS,

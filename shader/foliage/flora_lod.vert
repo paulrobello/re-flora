@@ -39,6 +39,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     uint flora_update_bucket_count;
     float flora_full_update_seconds;
     float lens_flare_intensity;
+    float lens_flare_sun_pixel_scale;
 }
 gui_input;
 
