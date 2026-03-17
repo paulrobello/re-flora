@@ -24,6 +24,7 @@ pub use resources::*;
 
 pub const VOXEL_TYPE_CHERRY_WOOD: u32 = 5;
 pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
+pub const VOXEL_TYPE_ROCK: u32 = 7;
 pub const VOXEL_TYPE_EMPTY: u32 = 0;
 const PRIMITIVE_KIND_ROUND_CONE: u32 = 0;
 const PRIMITIVE_KIND_CUBOID: u32 = 1;

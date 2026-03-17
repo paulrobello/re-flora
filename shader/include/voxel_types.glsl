@@ -5,5 +5,6 @@ const uint VOXEL_TYPE_EMPTY       = 0;
 const uint VOXEL_TYPE_DIRT        = 2;
 const uint VOXEL_TYPE_CHERRY_WOOD = 5;
 const uint VOXEL_TYPE_OAK_WOOD    = 6;
+const uint VOXEL_TYPE_ROCK        = 7;
 
 #endif // VOXEL_TYPES_GLSL

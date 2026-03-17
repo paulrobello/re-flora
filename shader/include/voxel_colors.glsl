@@ -13,6 +13,8 @@ vec3 _voxel_color_by_type_srgb(uint voxel_type) {
         return voxel_colors.cherry_wood_color;
     } else if (voxel_type == VOXEL_TYPE_OAK_WOOD) {
         return voxel_colors.oak_wood_color;
+    } else if (voxel_type == VOXEL_TYPE_ROCK) {
+        return vec3(0.48, 0.49, 0.50);
     }
     return vec3(0.0);
 }
