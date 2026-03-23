@@ -37,29 +37,15 @@ float ocean_specular(vec3 n, vec3 l, vec3 e, float s) {
     return pow(max(dot(reflect(e, n), l), 0.0), s) * nrm;
 }
 
-float ocean_light_factor() {
-    // direct sun contribution based on altitude
-    float sun_alt    = sun_info.sun_dir.y;
-    float sun_factor = smoothstep(-0.1, 0.2, sun_alt);
-
-    // ambient contribution based on ambient light luminance, clamped and down-weighted
-    float ambient_luma = dot(shading_info.ambient_light,
-                             vec3(0.2126, 0.7152, 0.0722));
-    float ambient_factor = clamp(ambient_luma, 0.0, 1.0);
-    float ambient_weight = 0.3;
-
-    return clamp(sun_factor + ambient_factor * ambient_weight, 0.0, 1.0);
-}
-
 // seascape-fast style wave field
-vec2 ocean_wavedx(vec2 position, vec2 direction, float frequency, float timeshift) {
+vec2 ocean_wave_dx(vec2 position, vec2 direction, float frequency, float timeshift) {
     float x    = dot(direction, position) * frequency + timeshift;
     float wave = exp(sin(x) - 1.0);
     float dx   = wave * cos(x);
     return vec2(wave, -dx);
 }
 
-float ocean_getwaves(vec2 position, int iterations) {
+float ocean_get_waves(vec2 position, int iterations) {
     float wave_phase_shift = length(position) * 0.1;
     float iter             = 0.0;
     float frequency        = 1.0;
@@ -74,7 +60,7 @@ float ocean_getwaves(vec2 position, int iterations) {
     for (int i = 0; i < iterations; i++) {
         vec2 dir = vec2(sin(iter), cos(iter));
 
-        vec2 res = ocean_wavedx(position, dir, frequency,
+        vec2 res = ocean_wave_dx(position, dir, frequency,
                                 t * time_multiplier + wave_phase_shift);
 
         position      += dir * res.y * weight * OCEAN_DRAG_MULT;
@@ -98,14 +84,14 @@ float ocean_normal_epsilon_base() {
 vec3 ocean_surface_normal(vec2 pos, float eps, float depth) {
     vec2 ex = vec2(eps, 0.0);
 
-    float H = ocean_getwaves(pos, OCEAN_ITER_NORMAL) * depth;
+    float H = ocean_get_waves(pos, OCEAN_ITER_NORMAL) * depth;
     vec3 a  = vec3(pos.x, H, pos.y);
 
     vec3 b = vec3(pos.x - eps,
-                  ocean_getwaves(pos - ex, OCEAN_ITER_NORMAL) * depth,
+                  ocean_get_waves(pos - ex, OCEAN_ITER_NORMAL) * depth,
                   pos.y);
     vec3 c = vec3(pos.x,
-                  ocean_getwaves(pos + ex.yx, OCEAN_ITER_NORMAL) * depth,
+                  ocean_get_waves(pos + ex.yx, OCEAN_ITER_NORMAL) * depth,
                   pos.y + eps);
 
     return normalize(cross(a - b, a - c));
@@ -124,7 +110,7 @@ float ocean_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth) {
     vec3 dir = normalize(end - start);
 
     for (int i = 0; i < 64; i++) {
-        float height = ocean_getwaves(pos.xz, OCEAN_ITER_RAYMARCH) * depth - depth;
+        float height = ocean_get_waves(pos.xz, OCEAN_ITER_RAYMARCH) * depth - depth;
 
         if (height + 0.01 > pos.y) {
             return distance(pos, camera);
@@ -139,8 +125,6 @@ float ocean_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth) {
 vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
                               vec3 view_dir, float dist) {
     float dist2 = dist * dist;
-
-    float light_factor = ocean_light_factor();
 
     float fresnel = 0.04 + (1.0 - 0.04) *
                     pow(1.0 - max(0.0, dot(-n, view_dir)), 5.0);
@@ -181,27 +165,27 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
         return vec3(0.0);
     }
 
-    vec3 waterPlaneHigh = vec3(0.0, 0.0, 0.0);
-    vec3 waterPlaneLow  = vec3(0.0, -OCEAN_WATER_DEPTH, 0.0);
+    vec3 water_plane_high = vec3(0.0, 0.0, 0.0);
+    vec3 water_plane_low  = vec3(0.0, -OCEAN_WATER_DEPTH, 0.0);
     vec3 up             = vec3(0.0, 1.0, 0.0);
 
-    float highT = ocean_intersect_plane(ori, dir, waterPlaneHigh, up);
-    float lowT  = ocean_intersect_plane(ori, dir, waterPlaneLow, up);
+    float high_t = ocean_intersect_plane(ori, dir, water_plane_high, up);
+    float low_t  = ocean_intersect_plane(ori, dir, water_plane_low, up);
 
-    if (highT <= 0.0 || lowT <= 0.0 || lowT <= highT) {
+    if (high_t <= 0.0 || low_t <= 0.0 || low_t <= high_t) {
         hit_ocean = false;
         return vec3(0.0);
     }
 
-    vec3 highPos = ori + dir * highT;
-    vec3 lowPos  = ori + dir * lowT;
+    vec3 high_pos = ori + dir * high_t;
+    vec3 low_pos  = ori + dir * low_t;
 
-    float dist = ocean_raymarch_water(ori, highPos, lowPos, OCEAN_WATER_DEPTH);
+    float dist = ocean_raymarch_water(ori, high_pos, low_pos, OCEAN_WATER_DEPTH);
     vec3 p     = ori + dir * dist;
-    vec3 dvec  = p - ori;
+    vec3 d_vec  = p - ori;
 
     float eps_base = ocean_normal_epsilon_base();
-    float eps      = max(dot(dvec, dvec) * eps_base, 1e-5);
+    float eps      = max(dot(d_vec, d_vec) * eps_base, 1e-5);
 
     vec3 n = ocean_surface_normal(p.xz, eps, OCEAN_WATER_DEPTH);
 
