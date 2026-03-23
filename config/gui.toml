@@ -506,7 +506,7 @@ label = "Deep Ocean Color"
 type = "Color"
 
 [section.param.data]
-value = "#0A3C82"
+value = "#00EDFF"
 
 [[section.param]]
 id = "ocean_shallow_color"
@@ -515,7 +515,7 @@ label = "Shallow Water Color"
 type = "Color"
 
 [section.param.data]
-value = "#2896D2"
+value = "#00BDAE"
 
 [[section.param]]
 id = "ocean_normal_amplitude"
