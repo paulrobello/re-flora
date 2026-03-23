@@ -767,7 +767,7 @@ max = 2.0
 [[section.param]]
 id = "butterfly_height_offset_min"
 kind = "float"
-label = "Height Offset Min"
+label = "Spawn Height Min"
 type = "Float"
 
 [section.param.data]
@@ -778,7 +778,7 @@ max = 4.0
 [[section.param]]
 id = "butterfly_height_offset_max"
 kind = "float"
-label = "Height Offset Max"
+label = "Spawn Height Max"
 type = "Float"
 
 [section.param.data]
