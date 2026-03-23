@@ -430,12 +430,6 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
     },
     GeneratedGuiParamDescriptor {
         section: "Butterflies",
-        id: "butterfly_wander_radius",
-        kind: "float",
-        label: "Wander Radius",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
         id: "butterfly_height_offset_min",
         kind: "float",
         label: "Height Offset Min",
@@ -451,48 +445,6 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         id: "butterfly_size",
         kind: "float",
         label: "Size",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_drift_strength_min",
-        kind: "float",
-        label: "Flutter Strength Min",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_drift_strength_max",
-        kind: "float",
-        label: "Flutter Strength Max",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_drift_frequency_min",
-        kind: "float",
-        label: "Flutter Speed Min",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_drift_frequency_max",
-        kind: "float",
-        label: "Flutter Speed Max",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_steering_strength",
-        kind: "float",
-        label: "Home Pull Strength",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_bob_frequency_hz",
-        kind: "float",
-        label: "Vertical Bob Frequency (Hz)",
-    },
-    GeneratedGuiParamDescriptor {
-        section: "Butterflies",
-        id: "butterfly_bob_strength",
-        kind: "float",
-        label: "Vertical Bob Strength",
     },
     GeneratedGuiParamDescriptor {
         section: "Butterflies",
@@ -609,17 +561,9 @@ pub struct GuiAdjustables {
     pub particle_full_update_seconds: crate::gui_adjustables::FloatParam,
     pub butterflies_enabled: crate::gui_adjustables::BoolParam,
     pub butterflies_per_chunk: crate::gui_adjustables::FloatParam,
-    pub butterfly_wander_radius: crate::gui_adjustables::FloatParam,
     pub butterfly_height_offset_min: crate::gui_adjustables::FloatParam,
     pub butterfly_height_offset_max: crate::gui_adjustables::FloatParam,
     pub butterfly_size: crate::gui_adjustables::FloatParam,
-    pub butterfly_drift_strength_min: crate::gui_adjustables::FloatParam,
-    pub butterfly_drift_strength_max: crate::gui_adjustables::FloatParam,
-    pub butterfly_drift_frequency_min: crate::gui_adjustables::FloatParam,
-    pub butterfly_drift_frequency_max: crate::gui_adjustables::FloatParam,
-    pub butterfly_steering_strength: crate::gui_adjustables::FloatParam,
-    pub butterfly_bob_frequency_hz: crate::gui_adjustables::FloatParam,
-    pub butterfly_bob_strength: crate::gui_adjustables::FloatParam,
     pub butterfly_lifetime_min: crate::gui_adjustables::FloatParam,
     pub butterfly_lifetime_max: crate::gui_adjustables::FloatParam,
     pub butterfly_worm_noise_frequency: crate::gui_adjustables::FloatParam,
@@ -709,17 +653,9 @@ impl GuiAdjustables {
         let mut particle_full_update_seconds_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterflies_enabled_field: Option<crate::gui_adjustables::BoolParam> = None;
         let mut butterflies_per_chunk_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_wander_radius_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_height_offset_min_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_height_offset_max_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_size_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_strength_min_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_strength_max_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_frequency_min_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_drift_frequency_max_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_steering_strength_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_bob_frequency_hz_field: Option<crate::gui_adjustables::FloatParam> = None;
-        let mut butterfly_bob_strength_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_lifetime_min_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_lifetime_max_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_worm_noise_frequency_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -1180,13 +1116,6 @@ impl GuiAdjustables {
                             butterflies_per_chunk_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
-                    "butterfly_wander_radius" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_wander_radius_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
                     "butterfly_height_offset_min" => {
                         if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
                             let min = min.unwrap_or(0.0);
@@ -1206,55 +1135,6 @@ impl GuiAdjustables {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
                             butterfly_size_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_drift_strength_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_drift_strength_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_drift_strength_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_drift_strength_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_drift_frequency_min" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_drift_frequency_min_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_drift_frequency_max" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_drift_frequency_max_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_steering_strength" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_steering_strength_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_bob_frequency_hz" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_bob_frequency_hz_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
-                        }
-                    }
-                    "butterfly_bob_strength" => {
-                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
-                            let min = min.unwrap_or(0.0);
-                            let max = max.unwrap_or(1.0);
-                            butterfly_bob_strength_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "butterfly_lifetime_min" => {
@@ -1375,17 +1255,9 @@ impl GuiAdjustables {
             particle_full_update_seconds: particle_full_update_seconds_field.expect("Missing parameter: particle_full_update_seconds"),
             butterflies_enabled: butterflies_enabled_field.expect("Missing parameter: butterflies_enabled"),
             butterflies_per_chunk: butterflies_per_chunk_field.expect("Missing parameter: butterflies_per_chunk"),
-            butterfly_wander_radius: butterfly_wander_radius_field.expect("Missing parameter: butterfly_wander_radius"),
             butterfly_height_offset_min: butterfly_height_offset_min_field.expect("Missing parameter: butterfly_height_offset_min"),
             butterfly_height_offset_max: butterfly_height_offset_max_field.expect("Missing parameter: butterfly_height_offset_max"),
             butterfly_size: butterfly_size_field.expect("Missing parameter: butterfly_size"),
-            butterfly_drift_strength_min: butterfly_drift_strength_min_field.expect("Missing parameter: butterfly_drift_strength_min"),
-            butterfly_drift_strength_max: butterfly_drift_strength_max_field.expect("Missing parameter: butterfly_drift_strength_max"),
-            butterfly_drift_frequency_min: butterfly_drift_frequency_min_field.expect("Missing parameter: butterfly_drift_frequency_min"),
-            butterfly_drift_frequency_max: butterfly_drift_frequency_max_field.expect("Missing parameter: butterfly_drift_frequency_max"),
-            butterfly_steering_strength: butterfly_steering_strength_field.expect("Missing parameter: butterfly_steering_strength"),
-            butterfly_bob_frequency_hz: butterfly_bob_frequency_hz_field.expect("Missing parameter: butterfly_bob_frequency_hz"),
-            butterfly_bob_strength: butterfly_bob_strength_field.expect("Missing parameter: butterfly_bob_strength"),
             butterfly_lifetime_min: butterfly_lifetime_min_field.expect("Missing parameter: butterfly_lifetime_min"),
             butterfly_lifetime_max: butterfly_lifetime_max_field.expect("Missing parameter: butterfly_lifetime_max"),
             butterfly_worm_noise_frequency: butterfly_worm_noise_frequency_field.expect("Missing parameter: butterfly_worm_noise_frequency"),
@@ -1446,17 +1318,9 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
         "leaves_outer_radius" => Some(&adjustables.leaves_outer_radius),
         "particle_full_update_seconds" => Some(&adjustables.particle_full_update_seconds),
         "butterflies_per_chunk" => Some(&adjustables.butterflies_per_chunk),
-        "butterfly_wander_radius" => Some(&adjustables.butterfly_wander_radius),
         "butterfly_height_offset_min" => Some(&adjustables.butterfly_height_offset_min),
         "butterfly_height_offset_max" => Some(&adjustables.butterfly_height_offset_max),
         "butterfly_size" => Some(&adjustables.butterfly_size),
-        "butterfly_drift_strength_min" => Some(&adjustables.butterfly_drift_strength_min),
-        "butterfly_drift_strength_max" => Some(&adjustables.butterfly_drift_strength_max),
-        "butterfly_drift_frequency_min" => Some(&adjustables.butterfly_drift_frequency_min),
-        "butterfly_drift_frequency_max" => Some(&adjustables.butterfly_drift_frequency_max),
-        "butterfly_steering_strength" => Some(&adjustables.butterfly_steering_strength),
-        "butterfly_bob_frequency_hz" => Some(&adjustables.butterfly_bob_frequency_hz),
-        "butterfly_bob_strength" => Some(&adjustables.butterfly_bob_strength),
         "butterfly_lifetime_min" => Some(&adjustables.butterfly_lifetime_min),
         "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
         "butterfly_worm_noise_frequency" => Some(&adjustables.butterfly_worm_noise_frequency),
@@ -1568,17 +1432,9 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "leaves_outer_radius" => Some(&mut adjustables.leaves_outer_radius),
         "particle_full_update_seconds" => Some(&mut adjustables.particle_full_update_seconds),
         "butterflies_per_chunk" => Some(&mut adjustables.butterflies_per_chunk),
-        "butterfly_wander_radius" => Some(&mut adjustables.butterfly_wander_radius),
         "butterfly_height_offset_min" => Some(&mut adjustables.butterfly_height_offset_min),
         "butterfly_height_offset_max" => Some(&mut adjustables.butterfly_height_offset_max),
         "butterfly_size" => Some(&mut adjustables.butterfly_size),
-        "butterfly_drift_strength_min" => Some(&mut adjustables.butterfly_drift_strength_min),
-        "butterfly_drift_strength_max" => Some(&mut adjustables.butterfly_drift_strength_max),
-        "butterfly_drift_frequency_min" => Some(&mut adjustables.butterfly_drift_frequency_min),
-        "butterfly_drift_frequency_max" => Some(&mut adjustables.butterfly_drift_frequency_max),
-        "butterfly_steering_strength" => Some(&mut adjustables.butterfly_steering_strength),
-        "butterfly_bob_frequency_hz" => Some(&mut adjustables.butterfly_bob_frequency_hz),
-        "butterfly_bob_strength" => Some(&mut adjustables.butterfly_bob_strength),
         "butterfly_lifetime_min" => Some(&mut adjustables.butterfly_lifetime_min),
         "butterfly_lifetime_max" => Some(&mut adjustables.butterfly_lifetime_max),
         "butterfly_worm_noise_frequency" => Some(&mut adjustables.butterfly_worm_noise_frequency),

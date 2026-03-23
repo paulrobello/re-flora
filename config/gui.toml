@@ -765,17 +765,6 @@ min = 0.0
 max = 2.0
 
 [[section.param]]
-id = "butterfly_wander_radius"
-kind = "float"
-label = "Wander Radius"
-type = "Float"
-
-[section.param.data]
-value = 2.5
-min = 0.5
-max = 8.0
-
-[[section.param]]
 id = "butterfly_height_offset_min"
 kind = "float"
 label = "Height Offset Min"
@@ -807,83 +796,6 @@ type = "Float"
 value = 0.017999999225139618
 min = 0.0010000000474974513
 max = 0.029999999329447746
-
-[[section.param]]
-id = "butterfly_drift_strength_min"
-kind = "float"
-label = "Flutter Strength Min"
-type = "Float"
-
-[section.param.data]
-value = 0.014999999664723873
-min = 0.0
-max = 0.10000000149011612
-
-[[section.param]]
-id = "butterfly_drift_strength_max"
-kind = "float"
-label = "Flutter Strength Max"
-type = "Float"
-
-[section.param.data]
-value = 0.02500000037252903
-min = 0.0
-max = 0.10000000149011612
-
-[[section.param]]
-id = "butterfly_drift_frequency_min"
-kind = "float"
-label = "Flutter Speed Min"
-type = "Float"
-
-[section.param.data]
-value = 1.5
-min = 0.5
-max = 6.0
-
-[[section.param]]
-id = "butterfly_drift_frequency_max"
-kind = "float"
-label = "Flutter Speed Max"
-type = "Float"
-
-[section.param.data]
-value = 3.5
-min = 0.5
-max = 6.0
-
-[[section.param]]
-id = "butterfly_steering_strength"
-kind = "float"
-label = "Home Pull Strength"
-type = "Float"
-
-[section.param.data]
-value = 0.8999999761581421
-min = 0.0
-max = 3.0
-
-[[section.param]]
-id = "butterfly_bob_frequency_hz"
-kind = "float"
-label = "Vertical Bob Frequency (Hz)"
-type = "Float"
-
-[section.param.data]
-value = 2.200000047683716
-min = 0.0
-max = 8.0
-
-[[section.param]]
-id = "butterfly_bob_strength"
-kind = "float"
-label = "Vertical Bob Strength"
-type = "Float"
-
-[section.param.data]
-value = 1.399999976158142
-min = 0.0
-max = 6.0
 
 [[section.param]]
 id = "butterfly_lifetime_min"
