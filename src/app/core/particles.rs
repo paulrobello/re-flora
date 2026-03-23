@@ -2,7 +2,7 @@ use super::App;
 use crate::geom::UAabb3;
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
-    ParticleSystem,
+    ParticleSystem, ParticleTickStep,
 };
 use crate::util::ClusterResult;
 use egui::Color32;
@@ -220,7 +220,7 @@ impl App {
         let tick_step = self.particle_system.last_tick_step();
         if tick_step.did_step {
             self.particle_animation_time_sec += tick_step.step_seconds;
-            self.plan_butterflies();
+            self.plan_butterflies(tick_step);
         }
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
@@ -230,7 +230,7 @@ impl App {
         }
     }
 
-    pub(super) fn plan_butterflies(&mut self) {
+    pub(super) fn plan_butterflies(&mut self, tick_step: ParticleTickStep) {
         use crate::tracer::{TerrainRayHitSample, TerrainRayQuery};
 
         const MAX_RETRIES: usize = 3;
@@ -254,6 +254,30 @@ impl App {
                 &mut positions,
                 &mut directions,
             );
+
+            if tick_step.bucket_count > 1 {
+                let active_bucket = tick_step.active_bucket;
+                let mut filtered_handles = Vec::with_capacity(handles.len());
+                let mut filtered_positions = Vec::with_capacity(positions.len());
+                let mut filtered_directions = Vec::with_capacity(directions.len());
+
+                for ((handle, position), direction) in handles
+                    .into_iter()
+                    .zip(positions.into_iter())
+                    .zip(directions.into_iter())
+                {
+                    if self.particle_system.handle_bucket(handle) == Some(active_bucket) {
+                        filtered_handles.push(handle);
+                        filtered_positions.push(position);
+                        filtered_directions.push(direction);
+                    }
+                }
+
+                handles = filtered_handles;
+                positions = filtered_positions;
+                directions = filtered_directions;
+            }
+
             all_emitter_indices.resize(all_emitter_indices.len() + handles.len(), emitter_idx);
             all_handles.extend(handles);
             all_positions.extend(positions);

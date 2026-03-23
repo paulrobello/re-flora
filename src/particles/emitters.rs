@@ -278,7 +278,7 @@ impl ButterflyEmitter {
         desc: &ButterflyEmitterDesc,
         render_kind: ParticleRenderKind,
     ) -> Self {
-        let emitter = Self {
+        Self {
             center,
             map_extent: extent,
             height_offset: desc.height_offset_min.min(desc.height_offset_max)
@@ -296,8 +296,7 @@ impl ButterflyEmitter {
             active_handles: Vec::new(),
             worm_seeds: Vec::new(),
             worm_phases: Vec::new(),
-        };
-        emitter
+        }
     }
 
     #[allow(dead_code)]
