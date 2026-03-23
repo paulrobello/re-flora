@@ -142,16 +142,11 @@ vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
 
     float shallow_mix = smoothstep(0.0, 1.0, depth_norm);
     vec3 scattering_base = mix(deep, shallow, 0.2 + 0.75 * shallow_mix);
-    vec3 scattering = scattering_base * light_factor * 0.12 * (0.35 + 0.85 * depth_norm);
+    vec3 scattering = scattering_base * 0.12 * (0.35 + 0.85 * depth_norm);
 
     vec3 color = fresnel * reflection + (1.0 - fresnel) * scattering;
 
     float atten = max(1.0 - dist2 * 0.00075, 0.0);
-    color += mix(deep, shallow, 0.55) * depth_norm * 0.14 * atten * light_factor;
-
-    color += ocean_specular(n, light_dir, view_dir,
-                            600.0 * inversesqrt(max(dist2, 1e-4))) * light_factor;
-
     return color;
 }
 
