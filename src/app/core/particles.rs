@@ -6,7 +6,8 @@ use crate::particles::{
 };
 use crate::util::ClusterResult;
 use egui::Color32;
-use glam::{Vec2, Vec3, Vec4};
+use glam::{Vec3, Vec4};
+use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
 
@@ -57,16 +58,6 @@ impl App {
             let max = gui_adjustables.butterfly_height_offset_max.value;
             (min.min(max), min.max(max))
         };
-        let (drift_strength_min, drift_strength_max) = {
-            let min = gui_adjustables.butterfly_drift_strength_min.value;
-            let max = gui_adjustables.butterfly_drift_strength_max.value;
-            (min.min(max), min.max(max))
-        };
-        let (drift_frequency_min, drift_frequency_max) = {
-            let min = gui_adjustables.butterfly_drift_frequency_min.value;
-            let max = gui_adjustables.butterfly_drift_frequency_max.value;
-            (min.min(max), min.max(max))
-        };
         let (lifetime_min, lifetime_max) = {
             let min = gui_adjustables.butterfly_lifetime_min.value;
             let max = gui_adjustables.butterfly_lifetime_max.value;
@@ -78,17 +69,9 @@ impl App {
             butterfly_count: Self::butterfly_count_from_per_chunk(
                 gui_adjustables.butterflies_per_chunk.value,
             ),
-            wander_radius: gui_adjustables.butterfly_wander_radius.value,
             height_offset_min,
             height_offset_max,
             size: gui_adjustables.butterfly_size.value,
-            drift_strength_min,
-            drift_strength_max,
-            drift_frequency_min,
-            drift_frequency_max,
-            steering_strength: gui_adjustables.butterfly_steering_strength.value,
-            bob_frequency_hz: gui_adjustables.butterfly_bob_frequency_hz.value,
-            bob_strength: gui_adjustables.butterfly_bob_strength.value,
             lifetime_min,
             lifetime_max,
             color_low: Vec4::ONE,
@@ -231,16 +214,7 @@ impl App {
         let tick_step = self.particle_system.last_tick_step();
         if tick_step.did_step {
             self.particle_animation_time_sec += tick_step.step_seconds;
-            let active_bucket = if tick_step.bucket_count > 1 {
-                Some(tick_step.active_bucket)
-            } else {
-                None
-            };
-            self.constrain_butterflies_to_terrain(
-                tick_step.step_seconds,
-                self.particle_animation_time_sec,
-                active_bucket,
-            );
+            self.plan_butterflies();
         }
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
@@ -250,161 +224,174 @@ impl App {
         }
     }
 
-    pub(super) fn constrain_butterflies_to_terrain(
-        &mut self,
-        dt: f32,
-        time: f32,
-        active_bucket: Option<u32>,
-    ) {
-        let mut query_positions_xz = Vec::new();
-        let mut query_targets: Vec<ButterflyQueryTarget> = Vec::new();
+    pub(super) fn plan_butterflies(&mut self) {
+        use crate::tracer::{TerrainRayHitSample, TerrainRayQuery};
 
-        for (emitter_index, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
-            let mut emitter_positions_xz = Vec::new();
-            let mut emitter_handles = Vec::new();
-            emitter.collect_ground_queries(
+        const MAX_RETRIES: usize = 3;
+        const STEP_LEN: f32 = crate::particles::emitters::WORM_STEP_LEN;
+        const RAY_EPSILON: f32 = 0.02;
+
+        let map_size = super::CHUNK_DIM.as_vec3();
+
+        let mut all_handles: Vec<ParticleHandle> = Vec::new();
+        let mut all_positions: Vec<Vec3> = Vec::new();
+        let mut all_directions: Vec<Vec3> = Vec::new();
+        let mut all_emitter_indices: Vec<usize> = Vec::new();
+
+        for (emitter_idx, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
+            let mut handles = Vec::new();
+            let mut positions = Vec::new();
+            let mut directions = Vec::new();
+            emitter.collect_butterfly_states(
                 &self.particle_system,
-                &mut emitter_positions_xz,
-                &mut emitter_handles,
+                &mut handles,
+                &mut positions,
+                &mut directions,
             );
-            query_targets.extend(
-                emitter_handles
-                    .into_iter()
-                    .zip(emitter_positions_xz.into_iter())
-                    .filter(|(handle, _)| {
-                        active_bucket.is_none_or(|bucket| {
-                            self.particle_system.handle_bucket(*handle) == Some(bucket)
-                        })
-                    })
-                    .map(|(handle, pos_xz)| {
-                        query_positions_xz.push(pos_xz);
-                        ButterflyQueryTarget {
-                            emitter_index,
-                            handle,
-                        }
-                    }),
-            );
+            all_emitter_indices.resize(all_emitter_indices.len() + handles.len(), emitter_idx);
+            all_handles.extend(handles);
+            all_positions.extend(positions);
+            all_directions.extend(directions);
         }
 
-        if query_targets.is_empty() {
+        if all_handles.is_empty() {
             return;
         }
 
-        const BORDER_PADDING_INWARD: f32 = 0.001;
-        let map_size = super::CHUNK_DIM.as_vec3();
-        let max_x = (map_size.x - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        let max_z = (map_size.z - BORDER_PADDING_INWARD).max(BORDER_PADDING_INWARD);
-        let mut border_despawn_count = 0usize;
-        let mut out_of_bounds_before_border = 0usize;
-        for (idx, target) in query_targets.iter().enumerate() {
-            let Some(mut pos) = self.particle_system.position(target.handle) else {
-                continue;
+        let n = all_handles.len();
+        let mut successes = vec![false; n];
+        let mut committed_dirs = all_directions.clone();
+        let mut pending_retry: Vec<(usize, Vec3, Vec3)> = Vec::new();
+
+        for attempt in 0..=MAX_RETRIES {
+            let is_initial = attempt == 0;
+            let pending_count = pending_retry.len();
+
+            if pending_count == 0 && !is_initial {
+                break;
+            }
+
+            let batch: Vec<(usize, Vec3, Vec3)> = if is_initial {
+                all_positions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pos)| (i, *pos, all_directions[i]))
+                    .collect()
+            } else {
+                std::mem::take(&mut pending_retry)
             };
 
-            let mut at_border = false;
-            if pos.x < 0.0 || pos.x > map_size.x || pos.z < 0.0 || pos.z > map_size.z {
-                out_of_bounds_before_border += 1;
-            }
-            if pos.x <= BORDER_PADDING_INWARD {
-                pos.x = BORDER_PADDING_INWARD;
-                at_border = true;
-            } else if pos.x >= max_x {
-                pos.x = max_x;
-                at_border = true;
-            }
-
-            if pos.z <= BORDER_PADDING_INWARD {
-                pos.z = BORDER_PADDING_INWARD;
-                at_border = true;
-            } else if pos.z >= max_z {
-                pos.z = max_z;
-                at_border = true;
-            }
-
-            if at_border {
-                border_despawn_count += 1;
-                let _ = self.particle_system.set_position(target.handle, pos);
-                let _ = self.particle_system.despawn(target.handle);
-                query_positions_xz[idx] = Vec2::new(pos.x, pos.z);
-            }
-        }
-
-        let heights = match self
-            .tracer
-            .query_terrain_heights_batch_with_validity(&query_positions_xz)
-        {
-            Ok(heights) => heights,
-            Err(err) => {
-                log::error!("Failed terrain query for butterflies: {}", err);
-                return;
-            }
-        };
-
-        let total_sample_count = heights.len();
-        let mut invalid_sample_count = 0usize;
-        for (idx, (target, sample)) in query_targets
-            .into_iter()
-            .zip(heights.into_iter())
-            .enumerate()
-        {
-            if !sample.is_valid {
-                invalid_sample_count += 1;
-                let query_pos = query_positions_xz[idx];
-                log::warn!(
-                    "Invalid butterfly terrain ray: origin_xz=({:.4},{:.4}) direction=({:.1},{:.1},{:.1}) emitter_index={} handle={:?}",
-                    query_pos.x,
-                    query_pos.y,
-                    0.0f32,
-                    -1.0f32,
-                    0.0f32,
-                    target.emitter_index,
-                    target.handle
-                );
+            if batch.is_empty() {
                 continue;
             }
-            if let Some(emitter) = self.butterfly_emitters.get_mut(target.emitter_index) {
-                emitter.constrain_to_ground(
-                    &mut self.particle_system,
-                    target.handle,
-                    sample.height,
-                    dt,
-                    time,
-                );
+
+            let mut rays: Vec<TerrainRayQuery> = Vec::with_capacity(batch.len());
+            for &(_, origin, ref dir) in &batch {
+                rays.push(TerrainRayQuery {
+                    origin: origin + Vec3::new(0.0, RAY_EPSILON, 0.0),
+                    direction: dir.normalize_or_zero(),
+                });
+            }
+
+            let hits: Vec<TerrainRayHitSample> =
+                match self.tracer.query_terrain_rays_batch_with_validity(&rays) {
+                    Ok(h) => h,
+                    Err(err) => {
+                        log::error!("Failed terrain ray query for butterflies: {}", err);
+                        return;
+                    }
+                };
+
+            for ((idx, origin, dir), hit) in batch.into_iter().zip(hits.into_iter()) {
+                if successes[idx] {
+                    continue;
+                }
+
+                let next_pos = origin + dir * STEP_LEN;
+
+                let out_of_bounds = next_pos.x < 0.0
+                    || next_pos.x > map_size.x
+                    || next_pos.z < 0.0
+                    || next_pos.z > map_size.z;
+
+                if out_of_bounds {
+                    if attempt < MAX_RETRIES {
+                        let new_dir = {
+                            let emitter_idx = all_emitter_indices[idx];
+                            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
+                                let new_seed = (dir.x * 1000.0 + dir.z * 100.0 + idx as f32)
+                                    + (attempt as f32 * 17.3);
+                                let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
+                                crate::particles::emitters::generate_worm_direction(
+                                    &em.worm_noise,
+                                    new_seed,
+                                    new_phase,
+                                )
+                            } else {
+                                dir
+                            }
+                        };
+                        pending_retry.push((idx, origin, new_dir));
+                    } else {
+                        if let Some(em) = self.butterfly_emitters.get_mut(all_emitter_indices[idx])
+                        {
+                            em.despawn_butterfly(all_handles[idx]);
+                        }
+                        let _ = self.particle_system.despawn(all_handles[idx]);
+                    }
+                    continue;
+                }
+
+                let blocked = if hit.is_valid {
+                    let hit_dist = (hit.position - origin).length();
+                    hit_dist < STEP_LEN - RAY_EPSILON
+                } else {
+                    false
+                };
+
+                if blocked {
+                    if attempt < MAX_RETRIES {
+                        let new_dir = {
+                            let emitter_idx = all_emitter_indices[idx];
+                            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
+                                let new_seed = (dir.x * 1000.0 + dir.z * 100.0 + idx as f32)
+                                    + (attempt as f32 * 17.3);
+                                let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
+                                crate::particles::emitters::generate_worm_direction(
+                                    &em.worm_noise,
+                                    new_seed,
+                                    new_phase,
+                                )
+                            } else {
+                                dir
+                            }
+                        };
+                        pending_retry.push((idx, origin, new_dir));
+                    } else {
+                        if let Some(em) = self.butterfly_emitters.get_mut(all_emitter_indices[idx])
+                        {
+                            em.despawn_butterfly(all_handles[idx]);
+                        }
+                        let _ = self.particle_system.despawn(all_handles[idx]);
+                    }
+                } else {
+                    successes[idx] = true;
+                    committed_dirs[idx] = dir;
+                }
             }
         }
 
-        if invalid_sample_count > 0 {
-            let (min_qx, max_qx, min_qz, max_qz) = query_positions_xz.iter().fold(
-                (
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                    f32::INFINITY,
-                    f32::NEG_INFINITY,
-                ),
-                |(min_x, max_x_q, min_z, max_z_q), q| {
-                    (
-                        min_x.min(q.x),
-                        max_x_q.max(q.x),
-                        min_z.min(q.y),
-                        max_z_q.max(q.y),
-                    )
-                },
-            );
-            log::warn!(
-                "Invalid butterfly terrain samples: {}/{}; border_despawns={} out_of_bounds_before_border={}; query_x=[{:.4},{:.4}] query_z=[{:.4},{:.4}] bounds_x=[{:.4},{:.4}] bounds_z=[{:.4},{:.4}]",
-                invalid_sample_count,
-                total_sample_count,
-                border_despawn_count,
-                out_of_bounds_before_border,
-                min_qx,
-                max_qx,
-                min_qz,
-                max_qz,
-                BORDER_PADDING_INWARD,
-                max_x,
-                BORDER_PADDING_INWARD,
-                max_z
-            );
+        for i in 0..n {
+            if !successes[i] {
+                continue;
+            }
+            let emitter_idx = all_emitter_indices[i];
+            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
+                em.set_butterfly_state(all_handles[i], all_positions[i], committed_dirs[i]);
+            }
+            let _ = self
+                .particle_system
+                .set_velocity(all_handles[i], committed_dirs[i] * STEP_LEN);
         }
     }
 
@@ -419,11 +406,3 @@ impl App {
         }
     }
 }
-
-#[derive(Clone, Copy)]
-struct ButterflyQueryTarget {
-    emitter_index: usize,
-    handle: ParticleHandle,
-}
-
-// bird query types have been removed

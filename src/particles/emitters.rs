@@ -1,12 +1,14 @@
 use std::{f32::consts::TAU, ops::RangeInclusive};
 
 use fastnoise_lite::{FastNoiseLite, NoiseType};
-use glam::{Vec2, Vec3, Vec4};
+use glam::{Vec3, Vec4};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::{MotionMode, ParticleHandle, ParticleRenderKind, ParticleSpawn, ParticleSystem};
 use crate::tracer::ButterflyPalettePreset;
 use crate::wind::Wind;
+
+pub const WORM_STEP_LEN: f32 = 0.15;
 
 pub trait ParticleEmitter {
     fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32);
@@ -39,11 +41,18 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
     )
 }
 
-fn butterfly_height_noise_state(seed: i32, frequency: f32) -> FastNoiseLite {
+fn butterfly_worm_noise_state(seed: i32) -> FastNoiseLite {
     let mut state = FastNoiseLite::with_seed(seed);
     state.set_noise_type(Some(NoiseType::Perlin));
-    state.set_frequency(Some(frequency.max(0.0001)));
+    state.set_frequency(Some(2.0));
     state
+}
+
+pub fn generate_worm_direction(noise: &FastNoiseLite, seed: f32, time: f32) -> Vec3 {
+    let nx = noise.get_noise_3d(seed, time, 0.0);
+    let ny = noise.get_noise_3d(seed + 100.0, time, 0.0);
+    let nz = noise.get_noise_3d(seed + 200.0, time, 0.0);
+    Vec3::new(nx, ny, nz).normalize_or_zero()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -209,17 +218,9 @@ impl ParticleEmitter for FallenLeafEmitter {
 pub struct ButterflyEmitterDesc {
     pub enabled: bool,
     pub butterfly_count: u32,
-    pub wander_radius: f32,
     pub height_offset_min: f32,
     pub height_offset_max: f32,
     pub size: f32,
-    pub drift_strength_min: f32,
-    pub drift_strength_max: f32,
-    pub drift_frequency_min: f32,
-    pub drift_frequency_max: f32,
-    pub steering_strength: f32,
-    pub bob_frequency_hz: f32,
-    pub bob_strength: f32,
     pub lifetime_min: f32,
     pub lifetime_max: f32,
     pub color_low: Vec4,
@@ -231,17 +232,9 @@ impl Default for ButterflyEmitterDesc {
         Self {
             enabled: true,
             butterfly_count: 128,
-            wander_radius: 2.5,
             height_offset_min: 0.06,
             height_offset_max: 0.14,
             size: 0.018,
-            drift_strength_min: 0.6,
-            drift_strength_max: 1.4,
-            drift_frequency_min: 1.5,
-            drift_frequency_max: 3.5,
-            steering_strength: 0.9,
-            bob_frequency_hz: 2.2,
-            bob_strength: 1.4,
             lifetime_min: 10.0,
             lifetime_max: 15.0,
             color_low: Vec4::new(0.95, 0.9, 0.55, 1.0),
@@ -252,16 +245,9 @@ impl Default for ButterflyEmitterDesc {
 
 pub struct ButterflyEmitter {
     pub center: Vec3,
-    pub wander_radius: f32,
-    #[allow(dead_code)]
-    min_wander_radius: f32,
+    pub map_extent: Vec3,
     pub height_offset: RangeInclusive<f32>,
     pub size: f32,
-    pub drift_strength: RangeInclusive<f32>,
-    pub drift_frequency: RangeInclusive<f32>,
-    pub steering_strength: f32,
-    pub bob_frequency_hz: f32,
-    pub bob_strength: f32,
     pub lifetime: RangeInclusive<f32>,
     #[allow(dead_code)]
     pub color_low: Vec4,
@@ -270,9 +256,11 @@ pub struct ButterflyEmitter {
     pub enabled: bool,
     pub butterfly_count: u32,
     render_kind: ParticleRenderKind,
-    vertical_noise: FastNoiseLite,
+    pub worm_noise: FastNoiseLite,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
+    worm_seeds: Vec<f32>,
+    worm_phases: Vec<f32>,
 }
 
 impl ButterflyEmitter {
@@ -287,24 +275,12 @@ impl ButterflyEmitter {
         desc: &ButterflyEmitterDesc,
         render_kind: ParticleRenderKind,
     ) -> Self {
-        let min_wander_radius = desc
-            .wander_radius
-            .max(extent.x.max(extent.z) * 0.35)
-            .max(0.1);
-        let mut emitter = Self {
+        let emitter = Self {
             center,
-            wander_radius: min_wander_radius,
-            min_wander_radius,
+            map_extent: extent,
             height_offset: desc.height_offset_min.min(desc.height_offset_max)
                 ..=desc.height_offset_max.max(desc.height_offset_min),
             size: desc.size.max(0.001),
-            drift_strength: desc.drift_strength_min.min(desc.drift_strength_max)
-                ..=desc.drift_strength_max.max(desc.drift_strength_min),
-            drift_frequency: desc.drift_frequency_min.min(desc.drift_frequency_max)
-                ..=desc.drift_frequency_max.max(desc.drift_frequency_min),
-            steering_strength: desc.steering_strength.max(0.0),
-            bob_frequency_hz: desc.bob_frequency_hz.max(0.0),
-            bob_strength: desc.bob_strength.max(0.0),
             lifetime: desc.lifetime_min.min(desc.lifetime_max)
                 ..=desc.lifetime_max.max(desc.lifetime_min),
             color_low: desc.color_low,
@@ -312,11 +288,12 @@ impl ButterflyEmitter {
             enabled: desc.enabled,
             butterfly_count: desc.butterfly_count,
             render_kind,
-            vertical_noise: butterfly_height_noise_state(seed as i32 + 9_341, 0.65),
+            worm_noise: butterfly_worm_noise_state(seed as i32),
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
+            worm_seeds: Vec::new(),
+            worm_phases: Vec::new(),
         };
-        emitter.clamp_height(center.y);
         emitter
     }
 
@@ -324,48 +301,23 @@ impl ButterflyEmitter {
     pub fn apply_desc(&mut self, desc: &ButterflyEmitterDesc) {
         self.enabled = desc.enabled;
         self.butterfly_count = desc.butterfly_count;
-        self.wander_radius = desc.wander_radius.max(self.min_wander_radius).max(0.1);
         self.height_offset = desc.height_offset_min.min(desc.height_offset_max)
             ..=desc.height_offset_max.max(desc.height_offset_min);
         self.size = desc.size.max(0.001);
-        self.drift_strength = desc.drift_strength_min.min(desc.drift_strength_max)
-            ..=desc.drift_strength_max.max(desc.drift_strength_min);
-        self.drift_frequency = desc.drift_frequency_min.min(desc.drift_frequency_max)
-            ..=desc.drift_frequency_max.max(desc.drift_frequency_min);
-        self.steering_strength = desc.steering_strength.max(0.0);
-        self.bob_frequency_hz = desc.bob_frequency_hz.max(0.0);
-        self.bob_strength = desc.bob_strength.max(0.0);
         self.lifetime =
             desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
         self.color_low = desc.color_low;
         self.color_high = desc.color_high;
-        self.clamp_height(self.center.y);
-    }
-
-    fn clamp_height(&mut self, base_height: f32) {
-        let min = *self.height_offset.start();
-        let max = *self.height_offset.end();
-        let clamped_min = (base_height + min).max(0.05) - base_height;
-        let clamped_max = (base_height + max).max(clamped_min + 0.01) - base_height;
-        self.height_offset = clamped_min..=clamped_max;
     }
 
     fn prune_handles(&mut self, system: &ParticleSystem) {
+        let old_len = self.active_handles.len();
         self.active_handles
             .retain(|handle| system.is_alive_handle(*handle));
-    }
-
-    fn steer_towards_home(&mut self, system: &mut ParticleSystem, dt: f32, _time: f32) {
-        let steering = self.steering_strength * dt;
-        for handle in &self.active_handles {
-            if let Some(pos) = system.position(*handle) {
-                let relative = pos - self.center;
-                let horizontal = Vec3::new(relative.x, 0.0, relative.z);
-                if horizontal.length_squared() > self.wander_radius * self.wander_radius {
-                    let pull = -horizontal.normalize_or_zero() * steering;
-                    let _ = system.add_velocity(*handle, pull);
-                }
-            }
+        let removed = old_len - self.active_handles.len();
+        if removed > 0 {
+            self.worm_seeds.resize(self.active_handles.len(), 0.0);
+            self.worm_phases.resize(self.active_handles.len(), 0.0);
         }
     }
 
@@ -378,28 +330,30 @@ impl ButterflyEmitter {
     fn trim_active_to_count(&mut self, system: &mut ParticleSystem, target_count: usize) {
         while self.active_handles.len() > target_count {
             if let Some(handle) = self.active_handles.pop() {
+                self.worm_seeds.pop();
+                self.worm_phases.pop();
                 let _ = system.despawn(handle);
             }
         }
     }
 
-    fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
-        let radius_factor = self.rng.random_range(0.35..=1.0);
-        let angle = self.rng.random_range(0.0..TAU);
-        let radius = self.wander_radius * radius_factor;
+    pub fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+        let x = self
+            .rng
+            .random_range(-self.map_extent.x..=self.map_extent.x);
+        let z = self
+            .rng
+            .random_range(-self.map_extent.z..=self.map_extent.z);
         let height_offset = random_in_range(&mut self.rng, &self.height_offset);
 
-        let mut position = self.center;
-        position.x += angle.cos() * radius;
-        position.z += angle.sin() * radius;
-        position.y += height_offset;
-
-        let drift_strength = random_in_range(&mut self.rng, &self.drift_strength);
-        let drift_frequency = random_in_range(&mut self.rng, &self.drift_frequency);
-
-        let yaw = self.rng.random_range(0.0..TAU);
-        let vertical_bias = self.rng.random_range(-0.2..=0.35);
-        let drift_direction = Vec3::new(yaw.cos(), vertical_bias, yaw.sin()).normalize_or_zero();
+        let position = Vec3::new(
+            self.center.x + x,
+            self.center.y + height_offset,
+            self.center.z + z,
+        );
+        let seed = self.rng.random_range(0.0..100_000.0);
+        let phase = self.rng.random_range(0.0..TAU);
+        let initial_dir = generate_worm_direction(&self.worm_noise, seed, phase);
 
         let preset_count = ButterflyPalettePreset::COUNT;
         let texture_variant = if preset_count == 0 {
@@ -412,16 +366,16 @@ impl ButterflyEmitter {
 
         let spawn = ParticleSpawn {
             position,
-            velocity: drift_direction * drift_strength * 0.35,
+            velocity: initial_dir * WORM_STEP_LEN,
             color: Vec4::ONE,
             size: self.size,
             lifetime,
             wind_factor: 0.0,
             gravity_factor: 0.0,
-            drift_direction,
-            drift_strength,
-            drift_frequency,
-            speed_noise_offset: self.rng.random_range(0.0..10_000.0),
+            drift_direction: initial_dir,
+            drift_strength: 0.0,
+            drift_frequency: 1.0,
+            speed_noise_offset: seed,
             motion_mode: MotionMode::Free,
             sink_on_lifetime: false,
             sink_speed: 0.0,
@@ -429,64 +383,56 @@ impl ButterflyEmitter {
             render_kind: self.render_kind,
         };
 
-        system.spawn(spawn)
+        match system.spawn(spawn) {
+            Some(handle) => {
+                self.worm_seeds.push(seed);
+                self.worm_phases.push(phase);
+                Some(handle)
+            }
+            None => None,
+        }
     }
 
-    pub fn collect_ground_queries(
+    pub fn collect_butterfly_states(
         &mut self,
         system: &ParticleSystem,
-        out_positions_xz: &mut Vec<Vec2>,
         out_handles: &mut Vec<ParticleHandle>,
+        out_positions: &mut Vec<Vec3>,
+        out_directions: &mut Vec<Vec3>,
     ) {
         self.prune_handles(system);
-        for handle in &self.active_handles {
+        for (i, handle) in self.active_handles.iter().enumerate() {
             if let Some(pos) = system.position(*handle) {
-                out_positions_xz.push(Vec2::new(pos.x, pos.z));
                 out_handles.push(*handle);
+                out_positions.push(pos);
+                let dir = generate_worm_direction(
+                    &self.worm_noise,
+                    self.worm_seeds[i],
+                    self.worm_phases[i],
+                );
+                out_directions.push(dir);
             }
         }
     }
 
-    pub fn constrain_to_ground(
-        &mut self,
-        system: &mut ParticleSystem,
-        handle: ParticleHandle,
-        ground_height: f32,
-        dt: f32,
-        time: f32,
-    ) {
-        let Some(mut pos) = system.position(handle) else {
-            return;
-        };
+    pub fn set_butterfly_state(&mut self, handle: ParticleHandle, position: Vec3, direction: Vec3) {
+        if let Some(idx) = self.active_handles.iter().position(|h| *h == handle) {
+            self.worm_phases[idx] += WORM_STEP_LEN;
+            let _ = (position, direction);
+        }
+    }
 
-        let min_height_offset = *self.height_offset.start();
-        let max_height_offset = *self.height_offset.end();
-        let vertical_span = (max_height_offset - min_height_offset).max(0.01);
-
-        let noise_time = time * self.bob_frequency_hz.max(0.05);
-        let noise = self
-            .vertical_noise
-            .get_noise_2d(noise_time, 0.0)
-            .clamp(-1.0, 1.0);
-        let target_offset = min_height_offset + (noise * 0.5 + 0.5) * vertical_span;
-
-        let current_offset = pos.y - ground_height;
-        let error = target_offset - current_offset;
-        let dt_for_correction = dt.clamp(1.0 / 240.0, 1.0 / 30.0);
-        let correction_speed = (self.bob_strength.max(0.2) * 2.5).max(0.4);
-        let max_step = correction_speed * dt_for_correction;
-        let correction = error.clamp(-max_step, max_step);
-        pos.y += correction;
-
-        let min_height = ground_height + min_height_offset;
-        let max_height = ground_height + max_height_offset;
-        pos.y = pos.y.clamp(min_height, max_height);
-        let _ = system.set_position(handle, pos);
+    pub fn despawn_butterfly(&mut self, handle: ParticleHandle) {
+        if let Some(idx) = self.active_handles.iter().position(|h| *h == handle) {
+            self.active_handles.swap_remove(idx);
+            self.worm_seeds.swap_remove(idx);
+            self.worm_phases.swap_remove(idx);
+        }
     }
 }
 
 impl ParticleEmitter for ButterflyEmitter {
-    fn update(&mut self, system: &mut ParticleSystem, dt: f32, time: f32) {
+    fn update(&mut self, system: &mut ParticleSystem, _dt: f32, _time: f32) {
         self.prune_handles(system);
         let target_count = if self.enabled {
             self.butterfly_count as usize
@@ -507,8 +453,6 @@ impl ParticleEmitter for ButterflyEmitter {
                 break;
             }
         }
-
-        self.steer_towards_home(system, dt, time);
     }
 }
 
