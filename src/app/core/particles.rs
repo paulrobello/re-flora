@@ -76,6 +76,7 @@ impl App {
             lifetime_max,
             color_low: Vec4::ONE,
             color_high: Vec4::ONE,
+            worm_noise_frequency: gui_adjustables.butterfly_worm_noise_frequency.value,
         }
     }
 
@@ -192,6 +193,11 @@ impl App {
             return;
         }
 
+        self.butterfly_emitter_desc =
+            Self::butterfly_desc_from_gui_adjustables(&self.gui_adjustables);
+        for emitter in &mut self.butterfly_emitters {
+            emitter.apply_desc(&self.butterfly_emitter_desc);
+        }
         self.ensure_map_butterfly_emitter();
         let wind_time = self.time_info.time_since_start();
         self.particle_system

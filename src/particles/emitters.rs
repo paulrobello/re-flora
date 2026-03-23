@@ -41,10 +41,11 @@ fn random_color(rng: &mut SmallRng, low: Vec4, high: Vec4) -> Vec4 {
     )
 }
 
-fn butterfly_worm_noise_state(seed: i32) -> FastNoiseLite {
+fn butterfly_worm_noise_state(seed: i32, frequency: f32) -> FastNoiseLite {
     let mut state = FastNoiseLite::with_seed(seed);
     state.set_noise_type(Some(NoiseType::Perlin));
-    state.set_frequency(Some(2.0));
+    log::info!("Butterfly worm noise frequency: {}", frequency);
+    state.set_frequency(Some(frequency));
     state
 }
 
@@ -225,6 +226,7 @@ pub struct ButterflyEmitterDesc {
     pub lifetime_max: f32,
     pub color_low: Vec4,
     pub color_high: Vec4,
+    pub worm_noise_frequency: f32,
 }
 
 impl Default for ButterflyEmitterDesc {
@@ -239,6 +241,7 @@ impl Default for ButterflyEmitterDesc {
             lifetime_max: 15.0,
             color_low: Vec4::new(0.95, 0.9, 0.55, 1.0),
             color_high: Vec4::new(1.0, 0.97, 0.72, 1.0),
+            worm_noise_frequency: 2.0,
         }
     }
 }
@@ -288,7 +291,7 @@ impl ButterflyEmitter {
             enabled: desc.enabled,
             butterfly_count: desc.butterfly_count,
             render_kind,
-            worm_noise: butterfly_worm_noise_state(seed as i32),
+            worm_noise: butterfly_worm_noise_state(seed as i32, desc.worm_noise_frequency),
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
             worm_seeds: Vec::new(),
@@ -308,6 +311,8 @@ impl ButterflyEmitter {
             desc.lifetime_min.min(desc.lifetime_max)..=desc.lifetime_max.max(desc.lifetime_min);
         self.color_low = desc.color_low;
         self.color_high = desc.color_high;
+        self.worm_noise
+            .set_frequency(Some(desc.worm_noise_frequency.max(0.0001)));
     }
 
     fn prune_handles(&mut self, system: &ParticleSystem) {

@@ -892,7 +892,7 @@ label = "Lifetime Min (s)"
 type = "Float"
 
 [section.param.data]
-value = 10.0
+value = 50.0
 min = 1.0
 max = 60.0
 
@@ -903,9 +903,20 @@ label = "Lifetime Max (s)"
 type = "Float"
 
 [section.param.data]
-value = 15.0
+value = 60.0
 min = 1.0
 max = 60.0
+
+[[section.param]]
+id = "butterfly_worm_noise_frequency"
+kind = "float"
+label = "Worm Noise Frequency"
+type = "Float"
+
+[section.param.data]
+value = 0.009999999776482582
+min = 0.009999999776482582
+max = 10.0
 
 [[section]]
 name = "Voxel"
