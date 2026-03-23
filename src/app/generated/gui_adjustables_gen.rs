@@ -432,13 +432,13 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         section: "Butterflies",
         id: "butterfly_height_offset_min",
         kind: "float",
-        label: "Height Offset Min",
+        label: "Spawn Height Min",
     },
     GeneratedGuiParamDescriptor {
         section: "Butterflies",
         id: "butterfly_height_offset_max",
         kind: "float",
-        label: "Height Offset Max",
+        label: "Spawn Height Max",
     },
     GeneratedGuiParamDescriptor {
         section: "Butterflies",
