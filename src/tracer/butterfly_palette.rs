@@ -35,7 +35,7 @@ impl ButterflyPaletteConfig {
     pub fn into_role_array(self) -> [PaletteColor; 5] {
         [
             [0, 0, 0, 0],
-            self.light_shade,
+            [0, 0, 0, 0],
             self.dark_shade,
             self.mid_shade,
             self.light_shade,
@@ -134,7 +134,7 @@ pub fn load_butterfly_and_remap(
 
     println!("target config mapping:");
     println!("  transparent: {:02X?}", [0, 0, 0, 0]);
-    println!("  border:      {:02X?}", target_config.light_shade);
+    println!("  border:      {:02X?}", [0, 0, 0, 0]);
     println!("  dark_shade: {:02X?}", target_config.dark_shade);
     println!("  mid_shade:  {:02X?}", target_config.mid_shade);
     println!("  light_shade: {:02X?}", target_config.light_shade);
