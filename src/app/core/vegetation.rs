@@ -4,14 +4,14 @@ use crate::app::world_edits::{
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldEditPlan,
 };
 use crate::app::world_ops;
-use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_OAK_WOOD, VOXEL_TYPE_ROCK};
+use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_OAK_WOOD};
 use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
 use crate::util::cluster_positions;
 use anyhow::Result;
 use glam::{UVec3, Vec2, Vec3};
-use rand::{Rng, SeedableRng};
+use rand::Rng;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -636,47 +636,6 @@ impl App {
                 half_width: POST_HALF_WIDTH,
                 half_depth: POST_HALF_DEPTH,
             })?;
-        }
-
-        Ok(())
-    }
-
-    pub(super) fn plant_map_region_rocks(&mut self) -> Result<()> {
-        const ROCK_COUNT: u32 = 80;
-        const BORDER_PADDING: f32 = 1.0;
-        const ROCK_HEIGHT_MIN: f32 = 8.0;
-        const ROCK_HEIGHT_MAX: f32 = 22.0;
-        const ROCK_HALF_WIDTH_MIN: f32 = 0.8;
-        const ROCK_HALF_WIDTH_MAX: f32 = 2.6;
-        const ROCK_HALF_DEPTH_MIN: f32 = 0.8;
-        const ROCK_HALF_DEPTH_MAX: f32 = 2.6;
-        const ROCK_LAYOUT_SEED: u64 = 1337;
-
-        let map_size = super::CHUNK_DIM.as_vec3();
-        let min_x = BORDER_PADDING;
-        let max_x = map_size.x - BORDER_PADDING;
-        let min_z = BORDER_PADDING;
-        let max_z = map_size.z - BORDER_PADDING;
-        let mut rng = rand::rngs::StdRng::seed_from_u64(ROCK_LAYOUT_SEED);
-
-        for _ in 0..ROCK_COUNT {
-            let horizontal = Vec2::new(
-                rng.random_range(min_x..max_x),
-                rng.random_range(min_z..max_z),
-            );
-            let height = rng.random_range(ROCK_HEIGHT_MIN..ROCK_HEIGHT_MAX);
-            let half_width = rng.random_range(ROCK_HALF_WIDTH_MIN..ROCK_HALF_WIDTH_MAX);
-            let half_depth = rng.random_range(ROCK_HALF_DEPTH_MIN..ROCK_HALF_DEPTH_MAX);
-
-            self.apply_fence_like_placement(
-                FencePostPlacementEdit {
-                    horizontal,
-                    height,
-                    half_width,
-                    half_depth,
-                },
-                VOXEL_TYPE_ROCK,
-            )?;
         }
 
         Ok(())

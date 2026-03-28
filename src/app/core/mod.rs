@@ -397,7 +397,6 @@ impl App {
             TreeAddOptions::default(),
         )?;
         app.plant_map_region_fence_posts()?;
-        app.plant_map_region_rocks()?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
