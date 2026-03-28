@@ -396,7 +396,6 @@ impl App {
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
             TreeAddOptions::default(),
         )?;
-        app.plant_map_region_fence_posts()?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
