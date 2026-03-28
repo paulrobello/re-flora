@@ -97,7 +97,7 @@ label = "Ambient Light"
 type = "Color"
 
 [section.param.data]
-value = "#323232"
+value = "#181818"
 
 [[section.param]]
 id = "auto_daynight_cycle"
@@ -506,7 +506,7 @@ label = "Deep Ocean Color"
 type = "Color"
 
 [section.param.data]
-value = "#00EDFF"
+value = "#005085"
 
 [[section.param]]
 id = "ocean_shallow_color"
@@ -515,7 +515,7 @@ label = "Shallow Water Color"
 type = "Color"
 
 [section.param.data]
-value = "#00BDAE"
+value = "#779FBF"
 
 [[section.param]]
 id = "ocean_normal_amplitude"
@@ -771,7 +771,7 @@ label = "Spawn Height Min"
 type = "Float"
 
 [section.param.data]
-value = 0.05999999865889549
+value = 0.05000000074505806
 min = 0.0
 max = 4.0
 
@@ -782,7 +782,7 @@ label = "Spawn Height Max"
 type = "Float"
 
 [section.param.data]
-value = 0.14000000059604645
+value = 0.12999999523162842
 min = 0.0
 max = 4.0
 
@@ -793,7 +793,7 @@ label = "Size"
 type = "Float"
 
 [section.param.data]
-value = 0.017999999225139618
+value = 0.029999999329447746
 min = 0.0010000000474974513
 max = 0.029999999329447746
 
@@ -826,7 +826,7 @@ label = "Worm Noise Frequency"
 type = "Float"
 
 [section.param.data]
-value = 0.009999999776482582
+value = 0.699999988079071
 min = 0.009999999776482582
 max = 10.0
 
