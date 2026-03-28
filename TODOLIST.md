@@ -4,6 +4,8 @@
 
 - Correct butterfly color palettes
 
+- Correct butterfly fly pattern: inspect the perlin worm, i want to change the noise design to be octave=2, so the broad one is for determine the butterfly's direction, the detail one is for mimicing the random pattern the butterfly often creates.
+
 - Correct sky color (more clean looking)
 
 - Pond, with SSR reflection
