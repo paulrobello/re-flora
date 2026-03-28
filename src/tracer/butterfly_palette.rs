@@ -26,7 +26,6 @@ impl ButterflyPaletteRole {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ButterflyPaletteConfig {
-    pub transparent: PaletteColor,
     pub border: PaletteColor,
     pub dark_shade: PaletteColor,
     pub mid_shade: PaletteColor,
@@ -34,20 +33,9 @@ pub struct ButterflyPaletteConfig {
 }
 
 impl ButterflyPaletteConfig {
-    #[allow(dead_code)]
-    pub fn from_role_colors(role_colors: [PaletteColor; 5]) -> Self {
-        Self {
-            transparent: role_colors[0],
-            border: role_colors[1],
-            dark_shade: role_colors[2],
-            mid_shade: role_colors[3],
-            light_shade: role_colors[4],
-        }
-    }
-
     pub fn into_role_array(self) -> [PaletteColor; 5] {
         [
-            self.transparent,
+            [0, 0, 0, 0],
             self.border,
             self.dark_shade,
             self.mid_shade,
@@ -124,7 +112,6 @@ impl ButterflyPalettePreset {
 impl ButterflyPaletteConfig {
     pub fn default_current() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [0, 0, 0, 255],
             dark_shade: [148, 148, 148, 255],
             mid_shade: [179, 179, 179, 255],
@@ -134,7 +121,6 @@ impl ButterflyPaletteConfig {
 
     pub fn yellow() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [58, 36, 8, 255],
             dark_shade: [176, 122, 22, 255],
             mid_shade: [232, 185, 48, 255],
@@ -144,7 +130,6 @@ impl ButterflyPaletteConfig {
 
     pub fn orange() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [70, 25, 0, 255],
             dark_shade: [170, 70, 10, 255],
             mid_shade: [230, 120, 40, 255],
@@ -154,7 +139,6 @@ impl ButterflyPaletteConfig {
 
     pub fn blue() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [10, 30, 80, 255],
             dark_shade: [30, 70, 140, 255],
             mid_shade: [70, 120, 200, 255],
@@ -164,7 +148,6 @@ impl ButterflyPaletteConfig {
 
     pub fn green() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [10, 55, 10, 255],
             dark_shade: [40, 100, 30, 255],
             mid_shade: [90, 160, 70, 255],
@@ -174,7 +157,6 @@ impl ButterflyPaletteConfig {
 
     pub fn pink() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [80, 10, 40, 255],
             dark_shade: [150, 40, 90, 255],
             mid_shade: [210, 90, 150, 255],
@@ -184,7 +166,6 @@ impl ButterflyPaletteConfig {
 
     pub fn purple() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [40, 10, 70, 255],
             dark_shade: [80, 40, 130, 255],
             mid_shade: [130, 80, 190, 255],
@@ -194,7 +175,6 @@ impl ButterflyPaletteConfig {
 
     pub fn cyan() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [0, 60, 70, 255],
             dark_shade: [0, 110, 130, 255],
             mid_shade: [40, 170, 190, 255],
@@ -204,7 +184,6 @@ impl ButterflyPaletteConfig {
 
     pub fn monarch() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [15, 15, 15, 255],
             dark_shade: [120, 60, 10, 255],
             mid_shade: [210, 110, 20, 255],
@@ -214,7 +193,6 @@ impl ButterflyPaletteConfig {
 
     pub fn midnight() -> Self {
         Self {
-            transparent: [0, 0, 0, 0],
             border: [5, 5, 15, 255],
             dark_shade: [20, 20, 60, 255],
             mid_shade: [40, 40, 110, 255],
@@ -262,7 +240,7 @@ pub fn load_butterfly_and_remap(
     println!("  light_shade: {:02X?}", source_roles[4]);
 
     println!("target config mapping:");
-    println!("  transparent: {:02X?}", target_config.transparent);
+    println!("  transparent: {:02X?}", [0, 0, 0, 0]);
     println!("  border:      {:02X?}", target_config.border);
     println!("  dark_shade: {:02X?}", target_config.dark_shade);
     println!("  mid_shade:  {:02X?}", target_config.mid_shade);
