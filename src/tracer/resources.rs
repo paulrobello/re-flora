@@ -851,12 +851,7 @@ impl TracerResources {
         Some(frames)
     }
 
-    fn to_particle_frame_bytes(mut frame: image::RgbaImage) -> Vec<u8> {
-        for pixel in frame.pixels_mut() {
-            if pixel[0] == 0 && pixel[1] == 0 && pixel[2] == 0 {
-                pixel[3] = 0;
-            }
-        }
+    fn to_particle_frame_bytes(frame: image::RgbaImage) -> Vec<u8> {
         frame.into_raw()
     }
 
