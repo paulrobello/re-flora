@@ -15,6 +15,31 @@ layout(set = 0, binding = 1, r8ui) writeonly uniform uimage3D chunk_atlas;
 #include "../../include/core/fast_noise_lite.glsl"
 #include "../../include/voxel_types.glsl"
 
+float compute_island_shape_2d(vec2 world_xz) {
+    fnl_state coast_state    = fnlCreateState(133);
+    coast_state.noise_type   = FNL_NOISE_OPENSIMPLEX2;
+    coast_state.fractal_type = FNL_FRACTAL_FBM;
+    coast_state.frequency    = 0.2;
+    coast_state.octaves      = 3;
+    coast_state.lacunarity   = 2.0;
+    coast_state.gain         = 0.5;
+
+    // island radial mask with noisy coastline, adapted for a 5x5 map
+    const float MAP_SIZE = 5.0;
+    vec2 uv   = world_xz / MAP_SIZE;
+    vec2 c    = (uv - vec2(0.5)) * 2.0;
+    float dist = length(c);
+    float ang  = atan(c.y, c.x);
+
+    vec2 coast_sample = vec2(cos(ang), sin(ang)) * 2.5 + vec2(10.0);
+    float coast_noise = fnlGetNoise2D(coast_state, coast_sample.x, coast_sample.y);
+    float coast_warp  = coast_noise * 0.3;
+
+    // output range: [0, 1]
+    float island_shape_01 = clamp(1.0 - smoothstep(0.35, 0.88, dist + coast_warp), 0.0, 1.0);
+    return island_shape_01;
+}
+
 float compute_old_style_height_3d(vec3 world_pos) {
     fnl_state state    = fnlCreateState(42);
     state.noise_type   = FNL_NOISE_PERLIN;
@@ -27,25 +52,8 @@ float compute_old_style_height_3d(vec3 world_pos) {
     // ranges from 0 to 1
     float base_shape = fnlGetNoise2D(state, world_pos.x, world_pos.z) * 0.5 + 0.5;
 
-    fnl_state island_state    = fnlCreateState(1337);
-    island_state.noise_type   = FNL_NOISE_OPENSIMPLEX2;
-    island_state.fractal_type = FNL_FRACTAL_FBM;
-    island_state.frequency    = 0.02;
-    island_state.octaves      = 3;
-    island_state.lacunarity   = 2.0;
-    island_state.gain         = 0.5;
-
-    // introduce macro shoreline variation before radial falloff
-    float island_noise = fnlGetNoise2D(island_state, world_pos.x, world_pos.z) * 0.5 + 0.5;
-    float island_shape = smoothstep(0.35, 0.75, island_noise);
-
-    // guarantee water near borders by fading from map center to edges
-    const float MAP_SIZE = 5.0;
-    vec2 map_center        = vec2(MAP_SIZE * 0.5);
-    vec2 centered_xz       = world_pos.xz - map_center;
-    float radial_falloff   = 1.0 - length(centered_xz) / (MAP_SIZE * 0.5);
-
-    float noise_01 = radial_falloff;
+    float island_shape_01 = compute_island_shape_2d(world_pos.xz);
+    float noise_01        = base_shape * island_shape_01;
     return noise_01;
 }
 
