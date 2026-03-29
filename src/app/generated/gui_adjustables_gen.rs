@@ -471,6 +471,12 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         label: "Worm Noise Detail Frequency",
     },
     GeneratedGuiParamDescriptor {
+        section: "Butterflies",
+        id: "butterfly_worm_noise_detail_weight",
+        kind: "float",
+        label: "Worm Noise Detail Weight",
+    },
+    GeneratedGuiParamDescriptor {
         section: "Voxel",
         id: "voxel_dirt_color",
         kind: "color",
@@ -574,6 +580,7 @@ pub struct GuiAdjustables {
     pub butterfly_lifetime_max: crate::gui_adjustables::FloatParam,
     pub butterfly_worm_noise_frequency: crate::gui_adjustables::FloatParam,
     pub butterfly_worm_noise_detail_frequency: crate::gui_adjustables::FloatParam,
+    pub butterfly_worm_noise_detail_weight: crate::gui_adjustables::FloatParam,
     pub voxel_dirt_color: crate::gui_adjustables::ColorParam,
     pub voxel_cherry_wood_color: crate::gui_adjustables::ColorParam,
     pub voxel_oak_wood_color: crate::gui_adjustables::ColorParam,
@@ -667,6 +674,7 @@ impl GuiAdjustables {
         let mut butterfly_lifetime_max_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_worm_noise_frequency_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_worm_noise_detail_frequency_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut butterfly_worm_noise_detail_weight_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut voxel_dirt_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut voxel_cherry_wood_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut voxel_oak_wood_color_field: Option<crate::gui_adjustables::ColorParam> = None;
@@ -1173,6 +1181,13 @@ impl GuiAdjustables {
                             butterfly_worm_noise_detail_frequency_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
+                    "butterfly_worm_noise_detail_weight" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0.0);
+                            let max = max.unwrap_or(1.0);
+                            butterfly_worm_noise_detail_weight_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
                     "voxel_dirt_color" => {
                         if let (GuiParamKind::Color, GuiParamValue::Color { value }) = (&param.kind, &param.value) {
                             voxel_dirt_color_field = Some(crate::gui_adjustables::ColorParam::new(crate::app::gui_config::parse_color(value)));
@@ -1277,6 +1292,7 @@ impl GuiAdjustables {
             butterfly_lifetime_max: butterfly_lifetime_max_field.expect("Missing parameter: butterfly_lifetime_max"),
             butterfly_worm_noise_frequency: butterfly_worm_noise_frequency_field.expect("Missing parameter: butterfly_worm_noise_frequency"),
             butterfly_worm_noise_detail_frequency: butterfly_worm_noise_detail_frequency_field.expect("Missing parameter: butterfly_worm_noise_detail_frequency"),
+            butterfly_worm_noise_detail_weight: butterfly_worm_noise_detail_weight_field.expect("Missing parameter: butterfly_worm_noise_detail_weight"),
             voxel_dirt_color: voxel_dirt_color_field.expect("Missing parameter: voxel_dirt_color"),
             voxel_cherry_wood_color: voxel_cherry_wood_color_field.expect("Missing parameter: voxel_cherry_wood_color"),
             voxel_oak_wood_color: voxel_oak_wood_color_field.expect("Missing parameter: voxel_oak_wood_color"),
@@ -1341,6 +1357,7 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
         "butterfly_lifetime_max" => Some(&adjustables.butterfly_lifetime_max),
         "butterfly_worm_noise_frequency" => Some(&adjustables.butterfly_worm_noise_frequency),
         "butterfly_worm_noise_detail_frequency" => Some(&adjustables.butterfly_worm_noise_detail_frequency),
+        "butterfly_worm_noise_detail_weight" => Some(&adjustables.butterfly_worm_noise_detail_weight),
         "voxel_color_variance" => Some(&adjustables.voxel_color_variance),
         _ => None,
     }
@@ -1456,6 +1473,7 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "butterfly_lifetime_max" => Some(&mut adjustables.butterfly_lifetime_max),
         "butterfly_worm_noise_frequency" => Some(&mut adjustables.butterfly_worm_noise_frequency),
         "butterfly_worm_noise_detail_frequency" => Some(&mut adjustables.butterfly_worm_noise_detail_frequency),
+        "butterfly_worm_noise_detail_weight" => Some(&mut adjustables.butterfly_worm_noise_detail_weight),
         "voxel_color_variance" => Some(&mut adjustables.voxel_color_variance),
         _ => None,
     }

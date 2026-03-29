@@ -80,6 +80,7 @@ impl App {
             worm_noise_detail_frequency: gui_adjustables
                 .butterfly_worm_noise_detail_frequency
                 .value,
+            worm_noise_detail_weight: gui_adjustables.butterfly_worm_noise_detail_weight.value,
         }
     }
 
@@ -358,6 +359,7 @@ impl App {
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
                                     &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
                                     new_seed,
                                     new_phase,
                                 )
@@ -394,6 +396,7 @@ impl App {
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
                                     &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
                                     new_seed,
                                     new_phase,
                                 )

@@ -60,6 +60,7 @@ fn butterfly_worm_noise_detail_state(seed: i32, frequency: f32) -> FastNoiseLite
 pub fn generate_worm_direction(
     noise: &FastNoiseLite,
     noise_detail: &FastNoiseLite,
+    detail_weight: f32,
     seed: f32,
     time: f32,
 ) -> Vec3 {
@@ -74,7 +75,7 @@ pub fn generate_worm_direction(
     let broad = Vec3::new(nx, ny, nz);
     let detail = Vec3::new(dx, dy, dz);
 
-    let combined = broad + detail * 0.5;
+    let combined = broad + detail * detail_weight;
     combined.normalize_or_zero()
 }
 
@@ -250,6 +251,7 @@ pub struct ButterflyEmitterDesc {
     pub color_high: Vec4,
     pub worm_noise_frequency: f32,
     pub worm_noise_detail_frequency: f32,
+    pub worm_noise_detail_weight: f32,
 }
 
 impl Default for ButterflyEmitterDesc {
@@ -266,6 +268,7 @@ impl Default for ButterflyEmitterDesc {
             color_high: Vec4::new(1.0, 0.97, 0.72, 1.0),
             worm_noise_frequency: 2.0,
             worm_noise_detail_frequency: 8.0,
+            worm_noise_detail_weight: 0.5,
         }
     }
 }
@@ -285,6 +288,7 @@ pub struct ButterflyEmitter {
     render_kind: ParticleRenderKind,
     pub worm_noise: FastNoiseLite,
     pub worm_noise_detail: FastNoiseLite,
+    pub worm_noise_detail_weight: f32,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
     worm_seeds: Vec<f32>,
@@ -321,6 +325,7 @@ impl ButterflyEmitter {
                 (seed as i32).wrapping_add(5000),
                 desc.worm_noise_detail_frequency,
             ),
+            worm_noise_detail_weight: desc.worm_noise_detail_weight,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
             worm_seeds: Vec::new(),
@@ -343,6 +348,7 @@ impl ButterflyEmitter {
             .set_frequency(Some(desc.worm_noise_frequency.max(0.0001)));
         self.worm_noise_detail
             .set_frequency(Some(desc.worm_noise_detail_frequency.max(0.0001)));
+        self.worm_noise_detail_weight = desc.worm_noise_detail_weight;
     }
 
     fn prune_handles(&mut self, system: &ParticleSystem) {
@@ -388,8 +394,13 @@ impl ButterflyEmitter {
         );
         let seed = self.rng.random_range(0.0..100_000.0);
         let phase = self.rng.random_range(0.0..TAU);
-        let initial_dir =
-            generate_worm_direction(&self.worm_noise, &self.worm_noise_detail, seed, phase);
+        let initial_dir = generate_worm_direction(
+            &self.worm_noise,
+            &self.worm_noise_detail,
+            self.worm_noise_detail_weight,
+            seed,
+            phase,
+        );
 
         let preset_count = ButterflyPalettePreset::COUNT;
         let texture_variant = if preset_count == 0 {
@@ -444,6 +455,7 @@ impl ButterflyEmitter {
                 let dir = generate_worm_direction(
                     &self.worm_noise,
                     &self.worm_noise_detail,
+                    self.worm_noise_detail_weight,
                     self.worm_seeds[i],
                     self.worm_phases[i],
                 );
