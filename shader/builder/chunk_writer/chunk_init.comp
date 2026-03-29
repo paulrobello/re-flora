@@ -35,10 +35,22 @@ float compute_island_shape_2d(vec2 world_xz) {
     float coast_noise = fnlGetNoise2D(coast_state, coast_sample.x, coast_sample.y);
     float coast_warp  = coast_noise * 0.3;
 
-    // output range: [0, 1]
-    float island_shape_01 = clamp(1.0 - smoothstep(0.82, 0.88, dist + coast_warp), 0.0, 1.0);
+    fnl_state threshold_state    = fnlCreateState(777);
+    threshold_state.noise_type   = FNL_NOISE_PERLIN;
+    threshold_state.fractal_type = FNL_FRACTAL_FBM;
+    threshold_state.frequency    = 0.1;
+    threshold_state.octaves      = 3;
+    threshold_state.lacunarity   = 2.0;
+    threshold_state.gain         = 0.5;
 
-    const float PLANTAU_HEIGHT = 0.5;
+    float threshold_noise = fnlGetNoise2D(threshold_state, world_xz.x, world_xz.y);
+    float threshold_01    = threshold_noise * 0.5 + 0.5;
+
+    float coast_inner     = mix(0.33, 0.88, threshold_01);
+
+    // output range: [0, 1]
+    float island_shape_01 = clamp(1.0 - smoothstep(coast_inner, 0.88, dist + coast_warp),
+                                  0.0, 1.0);
 
     return island_shape_01;
 }
@@ -48,14 +60,12 @@ float compute_old_style_height_3d(vec3 world_pos) {
     state.noise_type   = FNL_NOISE_PERLIN;
     state.fractal_type = FNL_FRACTAL_FBM;
     state.frequency    = 0.1;
-    state.octaves      = 2;
+    state.octaves      = 5;
     state.lacunarity   = 2.2;
-    state.gain         = 0.6;
+    state.gain         = 0.8;
 
     // ranges from 0 to 1
     float base_shape = fnlGetNoise2D(state, world_pos.x, world_pos.z) * 0.5 + 0.5;
-
-    base_shape *= 0.5;
 
     float island_shape_01 = compute_island_shape_2d(world_pos.xz);
     float noise_01        = island_shape_01 * base_shape;
@@ -66,7 +76,7 @@ uint get_voxel_type(float density) {
     if (density < 0.0) {
         return VOXEL_TYPE_EMPTY;
     }
-    return VOXEL_TYPE_ROCK;
+    return VOXEL_TYPE_DIRT;
 }
 
 void main() {
