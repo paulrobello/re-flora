@@ -826,9 +826,20 @@ label = "Worm Noise Frequency"
 type = "Float"
 
 [section.param.data]
-value = 0.699999988079071
+value = 0.15000000596046448
 min = 0.009999999776482582
 max = 10.0
+
+[[section.param]]
+id = "butterfly_worm_noise_detail_frequency"
+kind = "float"
+label = "Worm Noise Detail Frequency"
+type = "Float"
+
+[section.param.data]
+value = 1.0
+min = 0.009999999776482582
+max = 20.0
 
 [[section]]
 name = "Voxel"

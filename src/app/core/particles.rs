@@ -77,6 +77,9 @@ impl App {
             color_low: Vec4::ONE,
             color_high: Vec4::ONE,
             worm_noise_frequency: gui_adjustables.butterfly_worm_noise_frequency.value,
+            worm_noise_detail_frequency: gui_adjustables
+                .butterfly_worm_noise_detail_frequency
+                .value,
         }
     }
 
@@ -354,6 +357,7 @@ impl App {
                                 let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
+                                    &em.worm_noise_detail,
                                     new_seed,
                                     new_phase,
                                 )
@@ -389,6 +393,7 @@ impl App {
                                 let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
+                                    &em.worm_noise_detail,
                                     new_seed,
                                     new_phase,
                                 )
