@@ -103,6 +103,7 @@ pub struct App {
     selected_item_panel_slot: usize,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
+    last_copper_shovel_place_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
     last_hoe_trim_time: Option<Instant>,
     terrain_edit_loop_sound: Option<Uuid>,
@@ -365,6 +366,7 @@ impl App {
             selected_item_panel_slot: 0,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
+            last_copper_shovel_place_time: None,
             last_staff_regen_time: None,
             last_hoe_trim_time: None,
             terrain_edit_loop_sound: None,
@@ -664,6 +666,8 @@ impl App {
                             let now = Instant::now();
                             if self.is_shovel_selected() {
                                 self.try_shovel_dig(now);
+                            } else if self.is_copper_shovel_selected() {
+                                self.try_copper_shovel_place(now);
                             } else if self.is_staff_selected() {
                                 self.try_staff_regenerate(now);
                             } else if self.is_hoe_selected() {
@@ -697,6 +701,8 @@ impl App {
                     let now = Instant::now();
                     if self.is_shovel_selected() {
                         self.try_shovel_dig(now);
+                    } else if self.is_copper_shovel_selected() {
+                        self.try_copper_shovel_place(now);
                     } else if self.is_staff_selected() {
                         self.try_staff_regenerate(now);
                     } else if self.is_hoe_selected() {

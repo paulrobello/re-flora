@@ -4,7 +4,7 @@ use crate::app::world_edits::{
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldEditPlan,
 };
 use crate::app::world_ops;
-use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_OAK_WOOD};
+use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_DIRT, VOXEL_TYPE_OAK_WOOD};
 use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
@@ -216,6 +216,13 @@ struct TerrainSurfaceRemovalService;
 
 impl TerrainSurfaceRemovalService {
     fn compile(edit: TerrainRemovalEdit) -> Option<CompiledTerrainSurfaceRemoval> {
+        Self::compile_with_voxel_type(edit, crate::builder::VOXEL_TYPE_EMPTY)
+    }
+
+    fn compile_with_voxel_type(
+        edit: TerrainRemovalEdit,
+        voxel_type: u32,
+    ) -> Option<CompiledTerrainSurfaceRemoval> {
         if edit.radius <= 0.0 {
             return None;
         }
@@ -265,7 +272,7 @@ impl TerrainSurfaceRemovalService {
             voxel_edit: VoxelEdit::StampSurfaceSpheres {
                 bvh_nodes,
                 spheres: vec![sphere],
-                voxel_type: crate::builder::VOXEL_TYPE_EMPTY,
+                voxel_type,
             },
             rebuild_bound,
         })
@@ -673,6 +680,30 @@ impl App {
 
     pub(super) fn apply_surface_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
+            self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.voxel_edit))?;
+            world_ops::mesh_generate_preserve_flora_for_sphere_edit(
+                &mut self.surface_builder,
+                &mut self.contree_builder,
+                &mut self.scene_accel_builder,
+                super::VOXEL_DIM_PER_CHUNK,
+                compiled.rebuild_bound,
+                world_ops::FloraSphereEdit {
+                    center: edit.center,
+                    radius: edit.radius,
+                    tick: self.flora_tick,
+                },
+            )?;
+        }
+        Ok(())
+    }
+
+    pub(super) fn apply_surface_terrain_placement(
+        &mut self,
+        edit: TerrainRemovalEdit,
+    ) -> Result<()> {
+        if let Some(compiled) =
+            TerrainSurfaceRemovalService::compile_with_voxel_type(edit, VOXEL_TYPE_DIRT)
+        {
             self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.voxel_edit))?;
             world_ops::mesh_generate_preserve_flora_for_sphere_edit(
                 &mut self.surface_builder,

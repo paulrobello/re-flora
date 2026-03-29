@@ -83,6 +83,22 @@ bool is_surface_voxel(ivec3 p) {
     return false;
 }
 
+bool is_surface_placement_voxel(ivec3 p) {
+    if (is_solid(load_voxel_type(p))) {
+        return false;
+    }
+    const ivec3 neighbours_to_check[6] = {
+        ivec3(1, 0, 0),  ivec3(-1, 0, 0), ivec3(0, 1, 0),
+        ivec3(0, -1, 0), ivec3(0, 0, 1),  ivec3(0, 0, -1),
+    };
+    for (int i = 0; i < 6; i++) {
+        if (is_solid(load_voxel_type(p + neighbours_to_check[i]))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void main() {
     ivec3 uvi = ivec3(gl_GlobalInvocationID);
     if (any(greaterThanEqual(uvi, ivec3(chunk_modify_info.dim)))) {
@@ -129,8 +145,16 @@ void main() {
             }
 
             if (hit) {
-                if (chunk_modify_info.surface_only != 0u && !is_surface_voxel(world_voxel_pos)) {
-                    return;
+                if (chunk_modify_info.surface_only != 0u) {
+                    if (chunk_modify_info.fill_voxel_type == VOXEL_TYPE_EMPTY) {
+                        if (!is_surface_voxel(world_voxel_pos)) {
+                            return;
+                        }
+                    } else {
+                        if (!is_surface_placement_voxel(world_voxel_pos)) {
+                            return;
+                        }
+                    }
                 }
                 imageStore(chunk_atlas, world_voxel_pos,
                            uvec4(chunk_modify_info.fill_voxel_type, 0, 0, 0));

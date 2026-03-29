@@ -1,4 +1,6 @@
-use super::ui_style::{HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
+use super::ui_style::{
+    COPPER_SHOVEL_SLOT_INDEX, HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX,
+};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -20,6 +22,10 @@ impl App {
 
     pub(super) fn is_shovel_selected(&self) -> bool {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
+    }
+
+    pub(super) fn is_copper_shovel_selected(&self) -> bool {
+        self.selected_item_panel_slot == COPPER_SHOVEL_SLOT_INDEX
     }
 
     pub(super) fn is_staff_selected(&self) -> bool {
@@ -189,6 +195,44 @@ impl App {
             Err(err) => {
                 log::error!(
                     "Staff regeneration attempt failed during terrain query: {}",
+                    err
+                );
+            }
+        }
+    }
+
+    pub(super) fn try_copper_shovel_place(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_copper_shovel_selected() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
+            Ok(Some(center)) => {
+                self.start_terrain_edit_loop_sound(center);
+
+                if let Some(last_place) = self.last_copper_shovel_place_time {
+                    if now.duration_since(last_place) < super::SHOVEL_DIG_INTERVAL {
+                        return;
+                    }
+                }
+
+                if let Err(err) = self.apply_surface_terrain_placement(TerrainRemovalEdit {
+                    center,
+                    radius: super::SHOVEL_REMOVE_RADIUS,
+                }) {
+                    log::error!("Failed to apply terrain placement: {}", err);
+                    return;
+                }
+                self.last_copper_shovel_place_time = Some(now);
+            }
+            Ok(None) => {
+                self.stop_terrain_edit_loop_sound();
+                self.last_copper_shovel_place_time = Some(now);
+            }
+            Err(err) => {
+                log::error!(
+                    "Copper shovel place attempt failed during terrain query: {}",
                     err
                 );
             }
