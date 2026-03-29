@@ -19,22 +19,28 @@ pub(crate) const ITEM_PANEL_SHOVEL_ICON_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
 pub(crate) const ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/10_Wooden_Shovel.PNG";
+pub(crate) const ITEM_PANEL_COPPER_SHOVEL_ICON_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/25_Copper_Shovel.PNG";
+pub(crate) const ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH: &str =
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/25_Copper_Shovel.PNG";
 pub(crate) const ITEM_PANEL_STAFF_ICON_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/4_Wooden_Staff.PNG";
 pub(crate) const ITEM_PANEL_STAFF_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/4_Wooden_Staff.PNG";
 pub(crate) const ITEM_PANEL_HOE_ICON_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/11_Wooden_Hoe.PNG";
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/28_Copper_Sickle.PNG";
 pub(crate) const ITEM_PANEL_HOE_ICON_FALLBACK_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/11_Wooden_Hoe.PNG";
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/28_Copper_Sickle.PNG";
 pub(crate) const ITEM_PANEL_SLOT_COUNT: usize = 5;
 pub(crate) const SHOVEL_SLOT_INDEX: usize = 0;
-pub(crate) const STAFF_SLOT_INDEX: usize = 1;
-pub(crate) const HOE_SLOT_INDEX: usize = 2;
+pub(crate) const COPPER_SHOVEL_SLOT_INDEX: usize = 1;
+pub(crate) const STAFF_SLOT_INDEX: usize = 2;
+pub(crate) const HOE_SLOT_INDEX: usize = 3;
 
 pub(crate) fn draw_item_panel(
     ctx: &egui::Context,
     item_panel_shovel_icon: Option<&TextureHandle>,
+    item_panel_copper_shovel_icon: Option<&TextureHandle>,
     item_panel_staff_icon: Option<&TextureHandle>,
     item_panel_hoe_icon: Option<&TextureHandle>,
     selected_slot_idx: usize,
@@ -93,6 +99,14 @@ pub(crate) fn draw_item_panel(
                                                 );
                                             }
                                         }
+                                        if slot_idx == COPPER_SHOVEL_SLOT_INDEX {
+                                            if let Some(icon) = item_panel_copper_shovel_icon {
+                                                ui.add(
+                                                    egui::Image::new(icon)
+                                                        .fit_to_exact_size(icon_size),
+                                                );
+                                            }
+                                        }
                                         if slot_idx == STAFF_SLOT_INDEX {
                                             if let Some(icon) = item_panel_staff_icon {
                                                 ui.add(
@@ -115,6 +129,75 @@ pub(crate) fn draw_item_panel(
                         }
                         ui.end_row();
                     });
+            });
+        });
+}
+
+pub(crate) fn draw_backpack_summary(
+    ctx: &egui::Context,
+    dirt_count: u32,
+    sand_count: u32,
+    cherry_wood_count: u32,
+    oak_wood_count: u32,
+    rock_count: u32,
+    terrain_query_text: &str,
+) {
+    let total_count = dirt_count
+        .saturating_add(sand_count)
+        .saturating_add(cherry_wood_count)
+        .saturating_add(oak_wood_count)
+        .saturating_add(rock_count);
+
+    egui::Area::new("backpack_summary".into())
+        .anchor(egui::Align2::LEFT_BOTTOM, egui::Vec2::new(16.0, -16.0))
+        .show(ctx, |ui| {
+            let panel_frame = egui::containers::Frame {
+                fill: PANEL_DARK,
+                inner_margin: egui::Margin::symmetric(10, 8),
+                corner_radius: egui::CornerRadius::same(0),
+                shadow: egui::epaint::Shadow {
+                    offset: [4, 4],
+                    blur: 0,
+                    spread: 0,
+                    color: SHADOW_COLOR,
+                },
+                stroke: egui::Stroke::new(2.0, SAGE_ACCENT),
+                ..Default::default()
+            };
+
+            panel_frame.show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new("Status")
+                        .color(GOLD_ACCENT)
+                        .size(12.0)
+                        .strong(),
+                );
+                ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new("Terrain query")
+                        .monospace()
+                        .color(GOLD_ACCENT),
+                );
+                ui.label(egui::RichText::new(terrain_query_text).monospace());
+                ui.separator();
+                ui.label(
+                    egui::RichText::new("Backpack")
+                        .monospace()
+                        .color(GOLD_ACCENT),
+                );
+                ui.label(egui::RichText::new(format!("Dirt: {dirt_count}")).monospace());
+                ui.label(egui::RichText::new(format!("Sand: {sand_count}")).monospace());
+                ui.label(
+                    egui::RichText::new(format!("Cherry wood: {cherry_wood_count}")).monospace(),
+                );
+                ui.label(egui::RichText::new(format!("Oak wood: {oak_wood_count}")).monospace());
+                ui.label(egui::RichText::new(format!("Rock: {rock_count}")).monospace());
+                ui.separator();
+                ui.label(
+                    egui::RichText::new(format!("Total: {total_count}"))
+                        .monospace()
+                        .color(FLOWER_ACCENT),
+                );
             });
         });
 }

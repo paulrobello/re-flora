@@ -15,40 +15,107 @@ layout(set = 0, binding = 1, r8ui) writeonly uniform uimage3D chunk_atlas;
 #include "../../include/core/fast_noise_lite.glsl"
 #include "../../include/voxel_types.glsl"
 
-float border_falloff(ivec3 atlas_uvi, ivec3 atlas_dim) {
-    // Fade terrain variation toward map borders in XZ.
-    float edge_dist_x = min(float(atlas_uvi.x), float(atlas_dim.x - 1 - atlas_uvi.x));
-    float edge_dist_z = min(float(atlas_uvi.z), float(atlas_dim.z - 1 - atlas_uvi.z));
-    float edge_dist   = min(edge_dist_x, edge_dist_z);
+float compute_island_shape_2d(vec2 world_xz) {
+    fnl_state coast_state    = fnlCreateState(133);
+    coast_state.noise_type   = FNL_NOISE_OPENSIMPLEX2;
+    coast_state.fractal_type = FNL_FRACTAL_FBM;
+    coast_state.frequency    = 0.2;
+    coast_state.octaves      = 5;
+    coast_state.lacunarity   = 2.0;
+    coast_state.gain         = 0.5;
 
-    float falloff_width = float(min(atlas_dim.x, atlas_dim.z)) * 0.2;
-    return smoothstep(0.0, falloff_width, edge_dist);
+    // island radial mask with noisy coastline, adapted for a 5x5 map
+    const float MAP_SIZE = 5.0;
+    vec2 uv   = world_xz / MAP_SIZE;
+    vec2 c    = (uv - vec2(0.5)) * 2.0;
+    float dist = length(c);
+    float ang  = atan(c.y, c.x);
+
+    vec2 coast_sample = vec2(cos(ang), sin(ang)) * 2.5 + vec2(10.0);
+    float coast_noise = fnlGetNoise2D(coast_state, coast_sample.x, coast_sample.y);
+    float coast_warp  = coast_noise * 0.3;
+
+    fnl_state threshold_state    = fnlCreateState(777);
+    threshold_state.noise_type   = FNL_NOISE_PERLIN;
+    threshold_state.fractal_type = FNL_FRACTAL_FBM;
+    threshold_state.frequency    = 0.1;
+    threshold_state.octaves      = 3;
+    threshold_state.lacunarity   = 2.0;
+    threshold_state.gain         = 0.5;
+
+    float threshold_noise = fnlGetNoise2D(threshold_state, world_xz.x, world_xz.y);
+    float threshold_01    = threshold_noise * 0.5 + 0.5;
+
+    float coast_inner     = mix(0.33, 0.88, threshold_01);
+
+    // output range: [0, 1]
+    float island_shape_01 = clamp(1.0 - smoothstep(coast_inner, 0.88, dist + coast_warp),
+                                  0.0, 1.0);
+
+    return island_shape_01;
 }
 
-float compute_noise(vec3 p, ivec3 atlas_uvi, ivec3 atlas_dim) {
-    float noise_scale = 1.0;
-
+float compute_old_style_height_3d(vec3 world_pos) {
     fnl_state state    = fnlCreateState(42);
     state.noise_type   = FNL_NOISE_PERLIN;
     state.fractal_type = FNL_FRACTAL_FBM;
-    state.frequency    = 1.0;
+    state.frequency    = 0.1;
     state.octaves      = 5;
-    state.lacunarity   = 2.6;
-    state.gain         = 0.2;
-    // its return value is automatically
-    float noise_01         = fnlGetNoise3D(state, p.x, p.y, p.z) * 0.5 + 0.5;
-    float variation_factor = border_falloff(atlas_uvi, atlas_dim);
+    state.lacunarity   = 2.2;
+    state.gain         = 0.8;
 
-    // Keep the average terrain height stable while reducing variation near borders.
-    float flattened_noise = mix(0.5, noise_01, variation_factor);
-    return flattened_noise * noise_scale;
+    // ranges from 0 to 1
+    float base_shape = fnlGetNoise2D(state, world_pos.x, world_pos.z) * 0.5 + 0.5;
+
+    float island_shape_01 = compute_island_shape_2d(world_pos.xz);
+    float noise_01        = island_shape_01 * base_shape;
+    return noise_01;
 }
 
-uint get_voxel_type(float weight) {
-    if (weight < 0.0) {
+float compute_base_shape_2d(vec2 world_xz) {
+    fnl_state state    = fnlCreateState(42);
+    state.noise_type   = FNL_NOISE_PERLIN;
+    state.fractal_type = FNL_FRACTAL_FBM;
+    state.frequency    = 0.1;
+    state.octaves      = 5;
+    state.lacunarity   = 2.2;
+    state.gain         = 0.8;
+
+    return fnlGetNoise2D(state, world_xz.x, world_xz.y) * 0.5 + 0.5;
+}
+
+float hash01(uvec3 p) {
+    uint h = p.x * 73856093u;
+    h ^= p.y * 19349663u;
+    h ^= p.z * 83492791u;
+    h ^= h >> 13;
+    h *= 1274126177u;
+    return float(h & 1023u) / 1023.0;
+}
+
+uint get_voxel_type(float density, float base_density, uvec3 voxel_coord) {
+    const float VOXEL_SCALE = 1.0 / 256.0;
+    const float TOP_SOIL_DEPTH_WORLD = 25.0 * VOXEL_SCALE;
+    const float TRANSITION_DEPTH_WORLD = 15.0 * VOXEL_SCALE;
+
+    if (density < 0.0) {
         return VOXEL_TYPE_EMPTY;
     }
-    return VOXEL_TYPE_DIRT;
+
+    if (base_density <= TOP_SOIL_DEPTH_WORLD) {
+        return VOXEL_TYPE_DIRT;
+    }
+
+    float transition_end = TOP_SOIL_DEPTH_WORLD + TRANSITION_DEPTH_WORLD;
+    if (base_density < transition_end) {
+        float t = (base_density - TOP_SOIL_DEPTH_WORLD) / TRANSITION_DEPTH_WORLD;
+        float dirt_prob = 1.0 - clamp(t, 0.0, 1.0);
+        if (hash01(voxel_coord) < dirt_prob) {
+            return VOXEL_TYPE_DIRT;
+        }
+    }
+
+    return VOXEL_TYPE_ROCK;
 }
 
 void main() {
@@ -62,9 +129,13 @@ void main() {
     const float VOXEL_SCALE = 1.0 / 256.0;
     vec3 world_voxel_pos    = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
 
-    float noise     = compute_noise(world_voxel_pos, atlas_uvi, atlas_dim);
-    float weight    = noise - world_voxel_pos.y;
-    uint voxel_type = get_voxel_type(weight);
+    float base_shape_2d  = compute_base_shape_2d(world_voxel_pos.xz);
+    float old_height_3d  = compute_old_style_height_3d(world_voxel_pos);
+    float surface_height = old_height_3d;
+
+    float density   = surface_height - world_voxel_pos.y;
+    float base_density = base_shape_2d - world_voxel_pos.y;
+    uint voxel_type = get_voxel_type(density, base_density, uvec3(atlas_uvi));
 
     imageStore(chunk_atlas, atlas_uvi, uvec4(voxel_type, 0, 0, 0));
 }

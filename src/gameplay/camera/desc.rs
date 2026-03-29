@@ -34,9 +34,31 @@ impl Default for CameraProjectionDesc {
 }
 
 #[derive(Debug, Clone)]
+pub struct CameraHeadBobDesc {
+    pub vertical_amplitude: f32,
+    pub horizontal_amplitude: f32,
+    pub roll_amplitude_deg: f32,
+    pub sprint_amplitude_mul: f32,
+    pub smoothing_speed: f32,
+}
+
+impl Default for CameraHeadBobDesc {
+    fn default() -> Self {
+        Self {
+            vertical_amplitude: 0.003,
+            horizontal_amplitude: 0.0015,
+            roll_amplitude_deg: 0.3,
+            sprint_amplitude_mul: 1.5,
+            smoothing_speed: 8.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct CameraDesc {
     pub movement: CameraMovementDesc,
     pub projection: CameraProjectionDesc,
+    pub head_bob: CameraHeadBobDesc,
     pub aspect_ratio: f32,
     pub camera_height: f32,
 }
@@ -46,6 +68,7 @@ impl Default for CameraDesc {
         Self {
             movement: CameraMovementDesc::default(),
             projection: CameraProjectionDesc::default(),
+            head_bob: CameraHeadBobDesc::default(),
             aspect_ratio: 16.0 / 9.0,
             camera_height: 0.08,
         }

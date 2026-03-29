@@ -459,6 +459,7 @@ impl Tracer {
         ocean_normal_amplitude: f32,
         ocean_noise_frequency: f32,
         ocean_time_multiplier: f32,
+        ocean_sea_level_shift: f32,
         flora_update_bucket_count: u32,
         flora_full_update_seconds: f32,
         lens_flare_intensity: f32,
@@ -569,6 +570,7 @@ impl Tracer {
             ocean_normal_amplitude,
             ocean_noise_frequency,
             ocean_time_multiplier,
+            ocean_sea_level_shift,
             flora_update_bucket_count,
             flora_full_update_seconds,
             lens_flare_intensity,
@@ -1629,6 +1631,10 @@ impl Tracer {
 
     pub fn reset_camera_velocity(&mut self) {
         self.camera.reset_velocity();
+    }
+
+    pub fn set_head_bob_params(&mut self, v: f32, h: f32, r: f32, s: f32) {
+        self.camera.set_head_bob_params(v, h, r, s);
     }
 
     pub fn camera_position(&self) -> Vec3 {

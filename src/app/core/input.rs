@@ -1,4 +1,6 @@
-use super::ui_style::{HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
+use super::ui_style::{
+    COPPER_SHOVEL_SLOT_INDEX, HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX,
+};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -22,12 +24,20 @@ impl App {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
     }
 
+    pub(super) fn is_copper_shovel_selected(&self) -> bool {
+        self.selected_item_panel_slot == COPPER_SHOVEL_SLOT_INDEX
+    }
+
     pub(super) fn is_staff_selected(&self) -> bool {
         self.selected_item_panel_slot == STAFF_SLOT_INDEX
     }
 
     pub(super) fn is_hoe_selected(&self) -> bool {
         self.selected_item_panel_slot == HOE_SLOT_INDEX
+    }
+
+    pub(super) fn has_dirt_in_backpack(&self) -> bool {
+        self.backpack_dirt_count > 0
     }
 
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
@@ -122,6 +132,35 @@ impl App {
         Ok(None)
     }
 
+    pub(super) fn update_terrain_query_debug_text(&mut self) {
+        let origin = self.tracer.camera_position();
+        let direction = self.tracer.camera_front();
+
+        if direction.length_squared() <= f32::EPSILON {
+            self.terrain_query_debug_text = "not hit".to_owned();
+            return;
+        }
+
+        match self
+            .tracer
+            .query_terrain_ray_with_validity(TerrainRayQuery { origin, direction })
+        {
+            Ok(sample) if sample.is_valid => {
+                self.terrain_query_debug_text = format!(
+                    "hit: ({:.3}, {:.3}, {:.3})",
+                    sample.position.x, sample.position.y, sample.position.z
+                );
+            }
+            Ok(_) => {
+                self.terrain_query_debug_text = "not hit".to_owned();
+            }
+            Err(err) => {
+                log::error!("Failed terrain ray query for debug panel: {}", err);
+                self.terrain_query_debug_text = "not hit".to_owned();
+            }
+        }
+    }
+
     pub(super) fn try_shovel_dig(&mut self, now: Instant) {
         if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
             self.stop_terrain_edit_loop_sound();
@@ -138,10 +177,30 @@ impl App {
                     }
                 }
 
-                if let Err(err) = self.apply_surface_terrain_removal(TerrainRemovalEdit {
-                    center,
-                    radius: super::SHOVEL_REMOVE_RADIUS,
-                }) {
+                if let Err(err) = self
+                    .apply_surface_terrain_removal(TerrainRemovalEdit {
+                        center,
+                        radius: super::SHOVEL_REMOVE_RADIUS,
+                    })
+                    .map(|stats| {
+                        self.backpack_dirt_count = self
+                            .backpack_dirt_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_DIRT));
+                        self.backpack_sand_count = self
+                            .backpack_sand_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_SAND));
+                        self.backpack_cherry_wood_count =
+                            self.backpack_cherry_wood_count.saturating_add(
+                                stats.count_removed(crate::builder::VOXEL_TYPE_CHERRY_WOOD),
+                            );
+                        self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_add(
+                            stats.count_removed(crate::builder::VOXEL_TYPE_OAK_WOOD),
+                        );
+                        self.backpack_rock_count = self
+                            .backpack_rock_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_ROCK));
+                    })
+                {
                     log::error!("Failed to apply terrain removal: {}", err);
                     return;
                 }
@@ -189,6 +248,59 @@ impl App {
             Err(err) => {
                 log::error!(
                     "Staff regeneration attempt failed during terrain query: {}",
+                    err
+                );
+            }
+        }
+    }
+
+    pub(super) fn try_copper_shovel_place(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_copper_shovel_selected() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        if !self.has_dirt_in_backpack() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
+            Ok(Some(center)) => {
+                self.start_terrain_edit_loop_sound(center);
+
+                if let Some(last_place) = self.last_copper_shovel_place_time {
+                    if now.duration_since(last_place) < super::SHOVEL_DIG_INTERVAL {
+                        return;
+                    }
+                }
+
+                if let Err(err) = self
+                    .apply_surface_terrain_placement(
+                        TerrainRemovalEdit {
+                            center,
+                            radius: super::SHOVEL_REMOVE_RADIUS,
+                        },
+                        self.backpack_dirt_count,
+                    )
+                    .map(|stats| {
+                        self.backpack_dirt_count = self
+                            .backpack_dirt_count
+                            .saturating_sub(stats.count_added(crate::builder::VOXEL_TYPE_DIRT));
+                    })
+                {
+                    log::error!("Failed to apply terrain placement: {}", err);
+                    return;
+                }
+                self.last_copper_shovel_place_time = Some(now);
+            }
+            Ok(None) => {
+                self.stop_terrain_edit_loop_sound();
+                self.last_copper_shovel_place_time = Some(now);
+            }
+            Err(err) => {
+                log::error!(
+                    "Copper shovel place attempt failed during terrain query: {}",
                     err
                 );
             }

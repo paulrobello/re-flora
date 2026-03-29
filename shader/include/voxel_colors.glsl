@@ -9,6 +9,8 @@ vec3 _voxel_color_by_type_srgb(uint voxel_type) {
         return vec3(0.0);
     } else if (voxel_type == VOXEL_TYPE_DIRT) {
         return voxel_colors.dirt_color;
+    } else if (voxel_type == VOXEL_TYPE_SAND) {
+        return vec3(0.76, 0.69, 0.45);
     } else if (voxel_type == VOXEL_TYPE_CHERRY_WOOD) {
         return voxel_colors.cherry_wood_color;
     } else if (voxel_type == VOXEL_TYPE_OAK_WOOD) {
@@ -20,7 +22,7 @@ vec3 _voxel_color_by_type_srgb(uint voxel_type) {
 }
 
 float _voxel_hash_variance_lut(uint voxel_type) {
-    if (voxel_type == VOXEL_TYPE_DIRT) {
+    if (voxel_type == VOXEL_TYPE_DIRT || voxel_type == VOXEL_TYPE_SAND) {
         return 1.0;
     }
     return 0.0;

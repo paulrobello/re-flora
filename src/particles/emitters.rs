@@ -49,11 +49,34 @@ fn butterfly_worm_noise_state(seed: i32, frequency: f32) -> FastNoiseLite {
     state
 }
 
-pub fn generate_worm_direction(noise: &FastNoiseLite, seed: f32, time: f32) -> Vec3 {
+fn butterfly_worm_noise_detail_state(seed: i32, frequency: f32) -> FastNoiseLite {
+    let mut state = FastNoiseLite::with_seed(seed);
+    state.set_noise_type(Some(NoiseType::Perlin));
+    log::info!("Butterfly worm noise detail frequency: {}", frequency);
+    state.set_frequency(Some(frequency));
+    state
+}
+
+pub fn generate_worm_direction(
+    noise: &FastNoiseLite,
+    noise_detail: &FastNoiseLite,
+    detail_weight: f32,
+    seed: f32,
+    time: f32,
+) -> Vec3 {
     let nx = noise.get_noise_3d(seed, time, 0.0);
     let ny = noise.get_noise_3d(seed + 100.0, time, 0.0);
     let nz = noise.get_noise_3d(seed + 200.0, time, 0.0);
-    Vec3::new(nx, ny, nz).normalize_or_zero()
+
+    let dx = noise_detail.get_noise_3d(seed, time, 0.0);
+    let dy = noise_detail.get_noise_3d(seed + 100.0, time, 0.0);
+    let dz = noise_detail.get_noise_3d(seed + 200.0, time, 0.0);
+
+    let broad = Vec3::new(nx, ny, nz);
+    let detail = Vec3::new(dx, dy, dz);
+
+    let combined = broad + detail * detail_weight;
+    combined.normalize_or_zero()
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -227,6 +250,8 @@ pub struct ButterflyEmitterDesc {
     pub color_low: Vec4,
     pub color_high: Vec4,
     pub worm_noise_frequency: f32,
+    pub worm_noise_detail_frequency: f32,
+    pub worm_noise_detail_weight: f32,
 }
 
 impl Default for ButterflyEmitterDesc {
@@ -242,6 +267,8 @@ impl Default for ButterflyEmitterDesc {
             color_low: Vec4::new(0.95, 0.9, 0.55, 1.0),
             color_high: Vec4::new(1.0, 0.97, 0.72, 1.0),
             worm_noise_frequency: 2.0,
+            worm_noise_detail_frequency: 8.0,
+            worm_noise_detail_weight: 0.5,
         }
     }
 }
@@ -260,8 +287,11 @@ pub struct ButterflyEmitter {
     pub butterfly_count: u32,
     render_kind: ParticleRenderKind,
     pub worm_noise: FastNoiseLite,
+    pub worm_noise_detail: FastNoiseLite,
+    pub worm_noise_detail_weight: f32,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
+    pending_placement_handles: Vec<ParticleHandle>,
     worm_seeds: Vec<f32>,
     worm_phases: Vec<f32>,
 }
@@ -278,7 +308,7 @@ impl ButterflyEmitter {
         desc: &ButterflyEmitterDesc,
         render_kind: ParticleRenderKind,
     ) -> Self {
-        let emitter = Self {
+        Self {
             center,
             map_extent: extent,
             height_offset: desc.height_offset_min.min(desc.height_offset_max)
@@ -292,12 +322,17 @@ impl ButterflyEmitter {
             butterfly_count: desc.butterfly_count,
             render_kind,
             worm_noise: butterfly_worm_noise_state(seed as i32, desc.worm_noise_frequency),
+            worm_noise_detail: butterfly_worm_noise_detail_state(
+                (seed as i32).wrapping_add(5000),
+                desc.worm_noise_detail_frequency,
+            ),
+            worm_noise_detail_weight: desc.worm_noise_detail_weight,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
+            pending_placement_handles: Vec::new(),
             worm_seeds: Vec::new(),
             worm_phases: Vec::new(),
-        };
-        emitter
+        }
     }
 
     #[allow(dead_code)]
@@ -313,6 +348,9 @@ impl ButterflyEmitter {
         self.color_high = desc.color_high;
         self.worm_noise
             .set_frequency(Some(desc.worm_noise_frequency.max(0.0001)));
+        self.worm_noise_detail
+            .set_frequency(Some(desc.worm_noise_detail_frequency.max(0.0001)));
+        self.worm_noise_detail_weight = desc.worm_noise_detail_weight;
     }
 
     fn prune_handles(&mut self, system: &ParticleSystem) {
@@ -335,6 +373,7 @@ impl ButterflyEmitter {
     fn trim_active_to_count(&mut self, system: &mut ParticleSystem, target_count: usize) {
         while self.active_handles.len() > target_count {
             if let Some(handle) = self.active_handles.pop() {
+                self.pending_placement_handles.retain(|h| *h != handle);
                 self.worm_seeds.pop();
                 self.worm_phases.pop();
                 let _ = system.despawn(handle);
@@ -342,7 +381,7 @@ impl ButterflyEmitter {
         }
     }
 
-    pub fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+    pub fn random_spawn_position_candidate(&mut self) -> Vec3 {
         let x = self
             .rng
             .random_range(-self.map_extent.x..=self.map_extent.x);
@@ -351,14 +390,24 @@ impl ButterflyEmitter {
             .random_range(-self.map_extent.z..=self.map_extent.z);
         let height_offset = random_in_range(&mut self.rng, &self.height_offset);
 
-        let position = Vec3::new(
+        Vec3::new(
             self.center.x + x,
             self.center.y + height_offset,
             self.center.z + z,
-        );
+        )
+    }
+
+    pub fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+        let position = self.random_spawn_position_candidate();
         let seed = self.rng.random_range(0.0..100_000.0);
         let phase = self.rng.random_range(0.0..TAU);
-        let initial_dir = generate_worm_direction(&self.worm_noise, seed, phase);
+        let initial_dir = generate_worm_direction(
+            &self.worm_noise,
+            &self.worm_noise_detail,
+            self.worm_noise_detail_weight,
+            seed,
+            phase,
+        );
 
         let preset_count = ButterflyPalettePreset::COUNT;
         let texture_variant = if preset_count == 0 {
@@ -412,6 +461,8 @@ impl ButterflyEmitter {
                 out_positions.push(pos);
                 let dir = generate_worm_direction(
                     &self.worm_noise,
+                    &self.worm_noise_detail,
+                    self.worm_noise_detail_weight,
                     self.worm_seeds[i],
                     self.worm_phases[i],
                 );
@@ -428,11 +479,16 @@ impl ButterflyEmitter {
     }
 
     pub fn despawn_butterfly(&mut self, handle: ParticleHandle) {
+        self.pending_placement_handles.retain(|h| *h != handle);
         if let Some(idx) = self.active_handles.iter().position(|h| *h == handle) {
             self.active_handles.swap_remove(idx);
             self.worm_seeds.swap_remove(idx);
             self.worm_phases.swap_remove(idx);
         }
+    }
+
+    pub fn drain_pending_placement_handles(&mut self) -> Vec<ParticleHandle> {
+        std::mem::take(&mut self.pending_placement_handles)
     }
 }
 
@@ -454,6 +510,7 @@ impl ParticleEmitter for ButterflyEmitter {
         while self.active_handles.len() < target_count {
             if let Some(handle) = self.spawn_butterfly(system) {
                 self.active_handles.push(handle);
+                self.pending_placement_handles.push(handle);
             } else {
                 break;
             }

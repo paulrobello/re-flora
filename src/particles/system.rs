@@ -594,17 +594,17 @@ impl ParticleSystem {
             return 1.0;
         }
 
-        let t = (age / lifetime).clamp(0.0, 1.0);
+        let fade_duration = (lifetime * 0.1).min(1.0);
+        if fade_duration <= f32::EPSILON {
+            return 1.0;
+        }
 
-        let fade_in_end = 0.2_f32; // first 20% of lifetime
-        let fade_out_start = 0.8_f32; // last 20% of lifetime
+        let clamped_age = age.clamp(0.0, lifetime);
 
-        if t < fade_in_end {
-            // 0 -> 1 over fade-in window
-            t / fade_in_end
-        } else if t > fade_out_start {
-            // 1 -> 0 over fade-out window
-            (1.0 - t) / (1.0 - fade_out_start)
+        if clamped_age < fade_duration {
+            clamped_age / fade_duration
+        } else if clamped_age > lifetime - fade_duration {
+            (lifetime - clamped_age) / fade_duration
         } else {
             1.0
         }

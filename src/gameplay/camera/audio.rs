@@ -61,8 +61,6 @@ impl PlayerClipCaches {
 pub struct PlayerAudioController {
     spatial_sound_manager: SpatialSoundManager,
     clip_caches: PlayerClipCaches,
-    // time elapsed since last step sound
-    time_since_last_step: f32,
     volume_gain: f32,
 }
 
@@ -72,7 +70,6 @@ impl PlayerAudioController {
         Ok(Self {
             spatial_sound_manager,
             clip_caches,
-            time_since_last_step: 0.0,
             volume_gain: 0.0,
         })
     }
@@ -116,50 +113,17 @@ impl PlayerAudioController {
         }
     }
 
-    pub fn reset_walk_timer(&mut self) {
-        self.time_since_last_step = 0.0;
+    pub fn walk_interval(&self) -> f32 {
+        self.clip_caches.walk_interval
+    }
+
+    pub fn run_interval(&self) -> f32 {
+        self.clip_caches.run_interval
     }
 
     fn calculate_speed_based_volume(&self, speed: f32, min_volume: f32, max_volume: f32) -> f32 {
         let max_speed = 3.0;
         let speed_ratio = (speed / max_speed).clamp(0.0, 1.0);
         min_volume + (max_volume - min_volume) * speed_ratio
-    }
-
-    /// Call this once per frame from the camera update.
-    pub fn update_walk_sound(
-        &mut self,
-        is_on_ground: bool,
-        is_moving: bool,
-        is_running: bool,
-        speed: f32,
-        frame_delta_time: f32,
-        _position: Vec3,
-    ) {
-        let interval = if is_running {
-            self.clip_caches.run_interval
-        } else {
-            self.clip_caches.walk_interval
-        };
-
-        if !(is_on_ground && is_moving) {
-            self.time_since_last_step = interval;
-            return;
-        }
-
-        self.time_since_last_step += frame_delta_time;
-        if self.time_since_last_step >= interval {
-            let volume = self.calculate_speed_based_volume(speed, -4.0, 0.0);
-            let paths = if is_running {
-                &self.clip_caches.run_paths
-            } else {
-                &self.clip_caches.walk_paths
-            };
-            let path = PlayerClipCaches::get_random_path(paths);
-            if let Err(e) = self.play_footstep(path, volume) {
-                log::error!("Failed to play non-spatial walk sound: {}", e);
-            }
-            self.time_since_last_step = 0.0;
-        }
     }
 }

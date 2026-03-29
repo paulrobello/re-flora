@@ -19,6 +19,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     float ocean_normal_amplitude;
     float ocean_noise_frequency;
     float ocean_time_multiplier;
+    float ocean_sea_level_shift;
     uint flora_update_bucket_count;
     float flora_full_update_seconds;
     float lens_flare_intensity;
@@ -175,40 +176,38 @@ vec3 compute_sky_with_sun_and_stars(vec3 view_dir) {
 #include "../include/ocean.glsl"
 
 vec3 combine_colors(float gfx_depth_01, float compute_depth_01, vec4 gfx_rgba,
-                     vec3 denoiser_output_color, vec2 screen_uv, ivec2 uvi) {
+                    vec3 denoiser_output_color, vec2 screen_uv) {
     Ray ray        = ray_gen(screen_uv, camera_info.view_proj_mat_inv);
     vec3 view_dir  = ray.direction;
 
     bool has_raster = (gfx_rgba.a > 0.0) && (gfx_depth_01 < 1.0);
     bool has_rt     = compute_depth_01 < 1.0;
 
-    // no raster, no raytraced geometry -> sky only
-    if (!has_raster && !has_rt) {
-        return compute_environment_color(view_dir);
+    bool has_ocean;
+    float ocean_depth_01;
+    vec3 environment_color = compute_environment_color(view_dir, has_ocean, ocean_depth_01);
+
+    float rt_depth = has_rt ? compute_depth_01 : 1.0;
+    float ocean_depth = has_ocean ? ocean_depth_01 : 1.0;
+
+    vec3 nearest_non_raster_color = environment_color;
+    float nearest_non_raster_depth = ocean_depth;
+    if (rt_depth <= ocean_depth) {
+        nearest_non_raster_depth = rt_depth;
+        nearest_non_raster_color = has_rt ? denoiser_output_color : environment_color;
     }
 
-    // only raytraced geometry
-    if (!has_raster && has_rt) {
-        return denoiser_output_color;
+    if (!has_raster) {
+        return nearest_non_raster_color;
     }
 
-    // we have raster; decide what is behind it
-    vec3 bg;
-
-    if (!has_rt) {
-        // raster over environment (sky + ocean)
-        bg = compute_environment_color(view_dir);
-    } else if (gfx_depth_01 > compute_depth_01) {
-        // raytraced world is closer; ignore raster completely
-        return denoiser_output_color;
-    } else {
-        // raster in front of raytraced world
-        bg = denoiser_output_color;
+    if (gfx_depth_01 > nearest_non_raster_depth) {
+        return nearest_non_raster_color;
     }
 
     float a = clamp(gfx_rgba.a, 0.0, 1.0);
     // gfx_rgba is expected to be premultiplied (rgb already includes alpha)
-    return gfx_rgba.rgb + bg * (1.0 - a);
+    return gfx_rgba.rgb + nearest_non_raster_color * (1.0 - a);
 }
 
 vec3 sample_lens_flare(vec2 screen_uv) {
@@ -232,7 +231,7 @@ void main() {
     vec4 gfx_rgba                  = imageLoad(gfx_output_tex, uvi);
     vec3 denoiser_spatial_pong_tex = imageLoad(denoiser_spatial_pong_tex, uvi).rgb;
     vec3 final_color               = combine_colors(gfx_depth_01, compute_depth_01, gfx_rgba,
-                                                    denoiser_spatial_pong_tex, screen_uv, uvi);
+                                                    denoiser_spatial_pong_tex, screen_uv);
     final_color += sample_lens_flare(screen_uv);
 
     // TODO:

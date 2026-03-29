@@ -37,6 +37,28 @@ layout(set = 0, binding = 4, r32f) uniform readonly image2D gfx_depth_tex;
 layout(set = 0, binding = 5, r32f) uniform readonly image2D compute_depth_tex;
 layout(set = 0, binding = 6) uniform sampler2D shadow_map_tex;
 layout(set = 0, binding = 7, r32f) uniform writeonly image2D god_ray_output_tex;
+layout(set = 0, binding = 8) uniform U_GuiInput {
+    float debug_float;
+    uint debug_bool;
+    uint debug_uint;
+    vec3 flora_instance_hsv_offset_max;
+    vec3 flora_voxel_hsv_offset_max;
+    vec3 grass_bottom_dark;
+    vec3 grass_bottom_light;
+    vec3 grass_tip_dark;
+    vec3 grass_tip_light;
+    vec3 ocean_deep_color;
+    vec3 ocean_shallow_color;
+    float ocean_normal_amplitude;
+    float ocean_noise_frequency;
+    float ocean_time_multiplier;
+    float ocean_sea_level_shift;
+    uint flora_update_bucket_count;
+    float flora_full_update_seconds;
+    float lens_flare_intensity;
+    float lens_flare_sun_pixel_scale;
+}
+gui_input;
 
 layout(set = 1, binding = 0, r8) readonly uniform image2DArray scalar_bn;
 layout(set = 1, binding = 1, rg8) readonly uniform image2DArray unit_vec2_bn;
@@ -47,11 +69,14 @@ layout(set = 1, binding = 5, rgba8) readonly uniform image2DArray fast_weighted_
 #include "../include/noise_tex.glsl"
 
 #include "../include/ray.glsl"
+#include "../include/ocean_depth.glsl"
 
-float get_depth_01(ivec2 uvi) {
+float get_depth_01(ivec2 uvi, vec2 screen_uv) {
     float gfx_depth_01     = imageLoad(gfx_depth_tex, uvi).r;
     float compute_depth_01 = imageLoad(compute_depth_tex, uvi).r;
-    return min(gfx_depth_01, compute_depth_01);
+    bool hit_ocean = false;
+    float ocean_depth_01 = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
+    return min(min(gfx_depth_01, compute_depth_01), ocean_depth_01);
 }
 
 void main() {
@@ -61,9 +86,8 @@ void main() {
         return;
     }
 
-    float depth_01 = get_depth_01(uvi);
-
     vec2 screen_uv = (vec2(uvi) + vec2(0.5)) / vec2(img_size);
+    float depth_01 = get_depth_01(uvi, screen_uv);
     Ray ray        = ray_gen(screen_uv, camera_info.view_proj_mat_inv);
 
     vec4 near_point_ndc = vec4(screen_uv * 2.0 - 1.0, 0.0, 1.0);

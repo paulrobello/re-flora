@@ -21,59 +21,69 @@ struct ViewAltitudeKeyframe {
     float blend_factor; // 0.0 = bottom color, 1.0 = top color
 };
 
-// time-of-day keyframes - A more vibrant and detailed progression
-const int TIME_KEYFRAME_COUNT                               = 10;
+// time-of-day keyframes - Colors informed by Preetham/Hosek-Wilkie sky model reference values.
+// Zenith (top) is deep Rayleigh-scattering blue; horizon (bottom) is pale/desaturated due to
+// longer atmospheric path length. Sunrise/sunset transitions use warm-to-cool gradients matching
+// real-world aerosol scattering behavior.
+const int TIME_KEYFRAME_COUNT                               = 11;
 const TimeOfDayKeyframe TIME_KEYFRAMES[TIME_KEYFRAME_COUNT] = {
     // 1. Deep Night: Almost pitch black with a hint of deep, cold blue.
     {-0.4, vec3(4.0, 5.0, 10.0) / 255.0, vec3(8.0, 10.0, 20.0) / 255.0},
 
-    // 2. Pre-Dawn: The first light appears as a subtle purple/magenta glow on the horizon.
-    {-0.18, vec3(20.0, 25.0, 45.0) / 255.0, vec3(40.0, 30.0, 50.0) / 255.0},
+    // 2. Pre-Dawn / Post-Dusk: First/last hint of light; warm purple-pink on the horizon,
+    // zenith still very dark blue-grey. Sun is deep below the horizon.
+    {-0.25, vec3(18.0, 22.0, 48.0) / 255.0, vec3(55.0, 38.0, 58.0) / 255.0},
 
-    // 3. Blue Hour: The sky is filled with a deep, saturated blue.
-    // NEW: This keyframe creates a distinct blue-dominated period during twilight.
-    {-0.1, vec3(15.0, 25.0, 60.0) / 255.0, vec3(30.0, 25.0, 60.0) / 255.0},
+    // 3. Blue Hour start: Rich indigo zenith, violet-blue horizon. Sun is ~-6 deg (nautical
+    // twilight). This keyframe is placed well before sunrise so the blue hour has real duration.
+    {-0.15, vec3(16.0, 26.0, 70.0) / 255.0, vec3(32.0, 28.0, 72.0) / 255.0},
 
-    // 4. Dawn/Dusk Glow: The sky above is a deep blue, while the horizon burns with a vibrant red
-    // glow.
-    {-0.05, vec3(30.0, 50.0, 100.0) / 255.0, vec3(180.0, 50.0, 90.0) / 255.0},
+    // 4. Blue Hour peak: The whole sky is a vivid, cool blue. Horizon picks up a faint warm tint
+    // signalling the approaching sun — but blue still dominates.
+    {-0.07, vec3(22.0, 42.0, 100.0) / 255.0, vec3(50.0, 52.0, 110.0) / 255.0},
 
-    // 5. Sunrise/Sunset: The sun is at the horizon. The top of the sky is a lighter blue, meeting a
-    // fiery orange.
-    {0.0, vec3(80.0, 100.0, 180.0) / 255.0, vec3(255.0, 100.0, 40.0) / 255.0},
+    // 5. Dawn/Dusk Glow: Blue hour fades; deep blue above, warm crimson-magenta at the horizon.
+    // Sun is just below the horizon (~-3 deg civil twilight).
+    {-0.03, vec3(28.0, 48.0, 105.0) / 255.0, vec3(195.0, 60.0, 85.0) / 255.0},
 
-    // 6. Golden Hour: As the sun rises, the fiery reds give way to a warm, golden light.
-    {0.1, vec3(135.0, 170.0, 255.0) / 255.0, vec3(255.0, 180.0, 100.0) / 255.0},
+    // 6. Sunrise/Sunset: Lighter steel-blue zenith meeting a fiery orange-amber horizon.
+    {0.0, vec3(70.0, 95.0, 175.0) / 255.0, vec3(255.0, 115.0, 45.0) / 255.0},
 
-    // 7. Morning: The sky clears to a crisp, welcoming blue. A pale cyan near the horizon suggests
-    // morning haze.
-    {0.3, vec3(100.0, 160.0, 255.0) / 255.0, vec3(180.0, 210.0, 255.0) / 255.0},
+    // 7. Golden Hour: Warm amber-orange horizon; zenith transitions to a slightly warmer blue
+    // (less harsh than pure blue) to ease the gradient.
+    {0.1, vec3(120.0, 158.0, 248.0) / 255.0, vec3(255.0, 185.0, 95.0) / 255.0},
 
-    // 8. Mid-day: A classic, bright sky blue. The variation between top and bottom adds depth.
-    {0.5, vec3(80.0, 150.0, 255.0) / 255.0, vec3(110.0, 170.0, 245.0) / 255.0},
+    // 7. Morning: Crisp blue zenith; horizon is a soft, saturated mid-blue — no white.
+    {0.3, vec3(58.0, 130.0, 220.0) / 255.0, vec3(100.0, 160.0, 220.0) / 255.0},
 
-    // 9. High Noon: At its peak, the sun makes the zenith a deep, pure blue, creating a subtle
-    // daytime gradient.
-    {0.8, vec3(60.0, 120.0, 230.0) / 255.0, vec3(90.0, 150.0, 240.0) / 255.0},
+    // 8. Mid-day: Deep Rayleigh blue at zenith; horizon is a clear mid-blue — retains saturation
+    // so the sky reads as blue from edge to edge, not hazy-white.
+    {0.5, vec3(38.0, 108.0, 210.0) / 255.0, vec3(85.0, 145.0, 215.0) / 255.0},
 
-    // 10. Late Afternoon: The blue begins to soften and warm up slightly as the sun descends.
-    {1.0, vec3(40.0, 100.0, 220.0) / 255.0, vec3(100.0, 160.0, 255.0) / 255.0}};
+    // 9. High Noon: Deepest Rayleigh blue at zenith; horizon stays solidly blue.
+    {0.8, vec3(28.0, 92.0, 195.0) / 255.0, vec3(72.0, 132.0, 205.0) / 255.0},
 
-// view altitude keyframes - Refined gradient for a more natural horizon
-// more control points are added for a smoother blend from horizon to zenith.
-const int VIEW_KEYFRAME_COUNT                                  = 6;
+    // 10. Late Afternoon: Zenith warms slightly toward afternoon; horizon follows.
+    {1.0, vec3(42.0, 105.0, 210.0) / 255.0, vec3(88.0, 148.0, 215.0) / 255.0}};
+
+// view altitude keyframes - The horizon line blends mostly toward the sky (top) color so it
+// reads as clear blue, not washed-out haze. A gentle gradient from ~0 to ~0.3 altitude gives
+// natural depth without a visible white band.
+const int VIEW_KEYFRAME_COUNT                                  = 7;
 const ViewAltitudeKeyframe VIEW_KEYFRAMES[VIEW_KEYFRAME_COUNT] = {
-    // looking straight down - full bottom color
+    // looking straight down - full bottom (ground) color
     {-1.0, 0.0},
-    // below horizon - blend starts subtly
-    {-0.2, 0.05},
-    // at the horizon line - a balanced but sharp transition
-    {0.0, 0.4},
-    // just above the horizon - top color quickly becomes dominant
-    {0.05, 0.6},
-    // low in the sky - mostly top color with a hint of horizon influence
-    {0.3, 0.9},
-    // looking straight up (zenith) - full top color
+    // below horizon - very little sky color
+    {-0.15, 0.03},
+    // at the horizon line - mostly sky-tinted; bottom color only faintly present
+    {0.0, 0.55},
+    // just above horizon - quickly approaches zenith color
+    {0.08, 0.72},
+    // low sky - strongly zenith-dominated
+    {0.2, 0.86},
+    // mid sky - almost full zenith color
+    {0.4, 0.96},
+    // zenith - full top (deep Rayleigh-blue) color
     {1.0, 1.0}};
 
 // interpolate between time-of-day keyframes
@@ -145,6 +155,14 @@ SkyColors get_sky_color_by_sun_altitude(float sun_altitude) {
     return interpolate_time_keyframes(sun_altitude);
 }
 
+// Henyey-Greenstein phase function for Mie scattering.
+// g controls anisotropy: ~0.76 matches real aerosol forward scattering (Preetham 1999, p.4).
+// cos_theta is the cosine of the angle between view and sun direction.
+float hg_phase(float cos_theta, float g) {
+    float g2 = g * g;
+    return (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 + g2 - 2.0 * g * cos_theta, 1.5));
+}
+
 vec3 get_sky_color(vec3 view_dir, vec3 sun_dir) {
     // altitude range now matches sun altitude range (-1 to 1)
     float altitude     = view_dir.y;
@@ -157,21 +175,29 @@ vec3 get_sky_color(vec3 view_dir, vec3 sun_dir) {
     blend_factor        = smoothstep(0.0, 1.0, blend_factor);
     vec3 base_sky_color = mix(sky_colors.bottom_color, sky_colors.top_color, blend_factor);
 
-    // add sun-halo effect
-    float sun_proximity = max(0.0, dot(view_dir, sun_dir));
+    // Henyey-Greenstein Mie scattering halo around the sun.
+    // g = 0.76 is the industry-standard aerosol anisotropy factor (Preetham 1999).
+    // When the sun is near the horizon, aerosols are more concentrated, so we
+    // increase g slightly to produce a tighter, brighter forward-scattering lobe.
+    float cos_theta   = dot(view_dir, sun_dir);
+    float g           = mix(0.76, 0.82, clamp(1.0 - abs(sun_altitude), 0.0, 1.0));
+    float halo_phase  = hg_phase(cos_theta, g);
 
-    // derive halo color from sky color at sun's position
+    // normalize: HG peak at cos_theta=1 is (1-g^2)/(4*pi*(1+g^2-2g)^1.5) = (1-g^2)/(4*pi*(1-g)^3)
+    float g2          = g * g;
+    float hg_peak     = (1.0 - g2) / (4.0 * 3.14159265 * pow(1.0 - g, 3.0));
+    float halo_norm   = halo_phase / hg_peak; // 0..1
+
+    // reduce halo strength at high sun altitude (less haze, cleaner sky)
+    float halo_strength = halo_norm * mix(0.35, 0.18, clamp(sun_altitude * 2.0, 0.0, 1.0));
+
+    // derive halo tint from sky color at the sun's elevation
     float sun_blend_factor = interpolate_view_altitude(sun_altitude);
     sun_blend_factor       = smoothstep(0.0, 1.0, sun_blend_factor);
     vec3 halo_color        = mix(sky_colors.bottom_color, sky_colors.top_color, sun_blend_factor);
 
-    // halo falloff - stronger when sun is low, creates nice sunset halos
-    float halo_size     = mix(0.1, 0.05, abs(sun_altitude)); // Larger halo when sun is low
-    float halo_strength = pow(sun_proximity, 1.0 / halo_size);
-    halo_strength *= (1.0 - abs(sun_altitude) * 0.5); // Reduce halo at zenith
-
     // blend halo with base sky color
-    vec3 sky_color = mix(base_sky_color, halo_color, halo_strength * 0.4);
+    vec3 sky_color = mix(base_sky_color, halo_color, clamp(halo_strength, 0.0, 1.0));
 
     return sky_color;
 }

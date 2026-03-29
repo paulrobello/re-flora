@@ -19,6 +19,7 @@ layout(set = 0, binding = 0) uniform U_GuiInput {
     float ocean_normal_amplitude;
     float ocean_noise_frequency;
     float ocean_time_multiplier;
+    float ocean_sea_level_shift;
     uint flora_update_bucket_count;
     float flora_full_update_seconds;
     float lens_flare_intensity;
@@ -169,7 +170,9 @@ vec3 sample_sun_disk(ivec3 seed, float sun_size, vec3 sun_dir) {
 
 /// If the ray hits the scene, no light, otherwise sunlight
 vec3 get_shadow_ray_color(Ray ray, ivec3 seed) {
-    return get_shadow_weight_pcss(ray.origin, seed) * sun_info.sun_color * sun_info.sun_luminance;
+    float sun_above_horizon = step(0.0, sun_info.sun_dir.y);
+    return get_shadow_weight_pcss(ray.origin, seed) * sun_info.sun_color * sun_info.sun_luminance
+           * sun_above_horizon;
 }
 
 vec3 choose_random_normal(ivec3 seed);

@@ -146,6 +146,7 @@ impl BufferUpdater {
         ocean_normal_amplitude: f32,
         ocean_noise_frequency: f32,
         ocean_time_multiplier: f32,
+        ocean_sea_level_shift: f32,
         flora_update_bucket_count: u32,
         flora_full_update_seconds: f32,
         lens_flare_intensity: f32,
@@ -201,6 +202,10 @@ impl BufferUpdater {
             .set_field(
                 "ocean_time_multiplier",
                 PlainMemberTypeWithData::Float(ocean_time_multiplier),
+            )
+            .set_field(
+                "ocean_sea_level_shift",
+                PlainMemberTypeWithData::Float(ocean_sea_level_shift),
             )
             .set_field(
                 "flora_update_bucket_count",

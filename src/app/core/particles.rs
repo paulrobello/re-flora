@@ -2,11 +2,11 @@ use super::App;
 use crate::geom::UAabb3;
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
-    ParticleSystem,
+    ParticleSystem, ParticleTickStep,
 };
 use crate::util::ClusterResult;
 use egui::Color32;
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
@@ -77,6 +77,10 @@ impl App {
             color_low: Vec4::ONE,
             color_high: Vec4::ONE,
             worm_noise_frequency: gui_adjustables.butterfly_worm_noise_frequency.value,
+            worm_noise_detail_frequency: gui_adjustables
+                .butterfly_worm_noise_detail_frequency
+                .value,
+            worm_noise_detail_weight: gui_adjustables.butterfly_worm_noise_detail_weight.value,
         }
     }
 
@@ -220,7 +224,7 @@ impl App {
         let tick_step = self.particle_system.last_tick_step();
         if tick_step.did_step {
             self.particle_animation_time_sec += tick_step.step_seconds;
-            self.plan_butterflies();
+            self.plan_butterflies(tick_step);
         }
         self.particle_system
             .write_snapshots(&mut self.particle_snapshots);
@@ -230,10 +234,11 @@ impl App {
         }
     }
 
-    pub(super) fn plan_butterflies(&mut self) {
+    pub(super) fn plan_butterflies(&mut self, tick_step: ParticleTickStep) {
         use crate::tracer::{TerrainRayHitSample, TerrainRayQuery};
 
         const MAX_RETRIES: usize = 3;
+        const MAX_SPAWN_XZ_RETRIES: usize = 16;
         const STEP_LEN: f32 = crate::particles::emitters::WORM_STEP_LEN;
         const RAY_EPSILON: f32 = 0.02;
 
@@ -244,16 +249,121 @@ impl App {
         let mut all_directions: Vec<Vec3> = Vec::new();
         let mut all_emitter_indices: Vec<usize> = Vec::new();
 
-        for (emitter_idx, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
-            let mut handles = Vec::new();
-            let mut positions = Vec::new();
-            let mut directions = Vec::new();
-            emitter.collect_butterfly_states(
-                &self.particle_system,
-                &mut handles,
-                &mut positions,
-                &mut directions,
-            );
+        for emitter_idx in 0..self.butterfly_emitters.len() {
+            let pending_handles =
+                self.butterfly_emitters[emitter_idx].drain_pending_placement_handles();
+            for handle in pending_handles {
+                if !self.particle_system.is_alive_handle(handle) {
+                    continue;
+                }
+
+                let mut resolved_position = self.particle_system.position(handle);
+                let mut found_valid_xz = false;
+                let mut last_attempt_position = resolved_position;
+
+                if let Some(position) = resolved_position {
+                    let sample =
+                        match self
+                            .tracer
+                            .query_terrain_heights_batch_with_validity(&[Vec2::new(
+                                position.x, position.z,
+                            )]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+                    if sample[0].is_valid {
+                        found_valid_xz = true;
+                    }
+                }
+
+                if !found_valid_xz {
+                    for _ in 0..MAX_SPAWN_XZ_RETRIES {
+                        let candidate =
+                            self.butterfly_emitters[emitter_idx].random_spawn_position_candidate();
+                        let sample = match self.tracer.query_terrain_heights_batch_with_validity(&[
+                            Vec2::new(candidate.x, candidate.z),
+                        ]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement retry: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+
+                        if sample[0].is_valid {
+                            found_valid_xz = true;
+                            resolved_position = Some(candidate);
+                            break;
+                        }
+
+                        last_attempt_position = Some(candidate);
+                    }
+                }
+
+                if found_valid_xz {
+                    if let Some(position) = resolved_position {
+                        let _ = self.particle_system.set_position(handle, position);
+                    }
+                } else {
+                    let fallback = if let Some(last) = last_attempt_position {
+                        Vec3::new(
+                            last.x,
+                            self.butterfly_emitters[emitter_idx].center.y,
+                            last.z,
+                        )
+                    } else {
+                        self.butterfly_emitters[emitter_idx].random_spawn_position_candidate()
+                    };
+                    let _ = self.particle_system.set_position(handle, fallback);
+                }
+            }
+
+            let (mut handles, mut positions, mut directions) = {
+                let emitter = &mut self.butterfly_emitters[emitter_idx];
+                let mut handles = Vec::new();
+                let mut positions = Vec::new();
+                let mut directions = Vec::new();
+                emitter.collect_butterfly_states(
+                    &self.particle_system,
+                    &mut handles,
+                    &mut positions,
+                    &mut directions,
+                );
+                (handles, positions, directions)
+            };
+
+            if tick_step.bucket_count > 1 {
+                let active_bucket = tick_step.active_bucket;
+                let mut filtered_handles = Vec::with_capacity(handles.len());
+                let mut filtered_positions = Vec::with_capacity(positions.len());
+                let mut filtered_directions = Vec::with_capacity(directions.len());
+
+                for ((handle, position), direction) in handles
+                    .into_iter()
+                    .zip(positions.into_iter())
+                    .zip(directions.into_iter())
+                {
+                    if self.particle_system.handle_bucket(handle) == Some(active_bucket) {
+                        filtered_handles.push(handle);
+                        filtered_positions.push(position);
+                        filtered_directions.push(direction);
+                    }
+                }
+
+                handles = filtered_handles;
+                positions = filtered_positions;
+                directions = filtered_directions;
+            }
+
             all_emitter_indices.resize(all_emitter_indices.len() + handles.len(), emitter_idx);
             all_handles.extend(handles);
             all_positions.extend(positions);
@@ -330,6 +440,8 @@ impl App {
                                 let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
+                                    &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
                                     new_seed,
                                     new_phase,
                                 )
@@ -365,6 +477,8 @@ impl App {
                                 let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
                                 crate::particles::emitters::generate_worm_direction(
                                     &em.worm_noise,
+                                    &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
                                     new_seed,
                                     new_phase,
                                 )

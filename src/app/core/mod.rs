@@ -45,11 +45,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui_style::{
-    apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
-    GOLD_ACCENT, ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
-    ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH, ITEM_PANEL_SLOT_COUNT,
-    ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH, PANEL_BG, PANEL_DARK,
-    SAGE_ACCENT, SHADOW_COLOR,
+    apply_gui_style, draw_backpack_summary, draw_item_panel, CUSTOM_GUI_FONT_NAME,
+    CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT, GOLD_ACCENT, ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH,
+    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH, ITEM_PANEL_HOE_ICON_FALLBACK_PATH,
+    ITEM_PANEL_HOE_ICON_PATH, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
+    ITEM_PANEL_SLOT_COUNT, ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH,
+    PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
 };
 use uuid::Uuid;
 use winit::{
@@ -96,13 +97,22 @@ pub struct App {
     settings_panel_visible: bool,
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
+    item_panel_copper_shovel_icon: Option<TextureHandle>,
     item_panel_staff_icon: Option<TextureHandle>,
     item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
+    terrain_query_debug_text: String,
+    left_mouse_held: bool,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
+    last_copper_shovel_place_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
     last_hoe_trim_time: Option<Instant>,
+    backpack_dirt_count: u32,
+    backpack_sand_count: u32,
+    backpack_cherry_wood_count: u32,
+    backpack_oak_wood_count: u32,
+    backpack_rock_count: u32,
     terrain_edit_loop_sound: Option<Uuid>,
     terrain_edit_loop_sound_muted: bool,
 
@@ -355,15 +365,24 @@ impl App {
             tree_records: HashMap::new(),
             config_panel_visible: false,
             settings_panel_visible: false,
-            is_fly_mode: false,
+            is_fly_mode: true,
             item_panel_shovel_icon: None,
+            item_panel_copper_shovel_icon: None,
             item_panel_staff_icon: None,
             item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
+            terrain_query_debug_text: "not hit".to_owned(),
+            left_mouse_held: false,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
+            last_copper_shovel_place_time: None,
             last_staff_regen_time: None,
             last_hoe_trim_time: None,
+            backpack_dirt_count: 0,
+            backpack_sand_count: 0,
+            backpack_cherry_wood_count: 0,
+            backpack_oak_wood_count: 0,
+            backpack_rock_count: 0,
             terrain_edit_loop_sound: None,
             terrain_edit_loop_sound_muted: true,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
@@ -396,8 +415,6 @@ impl App {
             TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
             TreeAddOptions::default(),
         )?;
-        app.plant_map_region_fence_posts()?;
-        app.plant_map_region_rocks()?;
 
         // configure leaves with the app's actual density values (now that app struct exists)
         app.tracer.regenerate_leaves(
@@ -475,6 +492,38 @@ impl App {
             egui::TextureOptions::NEAREST,
         );
         self.item_panel_shovel_icon = Some(shovel_texture);
+
+        let copper_shovel_path =
+            if std::path::Path::new(ITEM_PANEL_COPPER_SHOVEL_ICON_PATH).exists() {
+                ITEM_PANEL_COPPER_SHOVEL_ICON_PATH
+            } else {
+                log::warn!(
+                    "Item panel icon not found at {}. Falling back to {}",
+                    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH,
+                    ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
+                );
+                ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
+            };
+
+        let copper_shovel_bytes = std::fs::read(copper_shovel_path)
+            .with_context(|| format!("Failed to read item panel icon from {copper_shovel_path}"))?;
+        let copper_shovel_rgba = image::load_from_memory(&copper_shovel_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {copper_shovel_path}"))?
+            .to_rgba8();
+        let copper_shovel_size = [
+            copper_shovel_rgba.width() as usize,
+            copper_shovel_rgba.height() as usize,
+        ];
+        let copper_shovel_pixels = copper_shovel_rgba.into_raw();
+        let copper_shovel_image =
+            ColorImage::from_rgba_unmultiplied(copper_shovel_size, &copper_shovel_pixels);
+
+        let copper_shovel_texture = self.egui_renderer.context().load_texture(
+            "item_panel_copper_shovel",
+            copper_shovel_image,
+            egui::TextureOptions::NEAREST,
+        );
+        self.item_panel_copper_shovel_icon = Some(copper_shovel_texture);
 
         let staff_bytes = std::fs::read(staff_path)
             .with_context(|| format!("Failed to read item panel icon from {staff_path}"))?;
@@ -624,13 +673,20 @@ impl App {
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                if button == MouseButton::Left {
+                    self.left_mouse_held = state == ElementState::Pressed;
+                }
+
                 if !self.window_state.is_cursor_visible() && button == MouseButton::Left {
                     match state {
                         ElementState::Pressed => {
+                            self.update_terrain_query_debug_text();
                             self.shovel_dig_held = true;
                             let now = Instant::now();
                             if self.is_shovel_selected() {
                                 self.try_shovel_dig(now);
+                            } else if self.is_copper_shovel_selected() {
+                                self.try_copper_shovel_place(now);
                             } else if self.is_staff_selected() {
                                 self.try_staff_regenerate(now);
                             } else if self.is_hoe_selected() {
@@ -661,9 +717,12 @@ impl App {
 
                 self.time_info.update();
                 if self.shovel_dig_held {
+                    self.update_terrain_query_debug_text();
                     let now = Instant::now();
                     if self.is_shovel_selected() {
                         self.try_shovel_dig(now);
+                    } else if self.is_copper_shovel_selected() {
+                        self.try_copper_shovel_place(now);
                     } else if self.is_staff_selected() {
                         self.try_staff_regenerate(now);
                     } else if self.is_hoe_selected() {
@@ -697,9 +756,16 @@ impl App {
 
                 let tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
+                let item_panel_copper_shovel_icon = self.item_panel_copper_shovel_icon.clone();
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
+                let backpack_dirt_count = self.backpack_dirt_count;
+                let backpack_sand_count = self.backpack_sand_count;
+                let backpack_cherry_wood_count = self.backpack_cherry_wood_count;
+                let backpack_oak_wood_count = self.backpack_oak_wood_count;
+                let backpack_rock_count = self.backpack_rock_count;
+                let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
@@ -804,10 +870,30 @@ impl App {
                         draw_item_panel(
                             ctx,
                             item_panel_shovel_icon.as_ref(),
+                            item_panel_copper_shovel_icon.as_ref(),
                             item_panel_staff_icon.as_ref(),
                             item_panel_hoe_icon.as_ref(),
                             selected_item_panel_slot,
                         );
+
+                        draw_backpack_summary(
+                            ctx,
+                            backpack_dirt_count,
+                            backpack_sand_count,
+                            backpack_cherry_wood_count,
+                            backpack_oak_wood_count,
+                            backpack_rock_count,
+                            terrain_query_debug_text.as_str(),
+                        );
+
+                        if self.left_mouse_held {
+                            let center = ctx.content_rect().center();
+                            let painter = ctx.layer_painter(egui::LayerId::new(
+                                egui::Order::Foreground,
+                                egui::Id::new("debug_center_dot"),
+                            ));
+                            painter.circle_filled(center, 4.0, Color32::RED);
+                        }
 
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
@@ -989,6 +1075,7 @@ impl App {
                         self.gui_adjustables.ocean_normal_amplitude.value,
                         self.gui_adjustables.ocean_noise_frequency.value,
                         self.gui_adjustables.ocean_time_multiplier.value,
+                        self.gui_adjustables.ocean_sea_level_shift.value,
                         self.gui_adjustables.flora_update_bucket_count.value,
                         self.gui_adjustables.flora_full_update_seconds.value,
                         self.gui_adjustables.lens_flare_intensity.value,
@@ -1168,6 +1255,13 @@ impl App {
                 }
 
                 self.current_frame = (self.current_frame + 1) % self.frames_in_flight.len();
+
+                self.tracer.set_head_bob_params(
+                    self.gui_adjustables.headbob_vertical_amp.value,
+                    self.gui_adjustables.headbob_horizontal_amp.value,
+                    self.gui_adjustables.headbob_roll_amp.value,
+                    self.gui_adjustables.headbob_sprint_amp_mul.value,
+                );
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);

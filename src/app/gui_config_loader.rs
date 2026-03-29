@@ -5,6 +5,7 @@ use crate::app::gui_config_model::{GuiConfigFile, GuiParamKind};
 
 const SUPPORTED_SCHEMA_VERSION: u32 = 1;
 const CONFIG_FILE_NAME: &str = "gui.toml";
+const GUI_FLOAT_DECIMALS: usize = 6;
 
 pub struct GuiConfigLoader;
 
@@ -61,9 +62,67 @@ impl GuiConfigLoader {
         let config_path = Self::config_path();
         let content = toml::to_string_pretty(config)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+        let content = Self::normalize_float_assignments(&content, GUI_FLOAT_DECIMALS);
         std::fs::write(&config_path, content)?;
         log::info!("Saved GUI config to {}", config_path.display());
         Ok(())
+    }
+
+    fn normalize_float_assignments(content: &str, decimals: usize) -> String {
+        let mut normalized = String::with_capacity(content.len());
+
+        for (idx, line) in content.lines().enumerate() {
+            if idx > 0 {
+                normalized.push('\n');
+            }
+            normalized.push_str(&Self::normalize_float_line(line, decimals));
+        }
+
+        if content.ends_with('\n') {
+            normalized.push('\n');
+        }
+
+        normalized
+    }
+
+    fn normalize_float_line(line: &str, decimals: usize) -> String {
+        let Some((lhs, rhs)) = line.split_once('=') else {
+            return line.to_string();
+        };
+
+        let key = lhs.trim();
+        if !matches!(key, "value" | "min" | "max") {
+            return line.to_string();
+        }
+
+        let raw_value = rhs.trim();
+        if raw_value.starts_with('"') || raw_value.starts_with('\'') {
+            return line.to_string();
+        }
+
+        let Some(value) = Self::format_decimal(raw_value, decimals) else {
+            return line.to_string();
+        };
+
+        format!("{lhs}= {value}")
+    }
+
+    fn format_decimal(raw_value: &str, decimals: usize) -> Option<String> {
+        let parsed = raw_value.parse::<f64>().ok()?;
+        let mut value = format!("{parsed:.decimals$}");
+
+        if value.contains('.') {
+            value = value
+                .trim_end_matches('0')
+                .trim_end_matches('.')
+                .to_string();
+        }
+
+        if value == "-0" {
+            value = "0".to_string();
+        }
+
+        Some(value)
     }
 
     fn validate(config: &GuiConfigFile, path: &Path) {
@@ -245,5 +304,24 @@ impl GuiConfigLoader {
             return false;
         }
         s[1..].chars().all(|c| c.is_ascii_hexdigit())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GuiConfigLoader;
+
+    #[test]
+    fn normalize_float_assignments_rounds_and_trims() {
+        let src = "value = 0.05000000074505806\nmin = 0.10000000149011612\nmax = 2.0\n";
+        let normalized = GuiConfigLoader::normalize_float_assignments(src, 6);
+        assert_eq!(normalized, "value = 0.05\nmin = 0.1\nmax = 2\n");
+    }
+
+    #[test]
+    fn normalize_float_assignments_leaves_non_numeric_values() {
+        let src = "value = true\nmin = 1\nmax = \"#FF00FF\"\n";
+        let normalized = GuiConfigLoader::normalize_float_assignments(src, 6);
+        assert_eq!(normalized, "value = true\nmin = 1\nmax = \"#FF00FF\"\n");
     }
 }

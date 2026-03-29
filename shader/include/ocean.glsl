@@ -7,7 +7,7 @@
 
 // configuration derived from "Seascape (fast version)"
 const float OCEAN_DRAG_MULT     = 0.1;
-const float OCEAN_WATER_DEPTH   = 0.5;
+const float OCEAN_WATER_DEPTH   = 0.2;
 const int   OCEAN_ITER_RAYMARCH = 12;
 const int   OCEAN_ITER_NORMAL   = 36;
 const float OCEAN_SPEED         = 0.4;
@@ -16,6 +16,10 @@ float ocean_time() {
     // keep the existing ocean time multiplier but map to seascape's notion of time
     float t = float(env_info.frame_serial_idx) * 0.016 * gui_input.ocean_time_multiplier;
     return 1.0 + t * OCEAN_SPEED;
+}
+
+float ocean_sea_level() {
+    return gui_input.ocean_sea_level_shift;
 }
 
 // use GUI colors instead of fixed palette
@@ -108,9 +112,10 @@ float ocean_intersect_plane(vec3 origin, vec3 dir, vec3 point, vec3 normal) {
 float ocean_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth) {
     vec3 pos = start;
     vec3 dir = normalize(end - start);
+    float sea_level = ocean_sea_level();
 
     for (int i = 0; i < 64; i++) {
-        float height = ocean_get_waves(pos.xz, OCEAN_ITER_RAYMARCH) * depth - depth;
+        float height = ocean_get_waves(pos.xz, OCEAN_ITER_RAYMARCH) * depth - depth + sea_level;
 
         if (height + 0.01 > pos.y) {
             return distance(pos, camera);
@@ -137,7 +142,7 @@ vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
     vec3 deep    = ocean_base_color();
     vec3 shallow = ocean_water_color();
 
-    float depth_norm = clamp((p.y + OCEAN_WATER_DEPTH) / OCEAN_WATER_DEPTH,
+    float depth_norm = clamp((p.y - ocean_sea_level() + OCEAN_WATER_DEPTH) / OCEAN_WATER_DEPTH,
                              0.0, 1.0);
 
     float shallow_mix = smoothstep(0.0, 1.0, depth_norm);
@@ -150,9 +155,11 @@ vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
     return color;
 }
 
-vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
+vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean, out float ocean_depth_01) {
     vec3 ori = camera_info.pos.xyz;
     vec3 dir = normalize(view_dir);
+    float sea_level = ocean_sea_level();
+    ocean_depth_01 = 1.0;
 
     // assume ocean below the camera; avoid useless tracing when we look upwards
     if (dir.y >= 0.0) {
@@ -160,8 +167,8 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
         return vec3(0.0);
     }
 
-    vec3 water_plane_high = vec3(0.0, 0.0, 0.0);
-    vec3 water_plane_low  = vec3(0.0, -OCEAN_WATER_DEPTH, 0.0);
+    vec3 water_plane_high = vec3(0.0, sea_level, 0.0);
+    vec3 water_plane_low  = vec3(0.0, sea_level - OCEAN_WATER_DEPTH, 0.0);
     vec3 up             = vec3(0.0, 1.0, 0.0);
 
     float high_t = ocean_intersect_plane(ori, dir, water_plane_high, up);
@@ -191,16 +198,19 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
 
     vec3 color = ocean_get_sea_color_fast(p, n, light_dir, dir, dist);
 
+    vec4 point_ndc = camera_info.view_proj_mat * vec4(p, 1.0);
+    ocean_depth_01 = point_ndc.z / point_ndc.w;
+
     hit_ocean = true;
     return color;
 }
 
-vec3 compute_environment_color(vec3 view_dir) {
-    bool hit_ocean;
-    vec3 ocean_color = compute_ocean_color(view_dir, hit_ocean);
+vec3 compute_environment_color(vec3 view_dir, out bool hit_ocean, out float ocean_depth_01) {
+    vec3 ocean_color = compute_ocean_color(view_dir, hit_ocean, ocean_depth_01);
     if (hit_ocean) {
         return ocean_color;
     }
+    ocean_depth_01 = 1.0;
     return compute_sky_with_sun_and_stars(view_dir);
 }
 

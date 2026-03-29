@@ -1,5 +1,6 @@
 use super::{
-    audio::PlayerAudioController, movement::MovementState, vectors::CameraVectors, CameraDesc,
+    audio::PlayerAudioController, head_bob::HeadBob, movement::MovementState, stride::StrideCycle,
+    vectors::CameraVectors, CameraDesc,
 };
 use crate::{audio::SpatialSoundManager, tracer::PlayerCollisionResult, vkn::Extent2D};
 use anyhow::Result;
@@ -47,6 +48,9 @@ pub struct Camera {
 
     /// Speed just before landing (for landing sound volume)
     pre_landing_speed: f32,
+
+    head_bob: HeadBob,
+    stride_cycle: StrideCycle,
 }
 
 impl Camera {
@@ -72,6 +76,8 @@ impl Camera {
             was_on_ground: false,
             rigidbody: PlayerRigidBody::new(),
             pre_landing_speed: 0.0,
+            head_bob: HeadBob::new(),
+            stride_cycle: StrideCycle::new(),
         };
 
         camera.vectors.update(camera.yaw, camera.pitch);
@@ -105,11 +111,13 @@ impl Camera {
     }
 
     pub fn get_view_mat(&self) -> Mat4 {
-        Mat4::look_at_rh(
+        let base_view = Mat4::look_at_rh(
             self.position,
             self.position + self.vectors.front,
             self.vectors.up,
-        )
+        );
+        self.head_bob
+            .apply_to_view_mat(base_view, self.vectors.right, self.vectors.up)
     }
 
     pub fn calculate_proj_mat(v_fov: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
@@ -183,6 +191,8 @@ impl Camera {
             self.vectors.right,
             self.vectors.up,
         ) * frame_delta_time;
+        self.head_bob.reset();
+        self.stride_cycle.reset();
     }
 
     pub fn update_transform_walk_mode(
@@ -336,8 +346,7 @@ impl Camera {
                 );
                 self.player_audio_controller
                     .play_step(is_running, current_speed, foot_position);
-                // reset timer so下一次步伐重新计时
-                self.player_audio_controller.reset_walk_timer();
+                self.stride_cycle.restart_after_step();
             } else {
                 // still: play landing sound only
                 let foot_position = Vec3::new(
@@ -347,27 +356,50 @@ impl Camera {
                 );
                 self.player_audio_controller
                     .play_landing(self.pre_landing_speed, foot_position);
-                // 不重置计时器，让 update_walk_sound 在静止状态保持间隔满值
             }
         }
 
-        // per-frame update for regular walk/run sounds
+        let stride = self.stride_cycle.update(
+            frame_delta_time,
+            is_on_ground && is_moving,
+            is_running,
+            self.player_audio_controller.walk_interval(),
+            self.player_audio_controller.run_interval(),
+        );
+
         let current_speed = self.rigidbody.velocity.length();
         let foot_position = Vec3::new(
             self.position.x,
             self.position.y - self.desc.camera_height,
             self.position.z,
         );
-        self.player_audio_controller.update_walk_sound(
-            is_on_ground,
-            is_moving,
+        if stride.just_step {
+            self.player_audio_controller
+                .play_step(is_running, current_speed, foot_position);
+        }
+
+        self.head_bob.update(
+            stride.phase,
+            is_on_ground && is_moving,
             is_running,
-            current_speed,
+            &self.desc.head_bob,
             frame_delta_time,
-            foot_position,
         );
 
         self.was_on_ground = is_on_ground;
+    }
+
+    pub fn set_head_bob_params(
+        &mut self,
+        vertical_amp: f32,
+        horizontal_amp: f32,
+        roll_amp_deg: f32,
+        sprint_amp_mul: f32,
+    ) {
+        self.desc.head_bob.vertical_amplitude = vertical_amp;
+        self.desc.head_bob.horizontal_amplitude = horizontal_amp;
+        self.desc.head_bob.roll_amplitude_deg = roll_amp_deg;
+        self.desc.head_bob.sprint_amplitude_mul = sprint_amp_mul;
     }
 
     /// Resets the rigidbody velocity and vertical velocity when switching modes
