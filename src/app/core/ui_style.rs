@@ -136,12 +136,14 @@ pub(crate) fn draw_item_panel(
 pub(crate) fn draw_backpack_summary(
     ctx: &egui::Context,
     dirt_count: u32,
+    sand_count: u32,
     cherry_wood_count: u32,
     oak_wood_count: u32,
     rock_count: u32,
     terrain_query_text: &str,
 ) {
     let total_count = dirt_count
+        .saturating_add(sand_count)
         .saturating_add(cherry_wood_count)
         .saturating_add(oak_wood_count)
         .saturating_add(rock_count);
@@ -184,6 +186,7 @@ pub(crate) fn draw_backpack_summary(
                         .color(GOLD_ACCENT),
                 );
                 ui.label(egui::RichText::new(format!("Dirt: {dirt_count}")).monospace());
+                ui.label(egui::RichText::new(format!("Sand: {sand_count}")).monospace());
                 ui.label(
                     egui::RichText::new(format!("Cherry wood: {cherry_wood_count}")).monospace(),
                 );

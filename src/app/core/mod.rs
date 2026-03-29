@@ -109,6 +109,7 @@ pub struct App {
     last_staff_regen_time: Option<Instant>,
     last_hoe_trim_time: Option<Instant>,
     backpack_dirt_count: u32,
+    backpack_sand_count: u32,
     backpack_cherry_wood_count: u32,
     backpack_oak_wood_count: u32,
     backpack_rock_count: u32,
@@ -378,6 +379,7 @@ impl App {
             last_staff_regen_time: None,
             last_hoe_trim_time: None,
             backpack_dirt_count: 0,
+            backpack_sand_count: 0,
             backpack_cherry_wood_count: 0,
             backpack_oak_wood_count: 0,
             backpack_rock_count: 0,
@@ -759,6 +761,7 @@ impl App {
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
                 let backpack_dirt_count = self.backpack_dirt_count;
+                let backpack_sand_count = self.backpack_sand_count;
                 let backpack_cherry_wood_count = self.backpack_cherry_wood_count;
                 let backpack_oak_wood_count = self.backpack_oak_wood_count;
                 let backpack_rock_count = self.backpack_rock_count;
@@ -876,6 +879,7 @@ impl App {
                         draw_backpack_summary(
                             ctx,
                             backpack_dirt_count,
+                            backpack_sand_count,
                             backpack_cherry_wood_count,
                             backpack_oak_wood_count,
                             backpack_rock_count,

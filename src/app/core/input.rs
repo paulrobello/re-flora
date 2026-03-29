@@ -186,6 +186,9 @@ impl App {
                         self.backpack_dirt_count = self
                             .backpack_dirt_count
                             .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_DIRT));
+                        self.backpack_sand_count = self
+                            .backpack_sand_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_SAND));
                         self.backpack_cherry_wood_count =
                             self.backpack_cherry_wood_count.saturating_add(
                                 stats.count_removed(crate::builder::VOXEL_TYPE_CHERRY_WOOD),
