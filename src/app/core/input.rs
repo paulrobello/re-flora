@@ -132,6 +132,35 @@ impl App {
         Ok(None)
     }
 
+    pub(super) fn update_terrain_query_debug_text(&mut self) {
+        let origin = self.tracer.camera_position();
+        let direction = self.tracer.camera_front();
+
+        if direction.length_squared() <= f32::EPSILON {
+            self.terrain_query_debug_text = "not hit".to_owned();
+            return;
+        }
+
+        match self
+            .tracer
+            .query_terrain_ray_with_validity(TerrainRayQuery { origin, direction })
+        {
+            Ok(sample) if sample.is_valid => {
+                self.terrain_query_debug_text = format!(
+                    "hit: ({:.3}, {:.3}, {:.3})",
+                    sample.position.x, sample.position.y, sample.position.z
+                );
+            }
+            Ok(_) => {
+                self.terrain_query_debug_text = "not hit".to_owned();
+            }
+            Err(err) => {
+                log::error!("Failed terrain ray query for debug panel: {}", err);
+                self.terrain_query_debug_text = "not hit".to_owned();
+            }
+        }
+    }
+
     pub(super) fn try_shovel_dig(&mut self, now: Instant) {
         if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
             self.stop_terrain_edit_loop_sound();

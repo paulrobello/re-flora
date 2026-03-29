@@ -101,6 +101,7 @@ pub struct App {
     item_panel_staff_icon: Option<TextureHandle>,
     item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
+    terrain_query_debug_text: String,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
     last_copper_shovel_place_time: Option<Instant>,
@@ -368,6 +369,7 @@ impl App {
             item_panel_staff_icon: None,
             item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
+            terrain_query_debug_text: "not hit".to_owned(),
             shovel_dig_held: false,
             last_shovel_dig_time: None,
             last_copper_shovel_place_time: None,
@@ -670,6 +672,7 @@ impl App {
                 if !self.window_state.is_cursor_visible() && button == MouseButton::Left {
                     match state {
                         ElementState::Pressed => {
+                            self.update_terrain_query_debug_text();
                             self.shovel_dig_held = true;
                             let now = Instant::now();
                             if self.is_shovel_selected() {
@@ -706,6 +709,7 @@ impl App {
 
                 self.time_info.update();
                 if self.shovel_dig_held {
+                    self.update_terrain_query_debug_text();
                     let now = Instant::now();
                     if self.is_shovel_selected() {
                         self.try_shovel_dig(now);
@@ -752,6 +756,7 @@ impl App {
                 let backpack_cherry_wood_count = self.backpack_cherry_wood_count;
                 let backpack_oak_wood_count = self.backpack_oak_wood_count;
                 let backpack_rock_count = self.backpack_rock_count;
+                let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
@@ -868,6 +873,7 @@ impl App {
                             backpack_cherry_wood_count,
                             backpack_oak_wood_count,
                             backpack_rock_count,
+                            terrain_query_debug_text.as_str(),
                         );
 
                         // FPS counter in bottom right

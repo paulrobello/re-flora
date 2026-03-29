@@ -139,6 +139,7 @@ pub(crate) fn draw_backpack_summary(
     cherry_wood_count: u32,
     oak_wood_count: u32,
     rock_count: u32,
+    terrain_query_text: &str,
 ) {
     let total_count = dirt_count
         .saturating_add(cherry_wood_count)
@@ -164,12 +165,24 @@ pub(crate) fn draw_backpack_summary(
 
             panel_frame.show(ui, |ui| {
                 ui.label(
-                    egui::RichText::new("Backpack")
+                    egui::RichText::new("Status")
                         .color(GOLD_ACCENT)
                         .size(12.0)
                         .strong(),
                 );
                 ui.add_space(4.0);
+                ui.label(
+                    egui::RichText::new("Terrain query")
+                        .monospace()
+                        .color(GOLD_ACCENT),
+                );
+                ui.label(egui::RichText::new(terrain_query_text).monospace());
+                ui.separator();
+                ui.label(
+                    egui::RichText::new("Backpack")
+                        .monospace()
+                        .color(GOLD_ACCENT),
+                );
                 ui.label(egui::RichText::new(format!("Dirt: {dirt_count}")).monospace());
                 ui.label(
                     egui::RichText::new(format!("Cherry wood: {cherry_wood_count}")).monospace(),
