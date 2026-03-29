@@ -259,6 +259,7 @@ impl App {
 
                 let mut resolved_position = self.particle_system.position(handle);
                 let mut found_valid_xz = false;
+                let mut last_attempt_position = resolved_position;
 
                 if let Some(position) = resolved_position {
                     let sample =
@@ -303,6 +304,8 @@ impl App {
                             resolved_position = Some(candidate);
                             break;
                         }
+
+                        last_attempt_position = Some(candidate);
                     }
                 }
 
@@ -311,8 +314,16 @@ impl App {
                         let _ = self.particle_system.set_position(handle, position);
                     }
                 } else {
-                    self.butterfly_emitters[emitter_idx].despawn_butterfly(handle);
-                    let _ = self.particle_system.despawn(handle);
+                    let fallback = if let Some(last) = last_attempt_position {
+                        Vec3::new(
+                            last.x,
+                            self.butterfly_emitters[emitter_idx].center.y,
+                            last.z,
+                        )
+                    } else {
+                        self.butterfly_emitters[emitter_idx].random_spawn_position_candidate()
+                    };
+                    let _ = self.particle_system.set_position(handle, fallback);
                 }
             }
 
