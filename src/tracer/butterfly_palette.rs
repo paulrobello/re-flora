@@ -80,7 +80,7 @@ impl ButterflyPalettePreset {
 impl ButterflyPaletteConfig {
     pub fn yellow() -> Self {
         Self {
-            border: [0, 0, 0, 0],
+            border: [48, 30, 8, 255],
             dark_shade: [176, 122, 22, 255],
             mid_shade: [232, 185, 48, 255],
             light_shade: [255, 233, 140, 255],
@@ -89,7 +89,7 @@ impl ButterflyPaletteConfig {
 
     pub fn cyan() -> Self {
         Self {
-            border: [0, 0, 0, 0],
+            border: [0, 25, 35, 255],
             dark_shade: [0, 110, 130, 255],
             mid_shade: [40, 170, 190, 255],
             light_shade: [160, 230, 240, 255],
