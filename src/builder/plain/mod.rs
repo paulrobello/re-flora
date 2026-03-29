@@ -21,6 +21,7 @@ use anyhow::Result;
 use ash::vk;
 use glam::UVec3;
 pub use resources::*;
+use std::convert::TryInto;
 
 pub const VOXEL_TYPE_CHERRY_WOOD: u32 = 5;
 pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
@@ -30,6 +31,29 @@ pub const VOXEL_TYPE_DIRT: u32 = 2;
 const PRIMITIVE_KIND_ROUND_CONE: u32 = 0;
 const PRIMITIVE_KIND_CUBOID: u32 = 1;
 const PRIMITIVE_KIND_SPHERE: u32 = 2;
+const EDIT_STATS_VOXEL_TYPE_COUNT: usize = 8;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct ChunkModifyStats {
+    pub removed_counts: [u32; EDIT_STATS_VOXEL_TYPE_COUNT],
+    pub added_counts: [u32; EDIT_STATS_VOXEL_TYPE_COUNT],
+}
+
+impl ChunkModifyStats {
+    pub fn count_removed(&self, voxel_type: u32) -> u32 {
+        self.removed_counts
+            .get(voxel_type as usize)
+            .copied()
+            .unwrap_or(0)
+    }
+
+    pub fn count_added(&self, voxel_type: u32) -> u32 {
+        self.added_counts
+            .get(voxel_type as usize)
+            .copied()
+            .unwrap_or(0)
+    }
+}
 
 pub struct PlainBuilder {
     vulkan_ctx: VulkanContext,
@@ -259,8 +283,10 @@ impl PlainBuilder {
         bvh_nodes: &[BvhNode],
         spheres: &[Sphere],
         fill_voxel_type: u32,
-    ) -> Result<()> {
+        max_write_count: Option<u32>,
+    ) -> Result<ChunkModifyStats> {
         let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        clear_edit_stats(&self.resources)?;
         update_chunk_modify_info(
             &self.resources,
             offset,
@@ -268,6 +294,7 @@ impl PlainBuilder {
             fill_voxel_type,
             PRIMITIVE_KIND_SPHERE,
             true,
+            max_write_count,
         )?;
         update_spheres(&self.resources, spheres)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -288,7 +315,7 @@ impl PlainBuilder {
                 );
             },
         );
-        Ok(())
+        read_edit_stats(&self.resources)
     }
 
     fn chunk_modify_round_cones_with_voxel_type(
@@ -305,6 +332,7 @@ impl PlainBuilder {
             fill_voxel_type,
             PRIMITIVE_KIND_ROUND_CONE,
             false,
+            None,
         )?;
         update_round_cones(&self.resources, round_cones)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -342,6 +370,7 @@ impl PlainBuilder {
             fill_voxel_type,
             PRIMITIVE_KIND_CUBOID,
             false,
+            None,
         )?;
         update_cuboids(&self.resources, cuboids)?;
         update_trunk_bvh_nodes(&self.resources, bvh_nodes)?;
@@ -381,6 +410,7 @@ fn update_chunk_modify_info(
     fill_voxel_type: u32,
     primitive_kind: u32,
     surface_only: bool,
+    max_write_count: Option<u32>,
 ) -> Result<()> {
     let data = StructMemberDataBuilder::from_buffer(&resources.chunk_modify_info)
         .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
@@ -397,9 +427,50 @@ fn update_chunk_modify_info(
             "surface_only",
             PlainMemberTypeWithData::UInt(if surface_only { 1 } else { 0 }),
         )
+        .set_field(
+            "max_write_count",
+            PlainMemberTypeWithData::UInt(max_write_count.unwrap_or(0)),
+        )
         .build()?;
     resources.chunk_modify_info.fill_with_raw_u8(&data)?;
     Ok(())
+}
+
+fn clear_edit_stats(resources: &PlainBuilderResources) -> Result<()> {
+    resources
+        .edit_stats
+        .fill_with_raw_u32(&[0; EDIT_STATS_VOXEL_TYPE_COUNT * 2])
+}
+
+fn read_edit_stats(resources: &PlainBuilderResources) -> Result<ChunkModifyStats> {
+    let raw = resources.edit_stats.read_back()?;
+    let expected_len = EDIT_STATS_VOXEL_TYPE_COUNT * 2 * std::mem::size_of::<u32>();
+    if raw.len() < expected_len {
+        return Err(anyhow::anyhow!(
+            "Edit stats buffer too small: got {}, need {}",
+            raw.len(),
+            expected_len
+        ));
+    }
+
+    let mut values = [0u32; EDIT_STATS_VOXEL_TYPE_COUNT * 2];
+    for (idx, chunk) in raw
+        .chunks_exact(std::mem::size_of::<u32>())
+        .take(EDIT_STATS_VOXEL_TYPE_COUNT * 2)
+        .enumerate()
+    {
+        values[idx] = u32::from_ne_bytes(chunk.try_into().unwrap());
+    }
+
+    let mut removed_counts = [0u32; EDIT_STATS_VOXEL_TYPE_COUNT];
+    removed_counts.copy_from_slice(&values[..EDIT_STATS_VOXEL_TYPE_COUNT]);
+    let mut added_counts = [0u32; EDIT_STATS_VOXEL_TYPE_COUNT];
+    added_counts.copy_from_slice(&values[EDIT_STATS_VOXEL_TYPE_COUNT..]);
+
+    Ok(ChunkModifyStats {
+        removed_counts,
+        added_counts,
+    })
 }
 
 fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCone]) -> Result<()> {

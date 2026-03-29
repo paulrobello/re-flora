@@ -14,6 +14,7 @@ pub struct PlainBuilderResources {
     pub region_info: Resource<Buffer>,
     pub region_indirect: Resource<Buffer>,
     pub chunk_modify_info: Resource<Buffer>,
+    pub edit_stats: Resource<Buffer>,
     pub round_cones: Resource<Buffer>,
     pub cuboids: Resource<Buffer>,
     pub spheres: Resource<Buffer>,
@@ -62,6 +63,15 @@ impl PlainBuilderResources {
             device.clone(),
             allocator.clone(),
             chunk_modify_info_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+
+        let edit_stats_layout = chunk_modify_sm.get_buffer_layout("B_EditStats").unwrap();
+        let edit_stats = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            edit_stats_layout.clone(),
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
@@ -130,6 +140,7 @@ impl PlainBuilderResources {
             chunk_atlas: Resource::new(chunk_atlas),
             free_atlas: Resource::new(free_atlas),
             chunk_modify_info: Resource::new(chunk_modify_info),
+            edit_stats: Resource::new(edit_stats),
             round_cones: Resource::new(round_cones),
             cuboids: Resource::new(cuboids),
             spheres: Resource::new(spheres),

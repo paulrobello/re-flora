@@ -133,6 +133,59 @@ pub(crate) fn draw_item_panel(
         });
 }
 
+pub(crate) fn draw_backpack_summary(
+    ctx: &egui::Context,
+    dirt_count: u32,
+    cherry_wood_count: u32,
+    oak_wood_count: u32,
+    rock_count: u32,
+) {
+    let total_count = dirt_count
+        .saturating_add(cherry_wood_count)
+        .saturating_add(oak_wood_count)
+        .saturating_add(rock_count);
+
+    egui::Area::new("backpack_summary".into())
+        .anchor(egui::Align2::LEFT_BOTTOM, egui::Vec2::new(16.0, -16.0))
+        .show(ctx, |ui| {
+            let panel_frame = egui::containers::Frame {
+                fill: PANEL_DARK,
+                inner_margin: egui::Margin::symmetric(10, 8),
+                corner_radius: egui::CornerRadius::same(0),
+                shadow: egui::epaint::Shadow {
+                    offset: [4, 4],
+                    blur: 0,
+                    spread: 0,
+                    color: SHADOW_COLOR,
+                },
+                stroke: egui::Stroke::new(2.0, SAGE_ACCENT),
+                ..Default::default()
+            };
+
+            panel_frame.show(ui, |ui| {
+                ui.label(
+                    egui::RichText::new("Backpack")
+                        .color(GOLD_ACCENT)
+                        .size(12.0)
+                        .strong(),
+                );
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new(format!("Dirt: {dirt_count}")).monospace());
+                ui.label(
+                    egui::RichText::new(format!("Cherry wood: {cherry_wood_count}")).monospace(),
+                );
+                ui.label(egui::RichText::new(format!("Oak wood: {oak_wood_count}")).monospace());
+                ui.label(egui::RichText::new(format!("Rock: {rock_count}")).monospace());
+                ui.separator();
+                ui.label(
+                    egui::RichText::new(format!("Total: {total_count}"))
+                        .monospace()
+                        .color(FLOWER_ACCENT),
+                );
+            });
+        });
+}
+
 pub(crate) fn apply_gui_style(style: &mut egui::Style) {
     style.visuals.override_text_color = Some(TEXT_COLOR);
     style.visuals.hyperlink_color = GOLD_ACCENT;

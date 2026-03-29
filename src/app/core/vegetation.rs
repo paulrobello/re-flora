@@ -4,7 +4,9 @@ use crate::app::world_edits::{
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldEditPlan,
 };
 use crate::app::world_ops;
-use crate::builder::{VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_DIRT, VOXEL_TYPE_OAK_WOOD};
+use crate::builder::{
+    ChunkModifyStats, VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_DIRT, VOXEL_TYPE_OAK_WOOD,
+};
 use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
@@ -678,9 +680,23 @@ impl App {
         ))
     }
 
-    pub(super) fn apply_surface_terrain_removal(&mut self, edit: TerrainRemovalEdit) -> Result<()> {
+    pub(super) fn apply_surface_terrain_removal(
+        &mut self,
+        edit: TerrainRemovalEdit,
+    ) -> Result<ChunkModifyStats> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
-            self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.voxel_edit))?;
+            let stats = match compiled.voxel_edit {
+                VoxelEdit::StampSurfaceSpheres {
+                    bvh_nodes,
+                    spheres,
+                    voxel_type,
+                } => self
+                    .plain_builder
+                    .chunk_modify_surface_spheres_with_voxel_type(
+                        &bvh_nodes, &spheres, voxel_type, None,
+                    )?,
+                _ => unreachable!("terrain surface removal compiled into unexpected edit type"),
+            };
             world_ops::mesh_generate_preserve_flora_for_sphere_edit(
                 &mut self.surface_builder,
                 &mut self.contree_builder,
@@ -693,18 +709,34 @@ impl App {
                     tick: self.flora_tick,
                 },
             )?;
+            return Ok(stats);
         }
-        Ok(())
+        Ok(ChunkModifyStats::default())
     }
 
     pub(super) fn apply_surface_terrain_placement(
         &mut self,
         edit: TerrainRemovalEdit,
-    ) -> Result<()> {
+        max_write_count: u32,
+    ) -> Result<ChunkModifyStats> {
         if let Some(compiled) =
             TerrainSurfaceRemovalService::compile_with_voxel_type(edit, VOXEL_TYPE_DIRT)
         {
-            self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.voxel_edit))?;
+            let stats = match compiled.voxel_edit {
+                VoxelEdit::StampSurfaceSpheres {
+                    bvh_nodes,
+                    spheres,
+                    voxel_type,
+                } => self
+                    .plain_builder
+                    .chunk_modify_surface_spheres_with_voxel_type(
+                        &bvh_nodes,
+                        &spheres,
+                        voxel_type,
+                        Some(max_write_count),
+                    )?,
+                _ => unreachable!("terrain surface placement compiled into unexpected edit type"),
+            };
             world_ops::mesh_generate_preserve_flora_for_sphere_edit(
                 &mut self.surface_builder,
                 &mut self.contree_builder,
@@ -717,8 +749,9 @@ impl App {
                     tick: self.flora_tick,
                 },
             )?;
+            return Ok(stats);
         }
-        Ok(())
+        Ok(ChunkModifyStats::default())
     }
 
     pub(super) fn apply_surface_flora_regeneration(

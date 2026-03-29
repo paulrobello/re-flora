@@ -36,6 +36,10 @@ impl App {
         self.selected_item_panel_slot == HOE_SLOT_INDEX
     }
 
+    pub(super) fn has_dirt_in_backpack(&self) -> bool {
+        self.backpack_dirt_count > 0
+    }
+
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
         if let Some(uuid) = self.terrain_edit_loop_sound {
             if self.terrain_edit_loop_sound_muted {
@@ -144,10 +148,27 @@ impl App {
                     }
                 }
 
-                if let Err(err) = self.apply_surface_terrain_removal(TerrainRemovalEdit {
-                    center,
-                    radius: super::SHOVEL_REMOVE_RADIUS,
-                }) {
+                if let Err(err) = self
+                    .apply_surface_terrain_removal(TerrainRemovalEdit {
+                        center,
+                        radius: super::SHOVEL_REMOVE_RADIUS,
+                    })
+                    .map(|stats| {
+                        self.backpack_dirt_count = self
+                            .backpack_dirt_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_DIRT));
+                        self.backpack_cherry_wood_count =
+                            self.backpack_cherry_wood_count.saturating_add(
+                                stats.count_removed(crate::builder::VOXEL_TYPE_CHERRY_WOOD),
+                            );
+                        self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_add(
+                            stats.count_removed(crate::builder::VOXEL_TYPE_OAK_WOOD),
+                        );
+                        self.backpack_rock_count = self
+                            .backpack_rock_count
+                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_ROCK));
+                    })
+                {
                     log::error!("Failed to apply terrain removal: {}", err);
                     return;
                 }
@@ -207,6 +228,11 @@ impl App {
             return;
         }
 
+        if !self.has_dirt_in_backpack() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
                 self.start_terrain_edit_loop_sound(center);
@@ -217,10 +243,20 @@ impl App {
                     }
                 }
 
-                if let Err(err) = self.apply_surface_terrain_placement(TerrainRemovalEdit {
-                    center,
-                    radius: super::SHOVEL_REMOVE_RADIUS,
-                }) {
+                if let Err(err) = self
+                    .apply_surface_terrain_placement(
+                        TerrainRemovalEdit {
+                            center,
+                            radius: super::SHOVEL_REMOVE_RADIUS,
+                        },
+                        self.backpack_dirt_count,
+                    )
+                    .map(|stats| {
+                        self.backpack_dirt_count = self
+                            .backpack_dirt_count
+                            .saturating_sub(stats.count_added(crate::builder::VOXEL_TYPE_DIRT));
+                    })
+                {
                     log::error!("Failed to apply terrain placement: {}", err);
                     return;
                 }

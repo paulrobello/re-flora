@@ -45,12 +45,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui_style::{
-    apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
-    GOLD_ACCENT, ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_COPPER_SHOVEL_ICON_PATH,
-    ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
-    ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH, ITEM_PANEL_SLOT_COUNT,
-    ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH, PANEL_BG, PANEL_DARK,
-    SAGE_ACCENT, SHADOW_COLOR,
+    apply_gui_style, draw_backpack_summary, draw_item_panel, CUSTOM_GUI_FONT_NAME,
+    CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT, GOLD_ACCENT, ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH,
+    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH, ITEM_PANEL_HOE_ICON_FALLBACK_PATH,
+    ITEM_PANEL_HOE_ICON_PATH, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
+    ITEM_PANEL_SLOT_COUNT, ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH,
+    PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
 };
 use uuid::Uuid;
 use winit::{
@@ -106,6 +106,10 @@ pub struct App {
     last_copper_shovel_place_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
     last_hoe_trim_time: Option<Instant>,
+    backpack_dirt_count: u32,
+    backpack_cherry_wood_count: u32,
+    backpack_oak_wood_count: u32,
+    backpack_rock_count: u32,
     terrain_edit_loop_sound: Option<Uuid>,
     terrain_edit_loop_sound_muted: bool,
 
@@ -369,6 +373,10 @@ impl App {
             last_copper_shovel_place_time: None,
             last_staff_regen_time: None,
             last_hoe_trim_time: None,
+            backpack_dirt_count: 0,
+            backpack_cherry_wood_count: 0,
+            backpack_oak_wood_count: 0,
+            backpack_rock_count: 0,
             terrain_edit_loop_sound: None,
             terrain_edit_loop_sound_muted: true,
             flora_tick: FLORA_FULL_GROWTH_TICKS,
@@ -740,6 +748,10 @@ impl App {
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
+                let backpack_dirt_count = self.backpack_dirt_count;
+                let backpack_cherry_wood_count = self.backpack_cherry_wood_count;
+                let backpack_oak_wood_count = self.backpack_oak_wood_count;
+                let backpack_rock_count = self.backpack_rock_count;
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.style()).clone();
@@ -848,6 +860,14 @@ impl App {
                             item_panel_staff_icon.as_ref(),
                             item_panel_hoe_icon.as_ref(),
                             selected_item_panel_slot,
+                        );
+
+                        draw_backpack_summary(
+                            ctx,
+                            backpack_dirt_count,
+                            backpack_cherry_wood_count,
+                            backpack_oak_wood_count,
+                            backpack_rock_count,
                         );
 
                         // FPS counter in bottom right
