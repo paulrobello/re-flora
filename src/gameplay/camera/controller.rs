@@ -1,5 +1,6 @@
 use super::{
-    audio::PlayerAudioController, movement::MovementState, vectors::CameraVectors, CameraDesc,
+    audio::PlayerAudioController, head_bob::HeadBob, movement::MovementState,
+    vectors::CameraVectors, CameraDesc,
 };
 use crate::{audio::SpatialSoundManager, tracer::PlayerCollisionResult, vkn::Extent2D};
 use anyhow::Result;
@@ -47,6 +48,8 @@ pub struct Camera {
 
     /// Speed just before landing (for landing sound volume)
     pre_landing_speed: f32,
+
+    head_bob: HeadBob,
 }
 
 impl Camera {
@@ -72,6 +75,7 @@ impl Camera {
             was_on_ground: false,
             rigidbody: PlayerRigidBody::new(),
             pre_landing_speed: 0.0,
+            head_bob: HeadBob::new(),
         };
 
         camera.vectors.update(camera.yaw, camera.pitch);
@@ -105,11 +109,13 @@ impl Camera {
     }
 
     pub fn get_view_mat(&self) -> Mat4 {
-        Mat4::look_at_rh(
+        let base_view = Mat4::look_at_rh(
             self.position,
             self.position + self.vectors.front,
             self.vectors.up,
-        )
+        );
+        self.head_bob
+            .apply_to_view_mat(base_view, self.vectors.right, self.vectors.up)
     }
 
     pub fn calculate_proj_mat(v_fov: f32, aspect_ratio: f32, z_near: f32, z_far: f32) -> Mat4 {
@@ -183,6 +189,7 @@ impl Camera {
             self.vectors.right,
             self.vectors.up,
         ) * frame_delta_time;
+        self.head_bob.reset();
     }
 
     pub fn update_transform_walk_mode(
@@ -367,7 +374,29 @@ impl Camera {
             foot_position,
         );
 
+        let step_phase = self.player_audio_controller.step_phase(is_running);
+        self.head_bob.update(
+            step_phase,
+            is_on_ground && is_moving,
+            is_running,
+            &self.desc.head_bob,
+            frame_delta_time,
+        );
+
         self.was_on_ground = is_on_ground;
+    }
+
+    pub fn set_head_bob_params(
+        &mut self,
+        vertical_amp: f32,
+        horizontal_amp: f32,
+        roll_amp_deg: f32,
+        sprint_amp_mul: f32,
+    ) {
+        self.desc.head_bob.vertical_amplitude = vertical_amp;
+        self.desc.head_bob.horizontal_amplitude = horizontal_amp;
+        self.desc.head_bob.roll_amplitude_deg = roll_amp_deg;
+        self.desc.head_bob.sprint_amplitude_mul = sprint_amp_mul;
     }
 
     /// Resets the rigidbody velocity and vertical velocity when switching modes

@@ -1167,6 +1167,13 @@ impl App {
 
                 self.current_frame = (self.current_frame + 1) % self.frames_in_flight.len();
 
+                self.tracer.set_head_bob_params(
+                    self.gui_adjustables.headbob_vertical_amp.value,
+                    self.gui_adjustables.headbob_horizontal_amp.value,
+                    self.gui_adjustables.headbob_roll_amp.value,
+                    self.gui_adjustables.headbob_sprint_amp_mul.value,
+                );
+
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
             }

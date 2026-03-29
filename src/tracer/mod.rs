@@ -1631,6 +1631,10 @@ impl Tracer {
         self.camera.reset_velocity();
     }
 
+    pub fn set_head_bob_params(&mut self, v: f32, h: f32, r: f32, s: f32) {
+        self.camera.set_head_bob_params(v, h, r, s);
+    }
+
     pub fn camera_position(&self) -> Vec3 {
         self.camera.position()
     }

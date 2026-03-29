@@ -120,6 +120,15 @@ impl PlayerAudioController {
         self.time_since_last_step = 0.0;
     }
 
+    pub fn step_phase(&self, is_running: bool) -> f32 {
+        let interval = if is_running {
+            self.clip_caches.run_interval
+        } else {
+            self.clip_caches.walk_interval
+        };
+        (self.time_since_last_step / interval).clamp(0.0, 1.0)
+    }
+
     fn calculate_speed_based_volume(&self, speed: f32, min_volume: f32, max_volume: f32) -> f32 {
         let max_speed = 3.0;
         let speed_ratio = (speed / max_speed).clamp(0.0, 1.0);
