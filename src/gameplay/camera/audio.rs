@@ -63,6 +63,7 @@ pub struct PlayerAudioController {
     clip_caches: PlayerClipCaches,
     // time elapsed since last step sound
     time_since_last_step: f32,
+    prev_is_running: bool,
     volume_gain: f32,
 }
 
@@ -73,6 +74,7 @@ impl PlayerAudioController {
             spatial_sound_manager,
             clip_caches,
             time_since_last_step: 0.0,
+            prev_is_running: false,
             volume_gain: 0.0,
         })
     }
@@ -145,11 +147,22 @@ impl PlayerAudioController {
         frame_delta_time: f32,
         _position: Vec3,
     ) {
+        let prev_interval = if self.prev_is_running {
+            self.clip_caches.run_interval
+        } else {
+            self.clip_caches.walk_interval
+        };
         let interval = if is_running {
             self.clip_caches.run_interval
         } else {
             self.clip_caches.walk_interval
         };
+
+        if self.prev_is_running != is_running {
+            let phase = (self.time_since_last_step / prev_interval).clamp(0.0, 1.0);
+            self.time_since_last_step = phase * interval;
+            self.prev_is_running = is_running;
+        }
 
         if !(is_on_ground && is_moving) {
             self.time_since_last_step = interval;

@@ -903,9 +903,9 @@ label = "Vertical Amplitude"
 type = "Float"
 
 [section.param.data]
-value = 0.003
+value = 0.0020000000949949026
 min = 0.0
-max = 0.02
+max = 0.019999999552965164
 
 [[section.param]]
 id = "headbob_horizontal_amp"
@@ -914,9 +914,9 @@ label = "Horizontal Amplitude"
 type = "Float"
 
 [section.param.data]
-value = 0.0015
+value = 0.000750000006519258
 min = 0.0
-max = 0.01
+max = 0.009999999776482582
 
 [[section.param]]
 id = "headbob_roll_amp"
@@ -925,7 +925,7 @@ label = "Roll Amplitude (deg)"
 type = "Float"
 
 [section.param.data]
-value = 0.3
+value = 0.10000000149011612
 min = 0.0
 max = 2.0
 
@@ -936,6 +936,6 @@ label = "Sprint Amplitude Mul"
 type = "Float"
 
 [section.param.data]
-value = 1.5
+value = 3.0
 min = 1.0
 max = 3.0
