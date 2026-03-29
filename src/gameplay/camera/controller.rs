@@ -1,5 +1,5 @@
 use super::{
-    audio::PlayerAudioController, head_bob::HeadBob, movement::MovementState,
+    audio::PlayerAudioController, head_bob::HeadBob, movement::MovementState, stride::StrideCycle,
     vectors::CameraVectors, CameraDesc,
 };
 use crate::{audio::SpatialSoundManager, tracer::PlayerCollisionResult, vkn::Extent2D};
@@ -50,6 +50,7 @@ pub struct Camera {
     pre_landing_speed: f32,
 
     head_bob: HeadBob,
+    stride_cycle: StrideCycle,
 }
 
 impl Camera {
@@ -76,6 +77,7 @@ impl Camera {
             rigidbody: PlayerRigidBody::new(),
             pre_landing_speed: 0.0,
             head_bob: HeadBob::new(),
+            stride_cycle: StrideCycle::new(),
         };
 
         camera.vectors.update(camera.yaw, camera.pitch);
@@ -190,6 +192,7 @@ impl Camera {
             self.vectors.up,
         ) * frame_delta_time;
         self.head_bob.reset();
+        self.stride_cycle.reset();
     }
 
     pub fn update_transform_walk_mode(
@@ -343,8 +346,7 @@ impl Camera {
                 );
                 self.player_audio_controller
                     .play_step(is_running, current_speed, foot_position);
-                // reset timer so下一次步伐重新计时
-                self.player_audio_controller.reset_walk_timer();
+                self.stride_cycle.restart_after_step();
             } else {
                 // still: play landing sound only
                 let foot_position = Vec3::new(
@@ -354,29 +356,30 @@ impl Camera {
                 );
                 self.player_audio_controller
                     .play_landing(self.pre_landing_speed, foot_position);
-                // 不重置计时器，让 update_walk_sound 在静止状态保持间隔满值
             }
         }
 
-        // per-frame update for regular walk/run sounds
+        let stride = self.stride_cycle.update(
+            frame_delta_time,
+            is_on_ground && is_moving,
+            is_running,
+            self.player_audio_controller.walk_interval(),
+            self.player_audio_controller.run_interval(),
+        );
+
         let current_speed = self.rigidbody.velocity.length();
         let foot_position = Vec3::new(
             self.position.x,
             self.position.y - self.desc.camera_height,
             self.position.z,
         );
-        self.player_audio_controller.update_walk_sound(
-            is_on_ground,
-            is_moving,
-            is_running,
-            current_speed,
-            frame_delta_time,
-            foot_position,
-        );
+        if stride.just_step {
+            self.player_audio_controller
+                .play_step(is_running, current_speed, foot_position);
+        }
 
-        let step_phase = self.player_audio_controller.step_phase(is_running);
         self.head_bob.update(
-            step_phase,
+            stride.phase,
             is_on_ground && is_moving,
             is_running,
             &self.desc.head_bob,
