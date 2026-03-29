@@ -102,6 +102,7 @@ pub struct App {
     item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
     terrain_query_debug_text: String,
+    left_mouse_held: bool,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
     last_copper_shovel_place_time: Option<Instant>,
@@ -370,6 +371,7 @@ impl App {
             item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
             terrain_query_debug_text: "not hit".to_owned(),
+            left_mouse_held: false,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
             last_copper_shovel_place_time: None,
@@ -669,6 +671,10 @@ impl App {
                 }
             }
             WindowEvent::MouseInput { state, button, .. } => {
+                if button == MouseButton::Left {
+                    self.left_mouse_held = state == ElementState::Pressed;
+                }
+
                 if !self.window_state.is_cursor_visible() && button == MouseButton::Left {
                     match state {
                         ElementState::Pressed => {
@@ -875,6 +881,15 @@ impl App {
                             backpack_rock_count,
                             terrain_query_debug_text.as_str(),
                         );
+
+                        if self.left_mouse_held {
+                            let center = ctx.content_rect().center();
+                            let painter = ctx.layer_painter(egui::LayerId::new(
+                                egui::Order::Foreground,
+                                egui::Id::new("debug_center_dot"),
+                            ));
+                            painter.circle_filled(center, 4.0, Color32::RED);
+                        }
 
                         // FPS counter in bottom right
                         egui::Area::new("fps_counter".into())
