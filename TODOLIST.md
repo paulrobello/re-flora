@@ -4,13 +4,11 @@
 
 ### Features
 
-- Correct butterfly color palettes
+- Camera shaking design during movement, like other first person adventure games, adjustable movement scale in gui
 
 - Correct sky color (more clear looking)
 
 - Little Pond, with SSR reflection so it can reflect on both the terrain and the flora
-
-- Camera shaking design during movement, like other first person adventure games, adjustable movement scale in gui
 
 - Ocean view, more pixelized looking - Need more investigation on this one
 
