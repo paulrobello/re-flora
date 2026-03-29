@@ -1071,6 +1071,7 @@ impl App {
                         self.gui_adjustables.ocean_normal_amplitude.value,
                         self.gui_adjustables.ocean_noise_frequency.value,
                         self.gui_adjustables.ocean_time_multiplier.value,
+                        self.gui_adjustables.ocean_sea_level_shift.value,
                         self.gui_adjustables.flora_update_bucket_count.value,
                         self.gui_adjustables.flora_full_update_seconds.value,
                         self.gui_adjustables.lens_flare_intensity.value,
