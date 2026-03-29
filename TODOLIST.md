@@ -6,11 +6,6 @@
 
 ### Features
 
-- Add a summary to show the collected voxels count, (count each voxel type separately),
-  when removing dirt, add to the backpack, when adding dirt to terrain, decrease from backpack,
-  so total voxel counts can be stable. Accounting for this purpose, add a simple display for the
-  voxel counts in backpack.
-
 - Little Pond, with SSR reflection so it can reflect on both the terrain and the flora
 
 - Ocean view, more pixelized looking - Need more investigation on this one
