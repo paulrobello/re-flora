@@ -46,7 +46,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui_style::{
     apply_gui_style, draw_item_panel, CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT,
-    GOLD_ACCENT, ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
+    GOLD_ACCENT, ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_COPPER_SHOVEL_ICON_PATH,
+    ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
     ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH, ITEM_PANEL_SLOT_COUNT,
     ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH, PANEL_BG, PANEL_DARK,
     SAGE_ACCENT, SHADOW_COLOR,
@@ -96,6 +97,7 @@ pub struct App {
     settings_panel_visible: bool,
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
+    item_panel_copper_shovel_icon: Option<TextureHandle>,
     item_panel_staff_icon: Option<TextureHandle>,
     item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
@@ -357,6 +359,7 @@ impl App {
             settings_panel_visible: false,
             is_fly_mode: false,
             item_panel_shovel_icon: None,
+            item_panel_copper_shovel_icon: None,
             item_panel_staff_icon: None,
             item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
@@ -473,6 +476,38 @@ impl App {
             egui::TextureOptions::NEAREST,
         );
         self.item_panel_shovel_icon = Some(shovel_texture);
+
+        let copper_shovel_path =
+            if std::path::Path::new(ITEM_PANEL_COPPER_SHOVEL_ICON_PATH).exists() {
+                ITEM_PANEL_COPPER_SHOVEL_ICON_PATH
+            } else {
+                log::warn!(
+                    "Item panel icon not found at {}. Falling back to {}",
+                    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH,
+                    ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
+                );
+                ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
+            };
+
+        let copper_shovel_bytes = std::fs::read(copper_shovel_path)
+            .with_context(|| format!("Failed to read item panel icon from {copper_shovel_path}"))?;
+        let copper_shovel_rgba = image::load_from_memory(&copper_shovel_bytes)
+            .with_context(|| format!("Failed to decode item panel icon from {copper_shovel_path}"))?
+            .to_rgba8();
+        let copper_shovel_size = [
+            copper_shovel_rgba.width() as usize,
+            copper_shovel_rgba.height() as usize,
+        ];
+        let copper_shovel_pixels = copper_shovel_rgba.into_raw();
+        let copper_shovel_image =
+            ColorImage::from_rgba_unmultiplied(copper_shovel_size, &copper_shovel_pixels);
+
+        let copper_shovel_texture = self.egui_renderer.context().load_texture(
+            "item_panel_copper_shovel",
+            copper_shovel_image,
+            egui::TextureOptions::NEAREST,
+        );
+        self.item_panel_copper_shovel_icon = Some(copper_shovel_texture);
 
         let staff_bytes = std::fs::read(staff_path)
             .with_context(|| format!("Failed to read item panel icon from {staff_path}"))?;
@@ -695,6 +730,7 @@ impl App {
 
                 let tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
+                let item_panel_copper_shovel_icon = self.item_panel_copper_shovel_icon.clone();
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
@@ -802,6 +838,7 @@ impl App {
                         draw_item_panel(
                             ctx,
                             item_panel_shovel_icon.as_ref(),
+                            item_panel_copper_shovel_icon.as_ref(),
                             item_panel_staff_icon.as_ref(),
                             item_panel_hoe_icon.as_ref(),
                             selected_item_panel_slot,
