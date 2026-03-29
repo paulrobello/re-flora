@@ -6,7 +6,7 @@ use crate::particles::{
 };
 use crate::util::ClusterResult;
 use egui::Color32;
-use glam::{Vec3, Vec4};
+use glam::{Vec2, Vec3, Vec4};
 use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
@@ -238,6 +238,7 @@ impl App {
         use crate::tracer::{TerrainRayHitSample, TerrainRayQuery};
 
         const MAX_RETRIES: usize = 3;
+        const MAX_SPAWN_XZ_RETRIES: usize = 16;
         const STEP_LEN: f32 = crate::particles::emitters::WORM_STEP_LEN;
         const RAY_EPSILON: f32 = 0.02;
 
@@ -248,16 +249,86 @@ impl App {
         let mut all_directions: Vec<Vec3> = Vec::new();
         let mut all_emitter_indices: Vec<usize> = Vec::new();
 
-        for (emitter_idx, emitter) in self.butterfly_emitters.iter_mut().enumerate() {
-            let mut handles = Vec::new();
-            let mut positions = Vec::new();
-            let mut directions = Vec::new();
-            emitter.collect_butterfly_states(
-                &self.particle_system,
-                &mut handles,
-                &mut positions,
-                &mut directions,
-            );
+        for emitter_idx in 0..self.butterfly_emitters.len() {
+            let pending_handles =
+                self.butterfly_emitters[emitter_idx].drain_pending_placement_handles();
+            for handle in pending_handles {
+                if !self.particle_system.is_alive_handle(handle) {
+                    continue;
+                }
+
+                let mut resolved_position = self.particle_system.position(handle);
+                let mut found_valid_xz = false;
+
+                if let Some(position) = resolved_position {
+                    let sample =
+                        match self
+                            .tracer
+                            .query_terrain_heights_batch_with_validity(&[Vec2::new(
+                                position.x, position.z,
+                            )]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+                    if sample[0].is_valid {
+                        found_valid_xz = true;
+                    }
+                }
+
+                if !found_valid_xz {
+                    for _ in 0..MAX_SPAWN_XZ_RETRIES {
+                        let candidate =
+                            self.butterfly_emitters[emitter_idx].random_spawn_position_candidate();
+                        let sample = match self.tracer.query_terrain_heights_batch_with_validity(&[
+                            Vec2::new(candidate.x, candidate.z),
+                        ]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement retry: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+
+                        if sample[0].is_valid {
+                            found_valid_xz = true;
+                            resolved_position = Some(candidate);
+                            break;
+                        }
+                    }
+                }
+
+                if found_valid_xz {
+                    if let Some(position) = resolved_position {
+                        let _ = self.particle_system.set_position(handle, position);
+                    }
+                } else {
+                    self.butterfly_emitters[emitter_idx].despawn_butterfly(handle);
+                    let _ = self.particle_system.despawn(handle);
+                }
+            }
+
+            let (mut handles, mut positions, mut directions) = {
+                let emitter = &mut self.butterfly_emitters[emitter_idx];
+                let mut handles = Vec::new();
+                let mut positions = Vec::new();
+                let mut directions = Vec::new();
+                emitter.collect_butterfly_states(
+                    &self.particle_system,
+                    &mut handles,
+                    &mut positions,
+                    &mut directions,
+                );
+                (handles, positions, directions)
+            };
 
             if tick_step.bucket_count > 1 {
                 let active_bucket = tick_step.active_bucket;

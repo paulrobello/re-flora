@@ -291,6 +291,7 @@ pub struct ButterflyEmitter {
     pub worm_noise_detail_weight: f32,
     rng: SmallRng,
     active_handles: Vec<ParticleHandle>,
+    pending_placement_handles: Vec<ParticleHandle>,
     worm_seeds: Vec<f32>,
     worm_phases: Vec<f32>,
 }
@@ -328,6 +329,7 @@ impl ButterflyEmitter {
             worm_noise_detail_weight: desc.worm_noise_detail_weight,
             rng: SmallRng::seed_from_u64(seed),
             active_handles: Vec::new(),
+            pending_placement_handles: Vec::new(),
             worm_seeds: Vec::new(),
             worm_phases: Vec::new(),
         }
@@ -371,6 +373,7 @@ impl ButterflyEmitter {
     fn trim_active_to_count(&mut self, system: &mut ParticleSystem, target_count: usize) {
         while self.active_handles.len() > target_count {
             if let Some(handle) = self.active_handles.pop() {
+                self.pending_placement_handles.retain(|h| *h != handle);
                 self.worm_seeds.pop();
                 self.worm_phases.pop();
                 let _ = system.despawn(handle);
@@ -378,7 +381,7 @@ impl ButterflyEmitter {
         }
     }
 
-    pub fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+    pub fn random_spawn_position_candidate(&mut self) -> Vec3 {
         let x = self
             .rng
             .random_range(-self.map_extent.x..=self.map_extent.x);
@@ -387,11 +390,15 @@ impl ButterflyEmitter {
             .random_range(-self.map_extent.z..=self.map_extent.z);
         let height_offset = random_in_range(&mut self.rng, &self.height_offset);
 
-        let position = Vec3::new(
+        Vec3::new(
             self.center.x + x,
             self.center.y + height_offset,
             self.center.z + z,
-        );
+        )
+    }
+
+    pub fn spawn_butterfly(&mut self, system: &mut ParticleSystem) -> Option<ParticleHandle> {
+        let position = self.random_spawn_position_candidate();
         let seed = self.rng.random_range(0.0..100_000.0);
         let phase = self.rng.random_range(0.0..TAU);
         let initial_dir = generate_worm_direction(
@@ -472,11 +479,16 @@ impl ButterflyEmitter {
     }
 
     pub fn despawn_butterfly(&mut self, handle: ParticleHandle) {
+        self.pending_placement_handles.retain(|h| *h != handle);
         if let Some(idx) = self.active_handles.iter().position(|h| *h == handle) {
             self.active_handles.swap_remove(idx);
             self.worm_seeds.swap_remove(idx);
             self.worm_phases.swap_remove(idx);
         }
+    }
+
+    pub fn drain_pending_placement_handles(&mut self) -> Vec<ParticleHandle> {
+        std::mem::take(&mut self.pending_placement_handles)
     }
 }
 
@@ -498,6 +510,7 @@ impl ParticleEmitter for ButterflyEmitter {
         while self.active_handles.len() < target_count {
             if let Some(handle) = self.spawn_butterfly(system) {
                 self.active_handles.push(handle);
+                self.pending_placement_handles.push(handle);
             } else {
                 break;
             }
