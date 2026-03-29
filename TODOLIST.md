@@ -4,13 +4,7 @@
 
 ### Bugfixes
 
-- For saving on gui config, refer to:
-something like: 0.05000000074505806
-you should round it reasonably so we don't get this kind of precesion issue
-
 ### Features
-
-- Camera shaking design during movement, like other first person adventure games, adjustable movement scale in gui
 
 - Correct sky color (more clear looking)
 
