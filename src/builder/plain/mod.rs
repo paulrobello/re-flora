@@ -28,6 +28,7 @@ pub const VOXEL_TYPE_OAK_WOOD: u32 = 6;
 pub const VOXEL_TYPE_ROCK: u32 = 7;
 pub const VOXEL_TYPE_EMPTY: u32 = 0;
 pub const VOXEL_TYPE_DIRT: u32 = 2;
+pub const VOXEL_TYPE_SAND: u32 = 3;
 const PRIMITIVE_KIND_ROUND_CONE: u32 = 0;
 const PRIMITIVE_KIND_CUBOID: u32 = 1;
 const PRIMITIVE_KIND_SPHERE: u32 = 2;

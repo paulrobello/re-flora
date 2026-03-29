@@ -61,7 +61,7 @@ uint get_voxel_type(float density) {
     if (density < 0.0) {
         return VOXEL_TYPE_EMPTY;
     }
-    return VOXEL_TYPE_DIRT;
+    return VOXEL_TYPE_SAND;
 }
 
 void main() {
