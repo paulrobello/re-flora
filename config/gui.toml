@@ -557,7 +557,7 @@ label = "Sea Level Y Shift"
 type = "Float"
 
 [section.param.data]
-value = 0
+value = 0.2
 min = -2
 max = 2
 

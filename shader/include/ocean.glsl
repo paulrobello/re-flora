@@ -155,10 +155,11 @@ vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
     return color;
 }
 
-vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
+vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean, out float ocean_depth_01) {
     vec3 ori = camera_info.pos.xyz;
     vec3 dir = normalize(view_dir);
     float sea_level = ocean_sea_level();
+    ocean_depth_01 = 1.0;
 
     // assume ocean below the camera; avoid useless tracing when we look upwards
     if (dir.y >= 0.0) {
@@ -197,16 +198,19 @@ vec3 compute_ocean_color(vec3 view_dir, out bool hit_ocean) {
 
     vec3 color = ocean_get_sea_color_fast(p, n, light_dir, dir, dist);
 
+    vec4 point_ndc = camera_info.view_proj_mat * vec4(p, 1.0);
+    ocean_depth_01 = point_ndc.z / point_ndc.w;
+
     hit_ocean = true;
     return color;
 }
 
-vec3 compute_environment_color(vec3 view_dir) {
-    bool hit_ocean;
-    vec3 ocean_color = compute_ocean_color(view_dir, hit_ocean);
+vec3 compute_environment_color(vec3 view_dir, out bool hit_ocean, out float ocean_depth_01) {
+    vec3 ocean_color = compute_ocean_color(view_dir, hit_ocean, ocean_depth_01);
     if (hit_ocean) {
         return ocean_color;
     }
+    ocean_depth_01 = 1.0;
     return compute_sky_with_sun_and_stars(view_dir);
 }
 

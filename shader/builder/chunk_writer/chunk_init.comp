@@ -15,14 +15,12 @@ layout(set = 0, binding = 1, r8ui) writeonly uniform uimage3D chunk_atlas;
 #include "../../include/core/fast_noise_lite.glsl"
 #include "../../include/voxel_types.glsl"
 
-const float TERRAIN_MIN_HEIGHT = 2.0 / 256.0;
-
 float compute_island_shape_2d(vec2 world_xz) {
     fnl_state coast_state    = fnlCreateState(133);
     coast_state.noise_type   = FNL_NOISE_OPENSIMPLEX2;
     coast_state.fractal_type = FNL_FRACTAL_FBM;
     coast_state.frequency    = 0.2;
-    coast_state.octaves      = 3;
+    coast_state.octaves      = 5;
     coast_state.lacunarity   = 2.0;
     coast_state.gain         = 0.5;
 
@@ -38,7 +36,10 @@ float compute_island_shape_2d(vec2 world_xz) {
     float coast_warp  = coast_noise * 0.3;
 
     // output range: [0, 1]
-    float island_shape_01 = clamp(1.0 - smoothstep(0.35, 0.88, dist + coast_warp), 0.0, 1.0);
+    float island_shape_01 = clamp(1.0 - smoothstep(0.82, 0.88, dist + coast_warp), 0.0, 1.0);
+
+    const float PLANTAU_HEIGHT = 0.5;
+
     return island_shape_01;
 }
 
@@ -47,15 +48,17 @@ float compute_old_style_height_3d(vec3 world_pos) {
     state.noise_type   = FNL_NOISE_PERLIN;
     state.fractal_type = FNL_FRACTAL_FBM;
     state.frequency    = 0.1;
-    state.octaves      = 5;
+    state.octaves      = 2;
     state.lacunarity   = 2.2;
     state.gain         = 0.6;
 
     // ranges from 0 to 1
     float base_shape = fnlGetNoise2D(state, world_pos.x, world_pos.z) * 0.5 + 0.5;
 
+    base_shape *= 0.5;
+
     float island_shape_01 = compute_island_shape_2d(world_pos.xz);
-    float noise_01        = base_shape * island_shape_01;
+    float noise_01        = island_shape_01 * base_shape;
     return noise_01;
 }
 
@@ -79,7 +82,7 @@ void main() {
 
     float old_height_3d  = compute_old_style_height_3d(world_voxel_pos);
 
-    float surface_height = max(old_height_3d, TERRAIN_MIN_HEIGHT);
+    float surface_height = old_height_3d;
 
     float density   = surface_height - world_voxel_pos.y;
     uint voxel_type = get_voxel_type(density);
