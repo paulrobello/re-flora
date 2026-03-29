@@ -7,7 +7,7 @@
 
 // configuration derived from "Seascape (fast version)"
 const float OCEAN_DRAG_MULT     = 0.1;
-const float OCEAN_WATER_DEPTH   = 0.5;
+const float OCEAN_WATER_DEPTH   = 0.2;
 const int   OCEAN_ITER_RAYMARCH = 12;
 const int   OCEAN_ITER_NORMAL   = 36;
 const float OCEAN_SPEED         = 0.4;
