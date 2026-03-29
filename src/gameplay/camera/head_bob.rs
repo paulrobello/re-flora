@@ -59,11 +59,12 @@ impl HeadBob {
         self.offset_y = phase_rad.sin() * desc.vertical_amplitude * amp_mul * self.blend;
 
         let lateral_sign = if self.step_parity { -1.0 } else { 1.0 };
+        let lateral_wave = (phase_rad * 0.5).sin();
         self.offset_x =
-            phase_rad.cos() * desc.horizontal_amplitude * amp_mul * self.blend * lateral_sign;
+            lateral_wave * desc.horizontal_amplitude * amp_mul * self.blend * lateral_sign;
 
         let roll_amp_rad = desc.roll_amplitude_deg.to_radians();
-        self.roll_rad = phase_rad.cos() * roll_amp_rad * amp_mul * self.blend * lateral_sign;
+        self.roll_rad = lateral_wave * roll_amp_rad * amp_mul * self.blend * lateral_sign;
     }
 
     pub fn apply_to_view_mat(&self, view_mat: Mat4, right: Vec3, up: Vec3) -> Mat4 {
