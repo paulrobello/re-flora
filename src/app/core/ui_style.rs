@@ -24,9 +24,9 @@ pub(crate) const ITEM_PANEL_STAFF_ICON_PATH: &str =
 pub(crate) const ITEM_PANEL_STAFF_ICON_FALLBACK_PATH: &str =
     "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/4_Wooden_Staff.PNG";
 pub(crate) const ITEM_PANEL_HOE_ICON_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/11_Wooden_Hoe.PNG";
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/28_Copper_Sickle.PNG";
 pub(crate) const ITEM_PANEL_HOE_ICON_FALLBACK_PATH: &str =
-    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/11_Wooden_Hoe.PNG";
+    "assets/texture/Pixel_Farming_Tools_IconSet_16px/Individuals/28_Copper_Sickle.PNG";
 pub(crate) const ITEM_PANEL_SLOT_COUNT: usize = 5;
 pub(crate) const SHOVEL_SLOT_INDEX: usize = 0;
 pub(crate) const STAFF_SLOT_INDEX: usize = 1;
