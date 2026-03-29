@@ -362,7 +362,7 @@ impl App {
             tree_records: HashMap::new(),
             config_panel_visible: false,
             settings_panel_visible: false,
-            is_fly_mode: false,
+            is_fly_mode: true,
             item_panel_shovel_icon: None,
             item_panel_copper_shovel_icon: None,
             item_panel_staff_icon: None,
