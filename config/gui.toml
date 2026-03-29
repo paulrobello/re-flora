@@ -10,9 +10,9 @@ label = "Debug Float"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 10.0
+value = 0
+min = 0
+max = 10
 
 [[section.param]]
 id = "debug_uint"
@@ -33,8 +33,8 @@ type = "Float"
 
 [section.param.data]
 value = 1.25
-min = 0.0
-max = 10.0
+min = 0
+max = 10
 
 [[section.param]]
 id = "debug_bool"
@@ -55,9 +55,9 @@ label = "Size (relative)"
 type = "Float"
 
 [section.param.data]
-value = 0.054999999701976776
-min = 0.0
-max = 1.0
+value = 0.055
+min = 0
+max = 1
 
 [[section.param]]
 id = "sun_color"
@@ -75,9 +75,9 @@ label = "Sun Luminance"
 type = "Float"
 
 [section.param.data]
-value = 1.649999976158142
-min = 0.0
-max = 10.0
+value = 1.65
+min = 0
+max = 10
 
 [[section.param]]
 id = "sun_display_luminance"
@@ -86,9 +86,9 @@ label = "Sun Display Luminance"
 type = "Float"
 
 [section.param.data]
-value = 1.649999976158142
-min = 0.0
-max = 10.0
+value = 1.65
+min = 0
+max = 10
 
 [[section.param]]
 id = "ambient_light"
@@ -115,9 +115,9 @@ label = "Time of Day"
 type = "Float"
 
 [section.param.data]
-value = 0.4557054042816162
-min = 0.0
-max = 1.0
+value = 0.455705
+min = 0
+max = 1
 
 [[section.param]]
 id = "latitude"
@@ -126,9 +126,9 @@ label = "Latitude"
 type = "Float"
 
 [section.param.data]
-value = -0.23999999463558197
-min = -1.0
-max = 1.0
+value = -0.24
+min = -1
+max = 1
 
 [[section.param]]
 id = "season"
@@ -138,8 +138,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.25
-min = 0.0
-max = 1.0
+min = 0
+max = 1
 
 [[section.param]]
 id = "day_cycle_minutes"
@@ -148,9 +148,9 @@ label = "Day Cycle Duration (Minutes)"
 type = "Float"
 
 [section.param.data]
-value = 30.0
-min = 0.10000000149011612
-max = 60.0
+value = 30
+min = 0.1
+max = 60
 
 [[section]]
 name = "Starlight"
@@ -173,9 +173,9 @@ label = "Form Parameter"
 type = "Float"
 
 [section.param.data]
-value = 0.41999998688697815
-min = 0.0
-max = 1.0
+value = 0.42
+min = 0
+max = 1
 
 [[section.param]]
 id = "starlight_volsteps"
@@ -195,9 +195,9 @@ label = "Step Size"
 type = "Float"
 
 [section.param.data]
-value = 0.27000001072883606
-min = 0.009999999776482582
-max = 1.0
+value = 0.27
+min = 0.01
+max = 1
 
 [[section.param]]
 id = "starlight_zoom"
@@ -206,9 +206,9 @@ label = "Zoom"
 type = "Float"
 
 [section.param.data]
-value = 0.10000000149011612
-min = 0.10000000149011612
-max = 2.0
+value = 0.1
+min = 0.1
+max = 2
 
 [[section.param]]
 id = "starlight_tile"
@@ -217,9 +217,9 @@ label = "Tile"
 type = "Float"
 
 [section.param.data]
-value = 1.0199999809265137
-min = 0.10000000149011612
-max = 2.0
+value = 1.02
+min = 0.1
+max = 2
 
 [[section.param]]
 id = "starlight_speed"
@@ -228,9 +228,9 @@ label = "Speed"
 type = "Float"
 
 [section.param.data]
-value = 0.07699999958276749
-min = 0.0010000000474974513
-max = 0.10000000149011612
+value = 0.077
+min = 0.001
+max = 0.1
 
 [[section.param]]
 id = "starlight_brightness"
@@ -239,9 +239,9 @@ label = "Brightness"
 type = "Float"
 
 [section.param.data]
-value = 0.002099999925121665
-min = 0.00009999999747378752
-max = 0.009999999776482582
+value = 0.0021
+min = 0.0001
+max = 0.01
 
 [[section.param]]
 id = "starlight_darkmatter"
@@ -250,9 +250,9 @@ label = "Dark Matter"
 type = "Float"
 
 [section.param.data]
-value = 0.5699999928474426
-min = 0.0
-max = 1.0
+value = 0.57
+min = 0
+max = 1
 
 [[section.param]]
 id = "starlight_distfading"
@@ -261,9 +261,9 @@ label = "Distance Fading"
 type = "Float"
 
 [section.param.data]
-value = 0.46000000834465027
-min = 0.0
-max = 1.0
+value = 0.46
+min = 0
+max = 1
 
 [[section.param]]
 id = "starlight_saturation"
@@ -272,9 +272,9 @@ label = "Saturation"
 type = "Float"
 
 [section.param.data]
-value = 0.9700000286102295
-min = 0.0
-max = 1.0
+value = 0.97
+min = 0
+max = 1
 
 [[section]]
 name = "Temporal"
@@ -286,9 +286,9 @@ label = "Position Phi"
 type = "Float"
 
 [section.param.data]
-value = 0.800000011920929
-min = 0.0
-max = 1.0
+value = 0.8
+min = 0
+max = 1
 
 [[section.param]]
 id = "temporal_alpha"
@@ -297,9 +297,9 @@ label = "Alpha"
 type = "Float"
 
 [section.param.data]
-value = 0.07999999821186066
-min = 0.0
-max = 1.0
+value = 0.08
+min = 0
+max = 1
 
 [[section]]
 name = "GodRay"
@@ -311,9 +311,9 @@ label = "Max Depth"
 type = "Float"
 
 [section.param.data]
-value = 1.0
-min = 0.10000000149011612
-max = 10.0
+value = 1
+min = 0.1
+max = 10
 
 [[section.param]]
 id = "god_ray_max_checks"
@@ -333,9 +333,9 @@ label = "Weight"
 type = "Float"
 
 [section.param.data]
-value = 0.30000001192092896
-min = 0.0
-max = 1.0
+value = 0.3
+min = 0
+max = 1
 
 [[section.param]]
 id = "lens_flare_intensity"
@@ -345,8 +345,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.5
-min = 0.0
-max = 1.0
+min = 0
+max = 1
 
 [[section.param]]
 id = "lens_flare_sun_pixel_scale"
@@ -355,9 +355,9 @@ label = "Lens Flare Sun Pixel Scale"
 type = "Float"
 
 [section.param.data]
-value = 0.20000000298023224
-min = 0.0
-max = 8.0
+value = 0.2
+min = 0
+max = 8
 
 [[section]]
 name = "Spatial"
@@ -370,8 +370,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.75
-min = 0.0
-max = 1.0
+min = 0
+max = 1
 
 [[section.param]]
 id = "phi_n"
@@ -380,9 +380,9 @@ label = "Phi N"
 type = "Float"
 
 [section.param.data]
-value = 20.0
-min = 0.0
-max = 100.0
+value = 20
+min = 0
+max = 100
 
 [[section.param]]
 id = "phi_p"
@@ -391,9 +391,9 @@ label = "Phi P"
 type = "Float"
 
 [section.param.data]
-value = 0.05000000074505806
-min = 0.0
-max = 1.0
+value = 0.05
+min = 0
+max = 1
 
 [[section.param]]
 id = "min_phi_z"
@@ -402,9 +402,9 @@ label = "Min Phi Z"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "max_phi_z"
@@ -414,8 +414,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.5
-min = 0.0
-max = 1.0
+min = 0
+max = 1
 
 [[section.param]]
 id = "phi_z_stable_sample_count"
@@ -424,9 +424,9 @@ label = "Phi Z Stable Sample Count"
 type = "Float"
 
 [section.param.data]
-value = 0.05000000074505806
-min = 0.0
-max = 1.0
+value = 0.05
+min = 0
+max = 1
 
 [[section.param]]
 id = "is_changing_lum_phi"
@@ -524,9 +524,9 @@ label = "Normal Amplitude"
 type = "Float"
 
 [section.param.data]
-value = 0.5699999928474426
-min = 0.0
-max = 0.6000000238418579
+value = 0.57
+min = 0
+max = 0.6
 
 [[section.param]]
 id = "ocean_noise_frequency"
@@ -535,9 +535,9 @@ label = "Noise Frequency"
 type = "Float"
 
 [section.param.data]
-value = 1.0
-min = 0.0005000000237487257
-max = 1.0
+value = 1
+min = 0.0005
+max = 1
 
 [[section.param]]
 id = "ocean_time_multiplier"
@@ -546,9 +546,9 @@ label = "Time Multiplier"
 type = "Float"
 
 [section.param.data]
-value = 0.30000001192092896
-min = 0.0
-max = 5.0
+value = 0.3
+min = 0
+max = 5
 
 [[section]]
 name = "EmberBloom"
@@ -581,9 +581,9 @@ label = "Instance Hue Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "flora_update_bucket_count"
@@ -603,9 +603,9 @@ label = "Flora Full Update Time (s)"
 type = "Float"
 
 [section.param.data]
-value = 0.2549999952316284
-min = 0.009999999776482582
-max = 1.0
+value = 0.255
+min = 0.01
+max = 1
 
 [[section.param]]
 id = "flora_instance_saturation_offset"
@@ -614,9 +614,9 @@ label = "Instance Saturation Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "flora_instance_value_offset"
@@ -625,9 +625,9 @@ label = "Instance Value Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "flora_voxel_hue_offset"
@@ -636,9 +636,9 @@ label = "Voxel Hue Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "flora_voxel_saturation_offset"
@@ -647,9 +647,9 @@ label = "Voxel Saturation Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section.param]]
 id = "flora_voxel_value_offset"
@@ -658,9 +658,9 @@ label = "Voxel Value Offset Max"
 type = "Float"
 
 [section.param.data]
-value = 0.0
-min = 0.0
-max = 1.0
+value = 0
+min = 0
+max = 1
 
 [[section]]
 name = "Leaves"
@@ -672,9 +672,9 @@ label = "Inner Density"
 type = "Float"
 
 [section.param.data]
-value = 0.3799999952316284
-min = 0.0
-max = 1.0
+value = 0.38
+min = 0
+max = 1
 
 [[section.param]]
 id = "leaves_outer_density"
@@ -683,9 +683,9 @@ label = "Outer Density"
 type = "Float"
 
 [section.param.data]
-value = 0.44999998807907104
-min = 0.0
-max = 1.0
+value = 0.45
+min = 0
+max = 1
 
 [[section.param]]
 id = "leaves_inner_radius"
@@ -694,9 +694,9 @@ label = "Inner Radius"
 type = "Float"
 
 [section.param.data]
-value = 12.0
-min = 1.0
-max = 64.0
+value = 12
+min = 1
+max = 64
 
 [[section.param]]
 id = "leaves_outer_radius"
@@ -705,9 +705,9 @@ label = "Outer Radius"
 type = "Float"
 
 [section.param.data]
-value = 17.0
-min = 1.0
-max = 64.0
+value = 17
+min = 1
+max = 64
 
 [[section.param]]
 id = "leaves_bottom_color"
@@ -737,9 +737,9 @@ label = "Full Update Time (s)"
 type = "Float"
 
 [section.param.data]
-value = 0.10000000149011612
-min = 0.05000000074505806
-max = 5.0
+value = 0.1
+min = 0.05
+max = 5
 
 [[section]]
 name = "Butterflies"
@@ -761,8 +761,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.5
-min = 0.0
-max = 2.0
+min = 0
+max = 2
 
 [[section.param]]
 id = "butterfly_height_offset_min"
@@ -771,9 +771,9 @@ label = "Spawn Height Min"
 type = "Float"
 
 [section.param.data]
-value = 0.05000000074505806
-min = 0.0
-max = 4.0
+value = 0.05
+min = 0
+max = 4
 
 [[section.param]]
 id = "butterfly_height_offset_max"
@@ -782,9 +782,9 @@ label = "Spawn Height Max"
 type = "Float"
 
 [section.param.data]
-value = 0.12999999523162842
-min = 0.0
-max = 4.0
+value = 0.13
+min = 0
+max = 4
 
 [[section.param]]
 id = "butterfly_size"
@@ -793,9 +793,9 @@ label = "Size"
 type = "Float"
 
 [section.param.data]
-value = 0.029999999329447746
-min = 0.0010000000474974513
-max = 0.029999999329447746
+value = 0.03
+min = 0.001
+max = 0.03
 
 [[section.param]]
 id = "butterfly_lifetime_min"
@@ -804,9 +804,9 @@ label = "Lifetime Min (s)"
 type = "Float"
 
 [section.param.data]
-value = 50.0
-min = 1.0
-max = 60.0
+value = 50
+min = 1
+max = 60
 
 [[section.param]]
 id = "butterfly_lifetime_max"
@@ -815,9 +815,9 @@ label = "Lifetime Max (s)"
 type = "Float"
 
 [section.param.data]
-value = 60.0
-min = 1.0
-max = 60.0
+value = 60
+min = 1
+max = 60
 
 [[section.param]]
 id = "butterfly_worm_noise_frequency"
@@ -826,9 +826,9 @@ label = "Worm Noise Frequency"
 type = "Float"
 
 [section.param.data]
-value = 0.15000000596046448
-min = 0.009999999776482582
-max = 10.0
+value = 0.15
+min = 0.01
+max = 10
 
 [[section.param]]
 id = "butterfly_worm_noise_detail_frequency"
@@ -837,9 +837,9 @@ label = "Worm Noise Detail Frequency"
 type = "Float"
 
 [section.param.data]
-value = 1.0
-min = 0.009999999776482582
-max = 20.0
+value = 1
+min = 0.01
+max = 20
 
 [[section.param]]
 id = "butterfly_worm_noise_detail_weight"
@@ -849,8 +849,8 @@ type = "Float"
 
 [section.param.data]
 value = 0.5
-min = 0.0
-max = 2.0
+min = 0
+max = 2
 
 [[section]]
 name = "Voxel"
@@ -889,9 +889,9 @@ label = "Hash Color Variance"
 type = "Float"
 
 [section.param.data]
-value = 1.0
-min = 0.0
-max = 2.0
+value = 1
+min = 0
+max = 2
 
 [[section]]
 name = "HeadBob"
@@ -903,9 +903,9 @@ label = "Vertical Amplitude"
 type = "Float"
 
 [section.param.data]
-value = 0.0020000000949949026
-min = 0.0
-max = 0.019999999552965164
+value = 0.002
+min = 0
+max = 0.02
 
 [[section.param]]
 id = "headbob_horizontal_amp"
@@ -914,9 +914,9 @@ label = "Horizontal Amplitude"
 type = "Float"
 
 [section.param.data]
-value = 0.000750000006519258
-min = 0.0
-max = 0.009999999776482582
+value = 0.00075
+min = 0
+max = 0.01
 
 [[section.param]]
 id = "headbob_roll_amp"
@@ -925,9 +925,9 @@ label = "Roll Amplitude (deg)"
 type = "Float"
 
 [section.param.data]
-value = 0.10000000149011612
-min = 0.0
-max = 2.0
+value = 0.1
+min = 0
+max = 2
 
 [[section.param]]
 id = "headbob_sprint_amp_mul"
@@ -936,6 +936,6 @@ label = "Sprint Amplitude Mul"
 type = "Float"
 
 [section.param.data]
-value = 3.0
-min = 1.0
-max = 3.0
+value = 3
+min = 1
+max = 3
