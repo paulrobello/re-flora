@@ -799,6 +799,33 @@ fn flatten_block_members(
     }
 }
 
+fn to_pascal_case(value: &str) -> String {
+    let mut out = String::new();
+    for part in value.split(|c: char| !c.is_ascii_alphanumeric()) {
+        if part.is_empty() {
+            continue;
+        }
+        let mut chars = part.chars();
+        if let Some(first) = chars.next() {
+            out.push(first.to_ascii_uppercase());
+            out.push_str(chars.as_str());
+        }
+    }
+    if out.is_empty() {
+        "Generated".to_owned()
+    } else {
+        out
+    }
+}
+
+fn push_constant_type_name(path: &str) -> String {
+    let stem = Path::new(path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("generated");
+    format!("PushConstant{}", to_pascal_case(stem))
+}
+
 fn reflect_shader(source: &str, kind: shaderc::ShaderKind, path: &str) -> Vec<StructLayout> {
     let compiler = shaderc::Compiler::new().expect("shaderc compiler");
     let mut opts = shaderc::CompileOptions::new().expect("shaderc options");
@@ -876,6 +903,28 @@ fn reflect_shader(source: &str, kind: shaderc::ShaderKind, path: &str) -> Vec<St
             fields,
             total_size,
         });
+    }
+
+    if let Ok(push_blocks) = module.enumerate_push_constant_blocks(None) {
+        for block in push_blocks {
+            let mut fields: Vec<PlainField> = Vec::new();
+            flatten_block_members(&block.members, &mut fields);
+            fields.sort_by_key(|f| f.offset);
+            if fields.is_empty() {
+                continue;
+            }
+            let total_size = fields
+                .iter()
+                .map(|f| f.offset + f.padded_size)
+                .max()
+                .unwrap_or(0)
+                .max(block.size);
+            layouts.push(StructLayout {
+                type_name: push_constant_type_name(path),
+                fields,
+                total_size,
+            });
+        }
     }
     layouts
 }

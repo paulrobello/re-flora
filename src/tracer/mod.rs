@@ -1,5 +1,4 @@
 mod resources;
-use bytemuck::{Pod, Zeroable};
 pub use resources::*;
 
 mod butterfly_palette;
@@ -40,6 +39,7 @@ use crate::builder::{
     SurfaceResources, TreeLeavesInstance,
 };
 use crate::gameplay::{calculate_directional_light_matrices, Camera, CameraDesc, CameraVectors};
+use crate::generated::gpu_structs::PushConstantFlora;
 use crate::geom::UAabb3;
 use crate::particles::{ParticleSnapshot, PARTICLE_CAPACITY};
 use crate::resource::ResourceContainer;
@@ -74,37 +74,12 @@ pub struct TerrainRayHitSample {
     pub is_valid: bool,
 }
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, Pod, Zeroable)]
-struct PushConstantStd140 {
-    time: f32,
-    // `std140` requires a `vec3` to be aligned to 16 bytes.
-    // `time` is 4 bytes, so we need 12 bytes of padding to reach offset 16.
-    _padding1: [u8; 12],
-
-    bottom_color: Vec3,
-    // After `bottom_color` (12 bytes), we are at offset 16 + 12 = 28.
-    // The next field (`tip_color`) must also start on a 16-byte boundary (offset 32).
-    // So we need 4 bytes of padding.
-    _padding2: [u8; 4],
-
-    tip_color: Vec3,
-    // The total size of the block must be a multiple of 16.
-    // We are at offset 32 + 12 = 44. The next multiple of 16 is 48.
-    // So we need 4 final bytes of padding.
-    _padding3: [u8; 4],
-}
-
-impl PushConstantStd140 {
-    pub fn new(time: f32, bottom_color: Vec3, tip_color: Vec3) -> Self {
-        Self {
-            time,
-            _padding1: [0; 12],
-            bottom_color,
-            _padding2: [0; 4],
-            tip_color,
-            _padding3: [0; 4],
-        }
+fn flora_push_constant(time: f32, bottom_color: Vec3, tip_color: Vec3) -> PushConstantFlora {
+    PushConstantFlora {
+        time,
+        bottom_color: bottom_color.to_array(),
+        tip_color: tip_color.to_array(),
+        ..bytemuck::Zeroable::zeroed()
     }
 }
 
@@ -953,7 +928,7 @@ impl Tracer {
 
         let render_target = &self.render_target_color_and_depth;
 
-        let push_constant = PushConstantStd140::new(time, bottom_color, tip_color);
+        let push_constant = flora_push_constant(time, bottom_color, tip_color);
 
         let mesh_collection = match lod_state {
             LodState::Lod0 => &self.resources.flora_meshes,
@@ -1178,7 +1153,7 @@ impl Tracer {
 
         let render_target = &self.render_target_color_and_depth;
 
-        let push_constant = PushConstantStd140::new(time, bottom_color, tip_color);
+        let push_constant = flora_push_constant(time, bottom_color, tip_color);
 
         let (indices_buf, vertices_buf, indices_len) = match lod_state {
             LodState::Lod0 => (
@@ -1300,7 +1275,7 @@ impl Tracer {
             .leaves_shadow_lod_ppl
             .record_bind(cmdbuf);
 
-        let push_constant = PushConstantStd140::new(time, bottom_color, tip_color);
+        let push_constant = flora_push_constant(time, bottom_color, tip_color);
 
         let clear_values = [vk::ClearValue {
             depth_stencil: vk::ClearDepthStencilValue {
