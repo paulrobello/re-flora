@@ -47,9 +47,8 @@ use crate::util::{ShaderCompiler, TimeInfo};
 use crate::vkn::{
     execute_one_time_command, Allocator, Buffer, ClearValue, ColorClearValue, CommandBuffer,
     ComputePipeline, DepthOrStencilClearValue, DescriptorPool, Extent2D, Extent3D, Framebuffer,
-    GraphicsPipeline, MemoryBarrier, PipelineBarrier, PlainMemberTypeWithData, PushConstantInfo,
-    RenderPass, RenderTarget, StructMemberDataBuilder, StructMemberDataReader, Texture, Viewport,
-    VulkanContext,
+    GraphicsPipeline, MemoryBarrier, PipelineBarrier, PushConstantInfo, RenderPass, RenderTarget,
+    Texture, Viewport, VulkanContext,
 };
 use anyhow::Result;
 use ash::vk;
@@ -1668,37 +1667,18 @@ impl Tracer {
         fn get_player_collision_result(
             player_collision_result: &Buffer,
         ) -> Result<PlayerCollisionResult> {
-            let layout = &player_collision_result.get_layout().unwrap().root_member;
-            let raw_data = player_collision_result.read_back().unwrap();
-            let reader = StructMemberDataReader::new(layout, &raw_data);
-
-            let ground_distance = if let PlainMemberTypeWithData::Float(val) =
-                reader.get_field("ground_distance").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected Float type for ground_distance");
-            };
-
-            let ring_distances = if let PlainMemberTypeWithData::Array(val) =
-                reader.get_field("ring_distances").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected Array type for ring_distances");
-            };
-
-            let ceiling_distance = if let PlainMemberTypeWithData::Float(val) =
-                reader.get_field("ceiling_distance").unwrap()
-            {
-                val
-            } else {
-                panic!("Expected Float type for ceiling_distance");
-            };
-
+            use crate::generated::gpu_structs::PlayerCollisionResult as GpuResult;
+            let raw_data = player_collision_result.read_back()?;
+            let gpu: GpuResult = *bytemuck::from_bytes(&raw_data);
+            // ring_distances is stored as u32 bits in the GPU struct; reinterpret as f32
+            let ring_distances = gpu
+                .ring_distances
+                .iter()
+                .map(|&bits| f32::from_bits(bits))
+                .collect();
             Ok(PlayerCollisionResult {
-                ground_distance,
-                ceiling_distance,
+                ground_distance: gpu.ground_distance,
+                ceiling_distance: gpu.ceiling_distance,
                 ring_distances,
             })
         }
@@ -2007,15 +1987,12 @@ impl Tracer {
 
         let query_count = rays.len() as u32;
 
-        let count_data = StructMemberDataBuilder::from_buffer(&self.resources.terrain_query_count)
-            .set_field(
-                "valid_query_count",
-                PlainMemberTypeWithData::UInt(query_count),
-            )
-            .build()?;
-        self.resources
-            .terrain_query_count
-            .fill_with_raw_u8(&count_data)?;
+        self.resources.terrain_query_count.fill_uniform(
+            &crate::generated::gpu_structs::TerrainQueryCount {
+                valid_query_count: query_count,
+                ..bytemuck::Zeroable::zeroed()
+            },
+        )?;
 
         let mut ray_data = Vec::with_capacity(rays.len() * 8);
         for ray in rays {
