@@ -282,31 +282,46 @@ impl Buffer {
 
 ### In progress
 
-- [ ] **Phase 2.4** remove remaining `StructMemberDataBuilder` and
+- [ ] None.
+
+### Not started
+
+- [ ] None.
+
+### Completed (continued)
+
+- [x] **Phase 2.4** remove remaining `StructMemberDataBuilder` and
       `PlainMemberTypeWithData` usage from non-tracer systems:
   - `src/builder/contree/mod.rs`
   - `src/builder/plain/mod.rs`
   - `src/builder/scene_accel/mod.rs`
   - `src/builder/surface/mod.rs`
-
-### Not started
-
-- [ ] **Phase 2.5** evaluate deleting `src/tracer/buffer_updater.rs` (or keep as
-      thin typed wrapper) after full migration in builders.
-- [ ] **Phase 3.1** generate `Instance` from shader source and remove manual Rust
+- [x] **Phase 2.5** evaluated deleting `src/tracer/buffer_updater.rs`; kept it as
+      a thin typed wrapper while migrating non-tracer systems to generated structs.
+- [x] **Phase 3.1** generate `Instance` from shader source and remove manual Rust
       `Instance` in `src/builder/surface/resources.rs`.
-- [ ] **Phase 3.2** generate push constant structs and remove manual
+- [x] **Phase 3.2** generate push constant structs and remove manual
       `PushConstantStd140` in `src/tracer/mod.rs`.
-- [ ] **Phase 3.3** audit `ParticleInstanceGpu` and `Vertex` for optional
-      generation.
-- [ ] **Phase 4.1** optional shorthand `Buffer::new_uniform::<T>(...)` to reduce
-      `Buffer::from_buffer_layout` boilerplate in resource constructors.
+- [x] **Phase 3.3** audit `ParticleInstanceGpu` and `Vertex` for optional
+      generation (kept manual definitions due packed-format coupling).
+- [x] **Phase 4.1** add optional shorthand helpers:
+  - `Buffer::from_uniform_layout(...)`
+  - `Buffer::new_uniform::<T>(...)`
 
 ### Commits created so far
 
 - `f2807dd2` add build-time gpu struct codegen from GLSL shader reflection
 - `2ef34fba` migrate buffer updater to generated gpu structs
 - `b608f27b` migrate terrain_query_count and player_collision_result to generated structs
+- `c71c527b` expand gpu struct codegen to builder shaders
+- `29452f09` migrate scene accel updates to typed uniforms
+- `be78f8a6` migrate contree build info to typed uniforms
+- `e12b481d` migrate surface updates to typed uniforms
+- `37909cc4` migrate plain builder uploads to generated structs
+- `53bd0a7b` replace manual instance struct with generated type
+- `040496c0` generate and use typed push constant structs
+- `3c2a46ae` keep shader data helpers as debug-only
+- `44f944b7` add uniform buffer shorthand constructors
 
 ### Phase 1: build-time codegen infrastructure
 
