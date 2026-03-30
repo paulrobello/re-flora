@@ -11,17 +11,7 @@ use std::collections::HashMap;
 
 const MAX_FLORA_INSTANCES_PER_SPECIES: u64 = 20_000;
 
-// TODO: use some reflection from shader side so i don't need to manually define this again
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct Instance {
-    pub pos_x: u32,
-    pub pos_y: u32,
-    pub pos_z: u32,
-    /// Lower 12 bits: type, upper 20 bits: seed
-    pub ty_seed: u32,
-    pub growth_start_tick: u32,
-}
+pub type Instance = crate::generated::gpu_structs::ManualFloraInstances;
 
 pub struct InstanceResource {
     pub instances_buf: Resource<Buffer>,
