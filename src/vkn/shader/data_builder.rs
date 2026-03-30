@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::{PlainMemberLayout, PlainMemberTypeWithData, StructMemberLayout};
 use crate::vkn::{Buffer, MemberLayout};
 use anyhow::Result;
