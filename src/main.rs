@@ -4,6 +4,7 @@ mod builder;
 mod egui_renderer;
 mod flora;
 mod gameplay;
+mod generated;
 mod geom;
 #[macro_use]
 mod gui_adjustables;

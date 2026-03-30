@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -545,7 +545,490 @@ fn generate_gui_adjustables() {
     log!("wrote generated GUI descriptors to {}", out_path.display());
 }
 
+// ============================================================================
+// gpu_structs codegen - phase 1
+// ============================================================================
+
+/// All GLSL shader source files to reflect, relative to the project root.
+const SHADER_FILES: &[(&str, shaderc::ShaderKind)] = &[
+    ("shader/tracer/tracer.comp", shaderc::ShaderKind::Compute),
+    (
+        "shader/tracer/tracer_shadow.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/tracer/composition.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    ("shader/tracer/god_ray.comp", shaderc::ShaderKind::Compute),
+    (
+        "shader/tracer/post_processing.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/tracer/player_collider.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/tracer/terrain_query.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/denoiser/temporal.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    ("shader/denoiser/spatial.comp", shaderc::ShaderKind::Compute),
+    ("shader/foliage/flora.vert", shaderc::ShaderKind::Vertex),
+    ("shader/foliage/flora_lod.vert", shaderc::ShaderKind::Vertex),
+    (
+        "shader/foliage/leaves_shadow.vert",
+        shaderc::ShaderKind::Vertex,
+    ),
+];
+
+// ---- type model (mirrors the runtime PlainMemberType) ----------------------
+
+#[derive(Debug, Clone, PartialEq)]
+enum FieldType {
+    Int,
+    UInt,
+    Int64,
+    UInt64,
+    Float,
+    Vec2,
+    Vec3,
+    Vec4,
+    IVec2,
+    IVec3,
+    IVec4,
+    UVec2,
+    UVec3,
+    UVec4,
+    Mat2,
+    Mat3,
+    Mat4,
+    Mat3x4,
+    Array,
+}
+
+#[derive(Debug, Clone)]
+struct PlainField {
+    name: String,
+    ty: FieldType,
+    offset: u32,
+    size: u32,
+    padded_size: u32,
+}
+
+#[derive(Debug, Clone)]
+struct StructLayout {
+    /// Type name as in GLSL (e.g. `U_CameraInfo`)
+    type_name: String,
+    /// Ordered by offset
+    fields: Vec<PlainField>,
+    /// Total size in bytes (offset of last field + its padded_size)
+    total_size: u32,
+}
+
+// ---- shaderc include callback (mirrors compiler.rs) -------------------------
+
+fn build_include_callback(
+    requested_source: &str,
+    include_type: shaderc::IncludeType,
+    requesting_source: &str,
+    _depth: usize,
+) -> Result<shaderc::ResolvedInclude, String> {
+    let base = match include_type {
+        shaderc::IncludeType::Relative => Path::new(requesting_source)
+            .parent()
+            .ok_or_else(|| format!("{requesting_source} has no parent"))?
+            .to_owned(),
+        shaderc::IncludeType::Standard => {
+            return Err("standard includes not supported".into());
+        }
+    };
+    let full_path = base
+        .join(requested_source)
+        .canonicalize()
+        .map_err(|e| format!("{requested_source}: {e}"))?;
+    let content =
+        std::fs::read_to_string(&full_path).map_err(|e| format!("{}: {e}", full_path.display()))?;
+    Ok(shaderc::ResolvedInclude {
+        resolved_name: full_path.to_string_lossy().into_owned(),
+        content,
+    })
+}
+
+// ---- spirv-reflect helpers --------------------------------------------------
+
+use spirv_reflect::types::{ReflectDescriptorType, ReflectTypeFlags};
+
+fn reflect_field_type(
+    type_flags: &ReflectTypeFlags,
+    traits: &spirv_reflect::types::ReflectTypeDescriptionTraits,
+    size: u32,
+) -> Option<FieldType> {
+    if type_flags.contains(ReflectTypeFlags::ARRAY) {
+        return Some(FieldType::Array);
+    }
+    if type_flags.contains(ReflectTypeFlags::MATRIX) {
+        let cols = traits.numeric.matrix.column_count;
+        let rows = traits.numeric.matrix.row_count;
+        return match (rows, cols) {
+            (4, 4) => Some(FieldType::Mat4),
+            (3, 3) => Some(FieldType::Mat3),
+            (2, 2) => Some(FieldType::Mat2),
+            (4, 3) => Some(FieldType::Mat3x4),
+            _ => None,
+        };
+    }
+    if type_flags.contains(ReflectTypeFlags::VECTOR) {
+        let n = traits.numeric.vector.component_count;
+        let is_float = type_flags.contains(ReflectTypeFlags::FLOAT);
+        let is_int = type_flags.contains(ReflectTypeFlags::INT);
+        let signed = traits.numeric.scalar.signedness == 1;
+        if is_float {
+            return match n {
+                2 => Some(FieldType::Vec2),
+                3 => Some(FieldType::Vec3),
+                4 => Some(FieldType::Vec4),
+                _ => None,
+            };
+        }
+        if is_int {
+            if signed {
+                return match n {
+                    2 => Some(FieldType::IVec2),
+                    3 => Some(FieldType::IVec3),
+                    4 => Some(FieldType::IVec4),
+                    _ => None,
+                };
+            } else {
+                return match n {
+                    2 => Some(FieldType::UVec2),
+                    3 => Some(FieldType::UVec3),
+                    4 => Some(FieldType::UVec4),
+                    _ => None,
+                };
+            }
+        }
+    }
+    if type_flags.contains(ReflectTypeFlags::FLOAT) {
+        return Some(FieldType::Float);
+    }
+    if type_flags.contains(ReflectTypeFlags::INT) {
+        let signed = traits.numeric.scalar.signedness == 1;
+        return match size {
+            4 => Some(if signed {
+                FieldType::Int
+            } else {
+                FieldType::UInt
+            }),
+            8 => Some(if signed {
+                FieldType::Int64
+            } else {
+                FieldType::UInt64
+            }),
+            _ => None,
+        };
+    }
+    None
+}
+
+fn flatten_block_members(
+    members: &[spirv_reflect::types::ReflectBlockVariable],
+    fields: &mut Vec<PlainField>,
+) {
+    for m in members {
+        let td = match &m.type_description {
+            Some(td) => td,
+            None => continue,
+        };
+        if td.type_flags.contains(ReflectTypeFlags::STRUCT) {
+            // recurse into nested struct, members share the parent offset space
+            flatten_block_members(&m.members, fields);
+        } else {
+            let ty = match reflect_field_type(&td.type_flags, &td.traits, m.size) {
+                Some(t) => t,
+                None => continue,
+            };
+            fields.push(PlainField {
+                name: m.name.clone(),
+                ty,
+                offset: m.offset,
+                size: m.size,
+                padded_size: m.padded_size,
+            });
+        }
+    }
+}
+
+fn reflect_shader(source: &str, kind: shaderc::ShaderKind, path: &str) -> Vec<StructLayout> {
+    let compiler = shaderc::Compiler::new().expect("shaderc compiler");
+    let mut opts = shaderc::CompileOptions::new().expect("shaderc options");
+    opts.set_target_env(
+        shaderc::TargetEnv::Vulkan,
+        shaderc::EnvVersion::Vulkan1_3 as u32,
+    );
+    opts.set_target_spirv(shaderc::SpirvVersion::V1_6);
+    opts.set_source_language(shaderc::SourceLanguage::GLSL);
+    opts.set_optimization_level(shaderc::OptimizationLevel::Zero);
+    opts.set_include_callback(build_include_callback);
+
+    let artifact = match compiler.compile_into_spirv(source, kind, path, "main", Some(&opts)) {
+        Ok(a) => a,
+        Err(e) => {
+            // emit a warning but don't abort; partial failures shouldn't break the build
+            println!("cargo:warning=gpu_structs codegen: failed to compile {path}: {e}");
+            return Vec::new();
+        }
+    };
+
+    let spirv_bytes = artifact.as_binary_u8();
+    let module = match spirv_reflect::ShaderModule::load_u8_data(spirv_bytes) {
+        Ok(m) => m,
+        Err(e) => {
+            println!("cargo:warning=gpu_structs codegen: failed to reflect {path}: {e}");
+            return Vec::new();
+        }
+    };
+
+    let bindings = match module.enumerate_descriptor_bindings(None) {
+        Ok(b) => b,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut layouts = Vec::new();
+    for binding in bindings {
+        let is_buf = binding.descriptor_type == ReflectDescriptorType::UniformBuffer
+            || binding.descriptor_type == ReflectDescriptorType::StorageBuffer;
+        if !is_buf {
+            continue;
+        }
+        let type_name = match &binding.type_description {
+            Some(td) => td.type_name.clone(),
+            None => continue,
+        };
+        // skip pure GPU-internal read-only storage buffers that the CPU never writes
+        // (contree, terrain query info, scene tex – identified by `B_Contree*`, `B_Scene*`)
+        // We still include B_PlayerCollisionResult (CPU reads it back).
+        if type_name.starts_with("B_Contree") || type_name == "B_SceneTex" {
+            continue;
+        }
+        // skip image/sampler bindings that sneak through
+        if type_name.is_empty() {
+            continue;
+        }
+
+        let mut fields: Vec<PlainField> = Vec::new();
+        flatten_block_members(&binding.block.members, &mut fields);
+        // sort by offset so the struct fields are in layout order
+        fields.sort_by_key(|f| f.offset);
+
+        if fields.is_empty() {
+            continue;
+        }
+
+        let total_size = fields
+            .iter()
+            .map(|f| f.offset + f.padded_size)
+            .max()
+            .unwrap_or(0);
+
+        layouts.push(StructLayout {
+            type_name,
+            fields,
+            total_size,
+        });
+    }
+    layouts
+}
+
+// ---- Rust type for each FieldType ------------------------------------------
+
+fn rust_field_type(ty: &FieldType) -> &'static str {
+    match ty {
+        FieldType::Int => "i32",
+        FieldType::UInt => "u32",
+        FieldType::Int64 => "i64",
+        FieldType::UInt64 => "u64",
+        FieldType::Float => "f32",
+        FieldType::Vec2 => "[f32; 2]",
+        FieldType::Vec3 => "[f32; 3]",
+        FieldType::Vec4 => "[f32; 4]",
+        FieldType::IVec2 => "[i32; 2]",
+        FieldType::IVec3 => "[i32; 3]",
+        FieldType::IVec4 => "[i32; 4]",
+        FieldType::UVec2 => "[u32; 2]",
+        FieldType::UVec3 => "[u32; 3]",
+        FieldType::UVec4 => "[u32; 4]",
+        FieldType::Mat2 => "[[f32; 2]; 2]",
+        FieldType::Mat3 => "[[f32; 3]; 3]",
+        FieldType::Mat4 => "[[f32; 4]; 4]",
+        FieldType::Mat3x4 => "[[f32; 4]; 3]",
+        FieldType::Array => "[u32; 1]", // placeholder; caller handles real arrays separately
+    }
+}
+
+fn field_size(ty: &FieldType) -> u32 {
+    match ty {
+        FieldType::Int | FieldType::UInt | FieldType::Float => 4,
+        FieldType::Int64 | FieldType::UInt64 => 8,
+        FieldType::Vec2 | FieldType::IVec2 | FieldType::UVec2 => 8,
+        FieldType::Vec3 | FieldType::IVec3 | FieldType::UVec3 => 12,
+        FieldType::Vec4 | FieldType::IVec4 | FieldType::UVec4 => 16,
+        FieldType::Mat2 => 16,
+        FieldType::Mat3 => 36,
+        FieldType::Mat4 => 64,
+        FieldType::Mat3x4 => 48,
+        FieldType::Array => 4,
+    }
+}
+
+/// Strip the `U_` / `B_` prefix and convert `PascalCase` from `CamelCase`.
+/// e.g. `U_CameraInfo` -> `CameraInfo`, `B_PlayerCollisionResult` -> `PlayerCollisionResult`
+fn struct_name(glsl_type_name: &str) -> String {
+    let stripped = glsl_type_name
+        .strip_prefix("U_")
+        .or_else(|| glsl_type_name.strip_prefix("B_"))
+        .unwrap_or(glsl_type_name);
+    stripped.to_owned()
+}
+
+// ---- code emitter -----------------------------------------------------------
+
+fn emit_struct(layout: &StructLayout) -> String {
+    let name = struct_name(&layout.type_name);
+    let mut code = String::new();
+
+    code.push_str(&format!(
+        "/// Auto-generated from `{}` (GLSL source of truth).\n",
+        layout.type_name
+    ));
+    code.push_str("#[repr(C)]\n");
+    code.push_str("#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]\n");
+    code.push_str(&format!("pub struct {} {{\n", name));
+
+    let mut cursor: u32 = 0;
+    let mut pad_idx: u32 = 0;
+
+    for field in &layout.fields {
+        // insert padding gap if needed
+        if field.offset > cursor {
+            let gap = field.offset - cursor;
+            code.push_str(&format!("    pub _pad{}: [u8; {}],\n", pad_idx, gap));
+            pad_idx += 1;
+            cursor += gap;
+        }
+
+        // for Array fields we use the actual padded_size to know how many u32s
+        if field.ty == FieldType::Array {
+            let count = field.padded_size / 4;
+            code.push_str(&format!("    pub {}: [u32; {}],\n", field.name, count));
+            cursor += field.padded_size;
+        } else {
+            code.push_str(&format!(
+                "    pub {}: {},\n",
+                field.name,
+                rust_field_type(&field.ty)
+            ));
+            let actual = field_size(&field.ty);
+            cursor += actual;
+            // If the GPU layout pads this field further, emit explicit trailing padding bytes.
+            // This is required because #[repr(C)] does not insert implicit holes between fields.
+            if field.padded_size > actual {
+                let trail = field.padded_size - actual;
+                code.push_str(&format!("    pub _pad{}: [u8; {}],\n", pad_idx, trail));
+                pad_idx += 1;
+                cursor += trail;
+            }
+        }
+    }
+
+    // trailing padding to reach total_size
+    if layout.total_size > cursor {
+        let gap = layout.total_size - cursor;
+        code.push_str(&format!("    pub _pad{}: [u8; {}],\n", pad_idx, gap));
+    }
+
+    code.push_str("}\n\n");
+    code
+}
+
+fn generate_gpu_structs() {
+    let root = project_root();
+    let shader_root = root.join("shader");
+    let out_dir = root.join("src").join("generated");
+    fs::create_dir_all(&out_dir).expect("create src/generated");
+
+    // mark all shader source files as inputs so cargo reruns when they change
+    for (rel, _) in SHADER_FILES {
+        println!("cargo:rerun-if-changed={}", root.join(rel).display());
+    }
+    // also watch the shader include directory
+    println!(
+        "cargo:rerun-if-changed={}",
+        shader_root.join("include").display()
+    );
+
+    // collect all layouts across all shaders, deduplicating by type name
+    // BTreeMap for deterministic output order
+    let mut all_layouts: BTreeMap<String, StructLayout> = BTreeMap::new();
+
+    for (rel, kind) in SHADER_FILES {
+        let path = root.join(rel);
+        let source = match fs::read_to_string(&path) {
+            Ok(s) => s,
+            Err(e) => {
+                println!(
+                    "cargo:warning=gpu_structs codegen: cannot read {}: {e}",
+                    path.display()
+                );
+                continue;
+            }
+        };
+        let layouts = reflect_shader(&source, *kind, &path.to_string_lossy());
+        for layout in layouts {
+            let existing = all_layouts
+                .entry(layout.type_name.clone())
+                .or_insert(layout.clone());
+            // verify identical layout if the same name appears in multiple shaders
+            if existing.total_size != layout.total_size {
+                println!(
+                    "cargo:warning=gpu_structs codegen: layout mismatch for `{}`: \
+                     {} bytes vs {} bytes",
+                    layout.type_name, existing.total_size, layout.total_size
+                );
+            }
+        }
+    }
+
+    let out_path = out_dir.join("gpu_structs.rs");
+    let mut code = String::new();
+    code.push_str(
+        "// ============================================================================\n",
+    );
+    code.push_str("// !!! DO NOT EDIT THIS FILE BY HAND !!!\n");
+    code.push_str("// Generated by build.rs::generate_gpu_structs from GLSL shader sources.\n");
+    code.push_str(
+        "// ============================================================================\n\n",
+    );
+    code.push_str("#![allow(dead_code, non_snake_case)]\n\n");
+
+    for layout in all_layouts.values() {
+        code.push_str(&emit_struct(layout));
+    }
+
+    fs::write(&out_path, &code).expect("write gpu_structs.rs");
+    log!(
+        "gpu_structs codegen: wrote {} structs to {}",
+        all_layouts.len(),
+        out_path.display()
+    );
+}
+
 fn main() {
     dump_env();
     generate_gui_adjustables();
+    generate_gpu_structs();
 }

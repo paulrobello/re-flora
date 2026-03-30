@@ -45,6 +45,8 @@ toml = "0.8"
 
 [build-dependencies]
 toml = "0.8"
+shaderc = "0.10.1"
+spirv-reflect = { git = "https://github.com/gwihlidal/spirv-reflect-rs.git", rev = "97298067e3b1c9ce05633d78f1183c14a3cc6acc" }
 
 [features]
 default = []

@@ -328,6 +328,14 @@ impl Buffer {
         Err(anyhow::anyhow!("Failed to map buffer memory"))
     }
 
+    /// Fills the buffer with a single `Pod` value (uniform buffer convenience method).
+    ///
+    /// The value is serialized via `bytemuck::bytes_of` and written to offset 0.
+    /// The buffer size must exactly match `size_of::<T>()`.
+    pub fn fill_uniform<T: bytemuck::Pod>(&self, value: &T) -> Result<()> {
+        self.fill_with_raw_u8(bytemuck::bytes_of(value))
+    }
+
     /// Reads raw data from the buffer.
     ///
     /// # Returns
