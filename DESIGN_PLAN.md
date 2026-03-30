@@ -256,6 +256,58 @@ impl Buffer {
 
 ## Implementation plan
 
+## Progress todo list
+
+### Completed
+
+- [x] **Phase 1.1** add `shaderc` and `spirv-reflect` to `[build-dependencies]` in `Cargo.toml`.
+- [x] **Phase 1.2** implement build-time GPU struct codegen in `build.rs`:
+  - shader compile for selected `.vert` and `.comp` files
+  - SPIR-V reflection for uniform and storage buffers
+  - dedup by GLSL type name
+  - emit `src/generated/gpu_structs.rs`
+  - emit explicit `_padN` fields from reflected `offset` and `padded_size`
+- [x] **Phase 1.3** add generated module wiring:
+  - `src/generated/mod.rs`
+  - `mod generated;` in `src/main.rs`
+- [x] **Phase 1.4** add `Buffer::fill_uniform<T: bytemuck::Pod>(&self, value: &T)`.
+- [x] **Phase 1.5** verify compile and layout generation (`cargo check` passes).
+- [x] **Phase 2.1** migrate `src/tracer/buffer_updater.rs` from
+      `StructMemberDataBuilder` to generated typed structs + `fill_uniform`.
+- [x] **Phase 2.2** migrate terrain query count write path in `src/tracer/mod.rs`
+      to generated `TerrainQueryCount`.
+- [x] **Phase 2.3** migrate player collision result read path in
+      `src/tracer/mod.rs` to generated `PlayerCollisionResult` + bit-cast for
+      ring distances.
+
+### In progress
+
+- [ ] **Phase 2.4** remove remaining `StructMemberDataBuilder` and
+      `PlainMemberTypeWithData` usage from non-tracer systems:
+  - `src/builder/contree/mod.rs`
+  - `src/builder/plain/mod.rs`
+  - `src/builder/scene_accel/mod.rs`
+  - `src/builder/surface/mod.rs`
+
+### Not started
+
+- [ ] **Phase 2.5** evaluate deleting `src/tracer/buffer_updater.rs` (or keep as
+      thin typed wrapper) after full migration in builders.
+- [ ] **Phase 3.1** generate `Instance` from shader source and remove manual Rust
+      `Instance` in `src/builder/surface/resources.rs`.
+- [ ] **Phase 3.2** generate push constant structs and remove manual
+      `PushConstantStd140` in `src/tracer/mod.rs`.
+- [ ] **Phase 3.3** audit `ParticleInstanceGpu` and `Vertex` for optional
+      generation.
+- [ ] **Phase 4.1** optional shorthand `Buffer::new_uniform::<T>(...)` to reduce
+      `Buffer::from_buffer_layout` boilerplate in resource constructors.
+
+### Commits created so far
+
+- `f2807dd2` add build-time gpu struct codegen from GLSL shader reflection
+- `2ef34fba` migrate buffer updater to generated gpu structs
+- `b608f27b` migrate terrain_query_count and player_collision_result to generated structs
+
 ### Phase 1: build-time codegen infrastructure
 
 1. Add GLSL-to-SPIR-V compilation in `build.rs` (reuse the same `shaderc`
