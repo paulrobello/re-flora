@@ -551,6 +551,42 @@ fn generate_gui_adjustables() {
 
 /// All GLSL shader source files to reflect, relative to the project root.
 const SHADER_FILES: &[(&str, shaderc::ShaderKind)] = &[
+    (
+        "shader/builder/chunk_writer/buffer_setup.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/chunk_writer/chunk_modify.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/contree/buffer_setup.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/scene_accel/update_scene_tex.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/surface/clear_occupancy.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/surface/edit_occupancy_sphere.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/surface/instances_to_occupancy.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/surface/make_surface.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
+        "shader/builder/surface/occupancy_to_flora_instances.comp",
+        shaderc::ShaderKind::Compute,
+    ),
     ("shader/tracer/tracer.comp", shaderc::ShaderKind::Compute),
     (
         "shader/tracer/tracer_shadow.comp",

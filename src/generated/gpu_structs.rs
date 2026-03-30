@@ -5,6 +5,82 @@
 
 #![allow(dead_code, non_snake_case)]
 
+/// Auto-generated from `B_BvhNodes` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct BvhNodes {
+    pub aabb_min: [f32; 3],
+    pub _pad0: [u8; 4],
+    pub aabb_max: [f32; 3],
+    pub offset: u32,
+}
+
+/// Auto-generated from `B_CounterForLevels` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct CounterForLevels {
+    pub data: [u32; 0],
+}
+
+/// Auto-generated from `B_Cuboids` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Cuboids {
+    pub min_corner: [f32; 3],
+    pub _pad0: f32,
+    pub max_corner: [f32; 3],
+    pub _pad1: f32,
+}
+
+/// Auto-generated from `B_EditStats` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct EditStats {
+    pub removed_counts: [u32; 8],
+    pub added_counts: [u32; 8],
+}
+
+/// Auto-generated from `B_LevelDispatchIndirect` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct LevelDispatchIndirect {
+    pub dispatch_x: u32,
+    pub dispatch_y: u32,
+    pub dispatch_z: u32,
+}
+
+/// Auto-generated from `B_MakeSurfaceResult` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct MakeSurfaceResult {
+    pub active_voxel_len: u32,
+}
+
+/// Auto-generated from `B_ManualFloraInstances` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ManualFloraInstances {
+    pub pos_x: u32,
+    pub pos_y: u32,
+    pub pos_z: u32,
+    pub ty_seed: u32,
+    pub growth_start_tick: u32,
+}
+
+/// Auto-generated from `B_NodeOffsetForLevels` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct NodeOffsetForLevels {
+    pub data: [u32; 0],
+}
+
+/// Auto-generated from `B_OccupancyToInstancesResult` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct OccupancyToInstancesResult {
+    pub flora_instance_len: [u32; 3],
+}
+
 /// Auto-generated from `B_PlayerCollisionResult` (GLSL source of truth).
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -12,6 +88,33 @@ pub struct PlayerCollisionResult {
     pub ground_distance: f32,
     pub ceiling_distance: f32,
     pub ring_distances: [u32; 32],
+}
+
+/// Auto-generated from `B_RegionIndirect` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct RegionIndirect {
+    pub dispatch_x: u32,
+    pub dispatch_y: u32,
+    pub dispatch_z: u32,
+}
+
+/// Auto-generated from `B_RoundCones` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct RoundCones {
+    pub center_a: [f32; 3],
+    pub radius_a: f32,
+    pub center_b: [f32; 3],
+    pub radius_b: f32,
+}
+
+/// Auto-generated from `B_Spheres` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Spheres {
+    pub center: [f32; 3],
+    pub radius: f32,
 }
 
 /// Auto-generated from `B_TerrainQueryInfo` (GLSL source of truth).
@@ -53,6 +156,52 @@ pub struct CameraInfoPrevFrame {
     pub proj_mat_inv: [[f32; 4]; 4],
     pub view_proj_mat: [[f32; 4]; 4],
     pub view_proj_mat_inv: [[f32; 4]; 4],
+}
+
+/// Auto-generated from `U_ChunkModifyInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ChunkModifyInfo {
+    pub offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub dim: [u32; 3],
+    pub fill_voxel_type: u32,
+    pub primitive_kind: u32,
+    pub surface_only: u32,
+    pub max_write_count: u32,
+    pub _pad1: [u8; 4],
+}
+
+/// Auto-generated from `U_ClearOccupancyInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ClearOccupancyInfo {
+    pub chunk_dim: [u32; 3],
+    pub _pad0: [u8; 4],
+}
+
+/// Auto-generated from `U_ContreeBuildInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct ContreeBuildInfo {
+    pub dim: u32,
+    pub max_level: u32,
+    pub node_write_offset: u32,
+    pub leaf_write_offset: u32,
+}
+
+/// Auto-generated from `U_EditOccupancyInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct EditOccupancyInfo {
+    pub edit_center_radius_vox: [f32; 4],
+    pub chunk_world_offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub chunk_dim: [u32; 3],
+    pub mode: u32,
+    pub flora_tick: u32,
+    pub target_age: u32,
+    pub _pad1: [u8; 8],
 }
 
 /// Auto-generated from `U_EnvInfo` (GLSL source of truth).
@@ -119,6 +268,37 @@ pub struct GuiInput {
     pub _pad8: [u8; 4],
 }
 
+/// Auto-generated from `U_InstancesToOccupancyInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct InstancesToOccupancyInfo {
+    pub chunk_world_offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub chunk_dim: [u32; 3],
+    pub _pad1: [u8; 4],
+    pub species_instance_len: [u32; 4],
+}
+
+/// Auto-generated from `U_MakeSurfaceInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct MakeSurfaceInfo {
+    pub atlas_read_offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub atlas_read_dim: [u32; 3],
+    pub is_crossing_boundary: u32,
+}
+
+/// Auto-generated from `U_OccupancyToInstancesInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct OccupancyToInstancesInfo {
+    pub chunk_world_offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub chunk_dim: [u32; 3],
+    pub _pad1: [u8; 4],
+}
+
 /// Auto-generated from `U_PlayerColliderInfo` (GLSL source of truth).
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -134,6 +314,26 @@ pub struct PlayerColliderInfo {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct PostProcessingInfo {
     pub scaling_factor: f32,
+    pub _pad0: [u8; 12],
+}
+
+/// Auto-generated from `U_RegionInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct RegionInfo {
+    pub offset: [u32; 3],
+    pub _pad0: [u8; 4],
+    pub dim: [u32; 3],
+    pub _pad1: [u8; 4],
+}
+
+/// Auto-generated from `U_SceneTexUpdateInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct SceneTexUpdateInfo {
+    pub chunk_idx: [u32; 3],
+    pub node_offset_for_chunk: u32,
+    pub leaf_offset_for_chunk: u32,
     pub _pad0: [u8; 12],
 }
 
@@ -232,3 +432,4 @@ pub struct VoxelColors {
     pub oak_wood_color: [f32; 3],
     pub hash_color_variance: f32,
 }
+
