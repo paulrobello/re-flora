@@ -1,4 +1,4 @@
-use crate::vkn::{Allocator, Buffer, BufferUsage, Device, ImageDesc, ShaderModule, Texture};
+use crate::vkn::{Allocator, Buffer, Device, ImageDesc, ShaderModule, Texture};
 use crate::{geom::UAabb3, resource::Resource};
 use ash::vk;
 use resource_container_derive::ResourceContainer;
@@ -30,12 +30,10 @@ impl SceneAccelBuilderResources {
         let scene_tex_update_info_layout = update_scene_tex_sm
             .get_buffer_layout("U_SceneTexUpdateInfo")
             .unwrap();
-        let scene_tex_update_info = Buffer::from_buffer_layout(
+        let scene_tex_update_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             scene_tex_update_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         Self {

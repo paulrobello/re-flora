@@ -214,12 +214,10 @@ impl SurfaceResources {
         let make_surface_info_layout = make_surface_sm
             .get_buffer_layout("U_MakeSurfaceInfo")
             .unwrap();
-        let make_surface_info = Buffer::from_buffer_layout(
+        let make_surface_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             make_surface_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let make_surface_result_layout = make_surface_sm
@@ -236,45 +234,37 @@ impl SurfaceResources {
         let clear_occupancy_info_layout = clear_occupancy_sm
             .get_buffer_layout("U_ClearOccupancyInfo")
             .unwrap();
-        let clear_occupancy_info = Buffer::from_buffer_layout(
+        let clear_occupancy_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             clear_occupancy_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let instances_to_occupancy_info_layout = instances_to_occupancy_sm
             .get_buffer_layout("U_InstancesToOccupancyInfo")
             .unwrap();
-        let instances_to_occupancy_info = Buffer::from_buffer_layout(
+        let instances_to_occupancy_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             instances_to_occupancy_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let edit_occupancy_info_layout = edit_occupancy_sm
             .get_buffer_layout("U_EditOccupancyInfo")
             .unwrap();
-        let edit_occupancy_info = Buffer::from_buffer_layout(
+        let edit_occupancy_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             edit_occupancy_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let occupancy_to_instances_info_layout = occupancy_to_instances_sm
             .get_buffer_layout("U_OccupancyToInstancesInfo")
             .unwrap();
-        let occupancy_to_instances_info = Buffer::from_buffer_layout(
+        let occupancy_to_instances_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             occupancy_to_instances_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let occupancy_to_instances_result_layout = occupancy_to_instances_sm

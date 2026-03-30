@@ -59,12 +59,10 @@ impl PlainBuilderResources {
         let chunk_modify_info_layout = chunk_modify_sm
             .get_buffer_layout("U_ChunkModifyInfo")
             .unwrap();
-        let chunk_modify_info = Buffer::from_buffer_layout(
+        let chunk_modify_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             chunk_modify_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let edit_stats_layout = chunk_modify_sm.get_buffer_layout("B_EditStats").unwrap();
@@ -117,12 +115,10 @@ impl PlainBuilderResources {
         ); // less than 1 MB though, don't worry about the size
 
         let region_info_layout = buffer_setup_sm.get_buffer_layout("U_RegionInfo").unwrap();
-        let region_info = Buffer::from_buffer_layout(
+        let region_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             region_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let region_indirect_layout = buffer_setup_sm
