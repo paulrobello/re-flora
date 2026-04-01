@@ -1,75 +1,81 @@
-# 🌱 Re: Flora 🏝️
+# Re: Flora
 
-> **Note:** _Re: Flora is currently in early & active development. Features and timelines are subject to change as the project evolves._
+> A meditative voxel-based gardening game. Cultivate your own island ecosystem.
 
-## 🎮 Overview
+## Requirements
 
-**Re: Flora** is an experimental relaxation game that allows players to design and nurture their own island paradise. Using vibrant voxel rendering, players can cultivate a diverse ecosystem of plants, shape terrain, and create a personal sanctuary. The game emphasizes creativity and tranquility with no failure states, focusing instead on the joy of watching your garden evolve.
+- **Rust** (latest stable)
+- **Vulkan** SDK ([install from LunarG](https://vulkan.lunarg.com/))
+- A Vulkan-capable GPU with drivers installed
 
-![Re: Flora](demo/img/splash.png)
+## Getting Started
 
-This project aims to give players:
+### 1. Install Rust
 
-> A meditative voxel-based gardening experience where players cultivate their own island ecosystem.
+#### Linux
 
-## ✨ Features
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
 
-### Core Gameplay
+#### Windows
 
-- **Intuitive Planting System**: Easily select, place, and nurture various plant species.
+1. Download and run [rustup-init.exe](https://win.rustup.rs/)
+2. Follow the on-screen prompts
+3. Restart your terminal
 
-- **Dynamic Ecosystem**: Watch plants grow, spread, and interact based on environmental conditions.
+### 2. Install Vulkan SDK
 
-- **Day/Night & Seasonal Cycles**: Experience visual changes and different growth patterns.
+Download and install from [LunarG](https://vulkan.lunarg.com/).
 
-- **Relaxing Atmosphere**: Meditative audio, gentle animations, and a stress-free experience.
+#### Linux
 
-### Botanical Reality
+```bash
+# Ubuntu/Debian
+sudo apt install libvulkan-dev vulkan-tools
 
-We're integrating elements of real-world botany, including:
+# Arch Linux
+sudo pacman -S vulkan-headers vulkan-validation-layers
+```
 
-- Realistic growth cycles (accelerated but proportional).
-- Environmental preferences (light, soil, water needs).
-- Seasonal behaviors and adaptations.
-- Educational elements about plant varieties.
+#### Windows
 
-### Mini-Objectives
+1. Download the Vulkan SDK from [LunarG](https://vulkan.lunarg.com/sdk/home#vulkansdk)
+2. Run the installer and follow the prompts
+3. The installer sets up environment variables automatically
+4. Verify with `vulkaninfo`
 
-While **Re: Flora** has no mandatory goals, players can engage with optional objectives:
+### 3. Build & Run
 
-- Themed garden challenges.
-- Botanical collection completion.
-- Ecosystem balance achievements.
-- Seasonal photography contests.
+```bash
+cargo run --release
+```
 
-## 🎨 Inspiration
+> **Note:** First build may take a few minutes due to shader compilation.
 
-This project draws inspiration from:
+## Controls
 
-- The meditative aspects of gardening.
-- Voxel art aesthetics and capabilities.
-- Games focused on creativity and expression.
-- The natural world's beauty and complexity.
+| Action       | Input       |
+| ------------ | ----------- |
+| Move         | WASD        |
+| Look         | Mouse       |
+| Sprint       | Hold Shift  |
+| Place Plant  | Left Click  |
+| Remove Plant | Right Click |
+| Open GUI     | Tab         |
 
-## 🛠️ Getting Started with Development
+## Configuration
 
-### Rust Setup
+Editable parameters (sky, audio, particles, etc.) are in `config/gui.toml`. Some settings can be tweaked at runtime via the in-game GUI (Tab key).
 
-Ensure you are using the latest stable version of Rust.
+## Tech Stack
 
-### Recommended VSCode Extensions
+- **Rendering**: Vulkan (via `ash`) with ray tracing extensions
+- **UI**: `egui`
+- **Audio**: `petalsonic`
+- **Terrain**: Procedural generation with `fastnoise-lite` and `noise`
 
-| Name                 | Usage                                                           |
-| :------------------- | :-------------------------------------------------------------- |
-| `shader-lint`        | For GLSL/HLSL shader linting.                                   |
-| `rust-analyzer`      | Provides language support for Rust (linting, formatting, etc.). |
-| _to be continued..._ | _..._                                                           |
-
-> **Note:** Do not use `glslx` for Vulkan-style shaders.
-
----
-
-## 📚 Resources & References
+## Resources & References
 
 ### Vulkan
 
@@ -121,24 +127,10 @@ Ensure you are using the latest stable version of Rust.
 
 ---
 
-## 🙏 Special Thanks To
+## Special Thanks To
 
 - **[adrien-ben/egui-ash-renderer](https://github.com/adrien-ben/egui-ash-renderer)** for the implementation of `ash` with `egui`.
 - **TheMaister's Blog** for the excellent [Vulkan Synchronization Tutorial](https://themaister.net/blog/2019/08/14/yet-another-blog-explaining-vulkan-synchronization/).
 - **Khronos Group** for the official [Vulkan Synchronization Examples](https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples) and documentation on the [Command Buffer Lifecycle](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#commandbuffers-lifecycle).
 - **Cambridge in Colour** for the clear tutorial on [Gamma Correction](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm).
 - **Sébastien Piquemal** for the interactive explanation of [Gamma Correction and sRGB](https://observablehq.com/@sebastien/srgb-rgb-gamma).
-
----
-
-## TODO list
-
-### Main Objectives
-
-- [ ] Ponds
-- [ ] Dynamic Terrain Edit
-
-### Side Quests
-
-- [ ] [Some Artistic Dithering?](https://www.shadertoy.com/view/csKfzy)
-- [ ] Clouds
