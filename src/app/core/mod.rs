@@ -191,7 +191,28 @@ const FLORA_FULL_GROWTH_TICKS: u32 = 30;
 
 impl App {
     fn linear_to_db(linear: f32) -> f32 {
-        ((linear - 0.5) * 200.0).clamp(-80.0, 12.0)
+        const MIN_DB: f32 = -80.0;
+        const MAX_DB: f32 = 24.0;
+
+        let linear = linear.clamp(0.0, 1.0);
+        if linear <= 0.0 {
+            return MIN_DB;
+        }
+
+        let max_gain = 10.0_f32.powf(MAX_DB / 20.0);
+
+        let gain = if linear <= 0.5 {
+            let normalized = linear / 0.5;
+            // Give the lower half finer control so the slider feels closer to
+            // the "audio taper" used by game settings rather than a relabeled
+            // decibel control.
+            normalized.powi(3)
+        } else {
+            let normalized = (linear - 0.5) / 0.5;
+            1.0 + (max_gain - 1.0) * normalized.powi(2)
+        };
+
+        (20.0 * gain.log10()).clamp(MIN_DB, MAX_DB)
     }
 
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
