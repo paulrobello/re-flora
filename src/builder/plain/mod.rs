@@ -1,4 +1,7 @@
 mod resources;
+use crate::generated::gpu_structs::{
+    BvhNodes, ChunkModifyInfo, Cuboids, RegionInfo, RoundCones, Spheres,
+};
 use crate::geom::{BvhNode, Cuboid, RoundCone, Sphere};
 use crate::util::ShaderCompiler;
 use crate::vkn::execute_one_time_command;
@@ -12,13 +15,12 @@ use crate::vkn::DescriptorPool;
 use crate::vkn::Extent3D;
 use crate::vkn::MemoryBarrier;
 use crate::vkn::PipelineBarrier;
-use crate::vkn::PlainMemberTypeWithData;
 use crate::vkn::ShaderModule;
-use crate::vkn::StructMemberDataBuilder;
 use crate::vkn::Texture;
 use crate::vkn::VulkanContext;
 use anyhow::Result;
 use ash::vk;
+use bytemuck::Zeroable;
 use glam::UVec3;
 pub use resources::*;
 use std::convert::TryInto;
@@ -240,12 +242,11 @@ impl PlainBuilder {
             offset: UVec3,
             dim: UVec3,
         ) -> Result<()> {
-            let data = StructMemberDataBuilder::from_buffer(&resources.region_info)
-                .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
-                .set_field("dim", PlainMemberTypeWithData::UVec3(dim.to_array()))
-                .build()?;
-            resources.region_info.fill_with_raw_u8(&data)?;
-            Ok(())
+            resources.region_info.fill_uniform(&RegionInfo {
+                offset: offset.to_array(),
+                dim: dim.to_array(),
+                ..RegionInfo::zeroed()
+            })
         }
     }
 
@@ -413,28 +414,15 @@ fn update_chunk_modify_info(
     surface_only: bool,
     max_write_count: Option<u32>,
 ) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(&resources.chunk_modify_info)
-        .set_field("offset", PlainMemberTypeWithData::UVec3(offset.to_array()))
-        .set_field("dim", PlainMemberTypeWithData::UVec3(dim.to_array()))
-        .set_field(
-            "fill_voxel_type",
-            PlainMemberTypeWithData::UInt(fill_voxel_type),
-        )
-        .set_field(
-            "primitive_kind",
-            PlainMemberTypeWithData::UInt(primitive_kind),
-        )
-        .set_field(
-            "surface_only",
-            PlainMemberTypeWithData::UInt(if surface_only { 1 } else { 0 }),
-        )
-        .set_field(
-            "max_write_count",
-            PlainMemberTypeWithData::UInt(max_write_count.unwrap_or(0)),
-        )
-        .build()?;
-    resources.chunk_modify_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    resources.chunk_modify_info.fill_uniform(&ChunkModifyInfo {
+        offset: offset.to_array(),
+        dim: dim.to_array(),
+        fill_voxel_type,
+        primitive_kind,
+        surface_only: if surface_only { 1 } else { 0 },
+        max_write_count: max_write_count.unwrap_or(0),
+        ..ChunkModifyInfo::zeroed()
+    })
 }
 
 fn clear_edit_stats(resources: &PlainBuilderResources) -> Result<()> {
@@ -476,67 +464,44 @@ fn read_edit_stats(resources: &PlainBuilderResources) -> Result<ChunkModifyStats
 
 fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCone]) -> Result<()> {
     for (i, round_cone) in round_cones.iter().enumerate() {
-        let data = StructMemberDataBuilder::from_buffer(&resources.round_cones)
-            .set_field(
-                "data.center_a",
-                PlainMemberTypeWithData::Vec3(round_cone.center_a().to_array()),
-            )
-            .set_field(
-                "data.center_b",
-                PlainMemberTypeWithData::Vec3(round_cone.center_b().to_array()),
-            )
-            .set_field(
-                "data.radius_a",
-                PlainMemberTypeWithData::Float(round_cone.radius_a()),
-            )
-            .set_field(
-                "data.radius_b",
-                PlainMemberTypeWithData::Float(round_cone.radius_b()),
-            )
-            .build()?;
+        let data = RoundCones {
+            center_a: round_cone.center_a().to_array(),
+            center_b: round_cone.center_b().to_array(),
+            radius_a: round_cone.radius_a(),
+            radius_b: round_cone.radius_b(),
+            ..RoundCones::zeroed()
+        };
         resources
             .round_cones
-            .fill_element_with_raw_u8(&data, i as u64)?;
+            .fill_element_with_raw_u8(bytemuck::bytes_of(&data), i as u64)?;
     }
     Ok(())
 }
 
 fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Result<()> {
     for (i, cuboid) in cuboids.iter().enumerate() {
-        let data = StructMemberDataBuilder::from_buffer(&resources.cuboids)
-            .set_field(
-                "data.min_corner",
-                PlainMemberTypeWithData::Vec3(cuboid.min().to_array()),
-            )
-            .set_field("data._pad0", PlainMemberTypeWithData::Float(0.0))
-            .set_field(
-                "data.max_corner",
-                PlainMemberTypeWithData::Vec3(cuboid.max().to_array()),
-            )
-            .set_field("data._pad1", PlainMemberTypeWithData::Float(0.0))
-            .build()?;
+        let data = Cuboids {
+            min_corner: cuboid.min().to_array(),
+            max_corner: cuboid.max().to_array(),
+            ..Cuboids::zeroed()
+        };
         resources
             .cuboids
-            .fill_element_with_raw_u8(&data, i as u64)?;
+            .fill_element_with_raw_u8(bytemuck::bytes_of(&data), i as u64)?;
     }
     Ok(())
 }
 
 fn update_spheres(resources: &PlainBuilderResources, spheres: &[Sphere]) -> Result<()> {
     for (i, sphere) in spheres.iter().enumerate() {
-        let data = StructMemberDataBuilder::from_buffer(&resources.spheres)
-            .set_field(
-                "data.center",
-                PlainMemberTypeWithData::Vec3(sphere.center().to_array()),
-            )
-            .set_field(
-                "data.radius",
-                PlainMemberTypeWithData::Float(sphere.radius()),
-            )
-            .build()?;
+        let data = Spheres {
+            center: sphere.center().to_array(),
+            radius: sphere.radius(),
+            ..Spheres::zeroed()
+        };
         resources
             .spheres
-            .fill_element_with_raw_u8(&data, i as u64)?;
+            .fill_element_with_raw_u8(bytemuck::bytes_of(&data), i as u64)?;
     }
     Ok(())
 }
@@ -549,23 +514,15 @@ fn update_trunk_bvh_nodes(resources: &PlainBuilderResources, bvh_nodes: &[BvhNod
         } else {
             bvh_node.left
         };
-        let data = StructMemberDataBuilder::from_buffer(&resources.trunk_bvh_nodes)
-            .set_field(
-                "data.aabb_min",
-                PlainMemberTypeWithData::Vec3(bvh_node.aabb.min().to_array()),
-            )
-            .set_field(
-                "data.aabb_max",
-                PlainMemberTypeWithData::Vec3(bvh_node.aabb.max().to_array()),
-            )
-            .set_field(
-                "data.offset",
-                PlainMemberTypeWithData::UInt(combined_offset),
-            )
-            .build()?;
+        let data = BvhNodes {
+            aabb_min: bvh_node.aabb.min().to_array(),
+            aabb_max: bvh_node.aabb.max().to_array(),
+            offset: combined_offset,
+            ..BvhNodes::zeroed()
+        };
         resources
             .trunk_bvh_nodes
-            .fill_element_with_raw_u8(&data, i as u64)?;
+            .fill_element_with_raw_u8(bytemuck::bytes_of(&data), i as u64)?;
     }
     Ok(())
 }

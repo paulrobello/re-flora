@@ -67,56 +67,6 @@ pub enum PlainMemberType {
 }
 
 #[derive(Debug, Clone)]
-pub enum PlainMemberTypeWithData {
-    Int(i32),
-    UInt(u32),
-    Int64(i64),
-    UInt64(u64),
-    Float(f32),
-    Vec2([f32; 2]),
-    Vec3([f32; 3]),
-    Vec4([f32; 4]),
-    IVec2([i32; 2]),
-    IVec3([i32; 3]),
-    IVec4([i32; 4]),
-    UVec2([u32; 2]),
-    UVec3([u32; 3]),
-    UVec4([u32; 4]),
-    Mat2([[f32; 2]; 2]),
-    Mat3([[f32; 3]; 3]),
-    Mat4([[f32; 4]; 4]),
-    Mat3x4([[f32; 4]; 3]),
-    Array(Vec<f32>),
-}
-
-impl PlainMemberTypeWithData {
-    pub fn has_type(&self, ty: &PlainMemberType) -> bool {
-        match (self, ty) {
-            (PlainMemberTypeWithData::Int(_), PlainMemberType::Int) => true,
-            (PlainMemberTypeWithData::UInt(_), PlainMemberType::UInt) => true,
-            (PlainMemberTypeWithData::Int64(_), PlainMemberType::Int64) => true,
-            (PlainMemberTypeWithData::UInt64(_), PlainMemberType::UInt64) => true,
-            (PlainMemberTypeWithData::Float(_), PlainMemberType::Float) => true,
-            (PlainMemberTypeWithData::Vec2(_), PlainMemberType::Vec2) => true,
-            (PlainMemberTypeWithData::Vec3(_), PlainMemberType::Vec3) => true,
-            (PlainMemberTypeWithData::Vec4(_), PlainMemberType::Vec4) => true,
-            (PlainMemberTypeWithData::IVec2(_), PlainMemberType::IVec2) => true,
-            (PlainMemberTypeWithData::IVec3(_), PlainMemberType::IVec3) => true,
-            (PlainMemberTypeWithData::IVec4(_), PlainMemberType::IVec4) => true,
-            (PlainMemberTypeWithData::UVec2(_), PlainMemberType::UVec2) => true,
-            (PlainMemberTypeWithData::UVec3(_), PlainMemberType::UVec3) => true,
-            (PlainMemberTypeWithData::UVec4(_), PlainMemberType::UVec4) => true,
-            (PlainMemberTypeWithData::Mat2(_), PlainMemberType::Mat2) => true,
-            (PlainMemberTypeWithData::Mat3(_), PlainMemberType::Mat3) => true,
-            (PlainMemberTypeWithData::Mat4(_), PlainMemberType::Mat4) => true,
-            (PlainMemberTypeWithData::Mat3x4(_), PlainMemberType::Mat3x4) => true,
-            (PlainMemberTypeWithData::Array(_), PlainMemberType::Array) => true,
-            _ => false, // false conditions contains Array types, and any other mismatches
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
 pub struct PlainMemberLayout {
     pub name: String,
     pub ty: PlainMemberType,

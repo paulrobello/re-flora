@@ -2,16 +2,20 @@ mod resources;
 use super::PlainBuilderResources;
 use crate::{
     flora::species,
+    generated::gpu_structs::{
+        ClearOccupancyInfo, EditOccupancyInfo, InstancesToOccupancyInfo, MakeSurfaceInfo,
+        OccupancyToInstancesInfo,
+    },
     geom::UAabb3,
     util::ShaderCompiler,
     vkn::{
         Buffer, ClearValue, ColorClearValue, CommandBuffer, ComputePipeline, DescriptorPool,
-        Extent3D, MemoryBarrier, PipelineBarrier, PlainMemberTypeWithData, ShaderModule,
-        StructMemberDataBuilder, VulkanContext, WriteDescriptorSet,
+        Extent3D, MemoryBarrier, PipelineBarrier, ShaderModule, VulkanContext, WriteDescriptorSet,
     },
 };
 use anyhow::Result;
 use ash::vk;
+use bytemuck::Zeroable;
 use glam::{UVec3, Vec3};
 pub use resources::*;
 
@@ -553,22 +557,12 @@ fn update_make_surface_info(
     atlas_read_dim: UVec3,
     is_crossing_boundary: bool,
 ) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(make_surface_info)
-        .set_field(
-            "atlas_read_offset",
-            PlainMemberTypeWithData::UVec3(atlas_read_offset.to_array()),
-        )
-        .set_field(
-            "atlas_read_dim",
-            PlainMemberTypeWithData::UVec3(atlas_read_dim.to_array()),
-        )
-        .set_field(
-            "is_crossing_boundary",
-            PlainMemberTypeWithData::UInt(if is_crossing_boundary { 1 } else { 0 }),
-        )
-        .build()?;
-    make_surface_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    make_surface_info.fill_uniform(&MakeSurfaceInfo {
+        atlas_read_offset: atlas_read_offset.to_array(),
+        atlas_read_dim: atlas_read_dim.to_array(),
+        is_crossing_boundary: if is_crossing_boundary { 1 } else { 0 },
+        ..MakeSurfaceInfo::zeroed()
+    })
 }
 
 fn cleanup_make_surface_result(make_surface_result: &Buffer) -> Result<()> {
@@ -592,14 +586,10 @@ fn get_make_surface_result(make_surface_result: &Buffer) -> u32 {
 }
 
 fn update_clear_occupancy_info(clear_occupancy_info: &Buffer, chunk_dim: UVec3) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(clear_occupancy_info)
-        .set_field(
-            "chunk_dim",
-            PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
-        )
-        .build()?;
-    clear_occupancy_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    clear_occupancy_info.fill_uniform(&ClearOccupancyInfo {
+        chunk_dim: chunk_dim.to_array(),
+        ..ClearOccupancyInfo::zeroed()
+    })
 }
 
 fn update_instances_to_occupancy_info(
@@ -608,27 +598,17 @@ fn update_instances_to_occupancy_info(
     chunk_dim: UVec3,
     species_instance_len: [u32; 3],
 ) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(instances_to_occupancy_info)
-        .set_field(
-            "chunk_world_offset",
-            PlainMemberTypeWithData::UVec3(chunk_world_offset.to_array()),
-        )
-        .set_field(
-            "chunk_dim",
-            PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
-        )
-        .set_field(
-            "species_instance_len",
-            PlainMemberTypeWithData::UVec4([
-                species_instance_len[0],
-                species_instance_len[1],
-                species_instance_len[2],
-                0,
-            ]),
-        )
-        .build()?;
-    instances_to_occupancy_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    instances_to_occupancy_info.fill_uniform(&InstancesToOccupancyInfo {
+        chunk_world_offset: chunk_world_offset.to_array(),
+        chunk_dim: chunk_dim.to_array(),
+        species_instance_len: [
+            species_instance_len[0],
+            species_instance_len[1],
+            species_instance_len[2],
+            0,
+        ],
+        ..InstancesToOccupancyInfo::zeroed()
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -642,30 +622,20 @@ fn update_edit_occupancy_info(
     flora_tick: u32,
     target_age: u32,
 ) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(edit_occupancy_info)
-        .set_field(
-            "edit_center_radius_vox",
-            PlainMemberTypeWithData::Vec4([
-                edit_center_vox.x,
-                edit_center_vox.y,
-                edit_center_vox.z,
-                edit_radius_vox,
-            ]),
-        )
-        .set_field(
-            "chunk_world_offset",
-            PlainMemberTypeWithData::UVec3(chunk_world_offset.to_array()),
-        )
-        .set_field(
-            "chunk_dim",
-            PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
-        )
-        .set_field("mode", PlainMemberTypeWithData::UInt(mode as u32))
-        .set_field("flora_tick", PlainMemberTypeWithData::UInt(flora_tick))
-        .set_field("target_age", PlainMemberTypeWithData::UInt(target_age))
-        .build()?;
-    edit_occupancy_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    edit_occupancy_info.fill_uniform(&EditOccupancyInfo {
+        edit_center_radius_vox: [
+            edit_center_vox.x,
+            edit_center_vox.y,
+            edit_center_vox.z,
+            edit_radius_vox,
+        ],
+        chunk_world_offset: chunk_world_offset.to_array(),
+        chunk_dim: chunk_dim.to_array(),
+        mode: mode as u32,
+        flora_tick,
+        target_age,
+        ..EditOccupancyInfo::zeroed()
+    })
 }
 
 fn update_occupancy_to_instances_info(
@@ -673,18 +643,11 @@ fn update_occupancy_to_instances_info(
     chunk_world_offset: UVec3,
     chunk_dim: UVec3,
 ) -> Result<()> {
-    let data = StructMemberDataBuilder::from_buffer(occupancy_to_instances_info)
-        .set_field(
-            "chunk_world_offset",
-            PlainMemberTypeWithData::UVec3(chunk_world_offset.to_array()),
-        )
-        .set_field(
-            "chunk_dim",
-            PlainMemberTypeWithData::UVec3(chunk_dim.to_array()),
-        )
-        .build()?;
-    occupancy_to_instances_info.fill_with_raw_u8(&data)?;
-    Ok(())
+    occupancy_to_instances_info.fill_uniform(&OccupancyToInstancesInfo {
+        chunk_world_offset: chunk_world_offset.to_array(),
+        chunk_dim: chunk_dim.to_array(),
+        ..OccupancyToInstancesInfo::zeroed()
+    })
 }
 
 fn cleanup_occupancy_to_instances_result(result: &Buffer) -> Result<()> {

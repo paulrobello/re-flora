@@ -5,14 +5,15 @@ use glam::UVec3;
 pub use resources::*;
 
 use crate::{
+    generated::gpu_structs::SceneTexUpdateInfo,
     geom::UAabb3,
     util::ShaderCompiler,
     vkn::{
         execute_one_time_command, Allocator, Buffer, ClearValue, ColorClearValue, CommandBuffer,
-        ComputePipeline, DescriptorPool, Extent3D, PlainMemberTypeWithData, ShaderModule,
-        StructMemberDataBuilder, VulkanContext,
+        ComputePipeline, DescriptorPool, Extent3D, ShaderModule, VulkanContext,
     },
 };
+use bytemuck::Zeroable;
 
 pub struct SceneAccelBuilder {
     pub vulkan_ctx: VulkanContext,
@@ -132,22 +133,12 @@ impl SceneAccelBuilder {
             node_offset_for_chunk: u32,
             leaf_offset_for_chunk: u32,
         ) -> Result<()> {
-            let data = StructMemberDataBuilder::from_buffer(scene_tex_update_info)
-                .set_field(
-                    "chunk_idx",
-                    PlainMemberTypeWithData::UVec3(chunk_idx.to_array()),
-                )
-                .set_field(
-                    "node_offset_for_chunk",
-                    PlainMemberTypeWithData::UInt(node_offset_for_chunk),
-                )
-                .set_field(
-                    "leaf_offset_for_chunk",
-                    PlainMemberTypeWithData::UInt(leaf_offset_for_chunk),
-                )
-                .build()?;
-            scene_tex_update_info.fill_with_raw_u8(&data)?;
-            Ok(())
+            scene_tex_update_info.fill_uniform(&SceneTexUpdateInfo {
+                chunk_idx: chunk_idx.to_array(),
+                node_offset_for_chunk,
+                leaf_offset_for_chunk,
+                ..SceneTexUpdateInfo::zeroed()
+            })
         }
     }
 

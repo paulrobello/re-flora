@@ -190,6 +190,31 @@ const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
 const FLORA_FULL_GROWTH_TICKS: u32 = 30;
 
 impl App {
+    fn linear_to_db(linear: f32) -> f32 {
+        const MIN_DB: f32 = -80.0;
+        const MAX_DB: f32 = 24.0;
+
+        let linear = linear.clamp(0.0, 1.0);
+        if linear <= 0.0 {
+            return MIN_DB;
+        }
+
+        let max_gain = 10.0_f32.powf(MAX_DB / 20.0);
+
+        let gain = if linear <= 0.5 {
+            let normalized = linear / 0.5;
+            // Give the lower half finer control so the slider feels closer to
+            // the "audio taper" used by game settings rather than a relabeled
+            // decibel control.
+            normalized.powi(3)
+        } else {
+            let normalized = (linear - 0.5) / 0.5;
+            1.0 + (max_gain - 1.0) * normalized.powi(2)
+        };
+
+        (20.0 * gain.log10()).clamp(MIN_DB, MAX_DB)
+    }
+
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
         let window_state = Self::create_window_state(_event_loop);
@@ -405,6 +430,13 @@ impl App {
             spatial_sound_manager,
             tree_audio_manager,
         };
+
+        if let Err(err) = app
+            .spatial_sound_manager
+            .set_global_volume_gain_db(Self::linear_to_db(app.gui_adjustables.master_volume.value))
+        {
+            log::error!("Failed to apply initial master volume: {}", err);
+        }
 
         app.configure_gui_font()?;
         app.load_item_panel_icons()?;
@@ -864,7 +896,19 @@ impl App {
                                 .collapsible(false)
                                 .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
                                 .default_size(settings_size)
-                                .show(ctx, |_ui| {});
+                                .show(ctx, |ui| {
+                                    ui.heading(
+                                        RichText::new("Audio").size(18.0).color(GOLD_ACCENT),
+                                    );
+                                    ui.add_space(8.0);
+                                    ui.add(
+                                        egui::Slider::new(
+                                            &mut self.gui_adjustables.master_volume.value,
+                                            0.0..=1.0,
+                                        )
+                                        .text("Master Volume"),
+                                    );
+                                });
                         }
 
                         draw_item_panel(
@@ -940,6 +984,15 @@ impl App {
                             });
                     });
                 self.sync_cursor_with_panels();
+
+                if let Err(err) =
+                    self.spatial_sound_manager
+                        .set_global_volume_gain_db(Self::linear_to_db(
+                            self.gui_adjustables.master_volume.value,
+                        ))
+                {
+                    log::error!("Failed to apply master volume: {}", err);
+                }
 
                 if tree_desc_changed {
                     self.add_tree(

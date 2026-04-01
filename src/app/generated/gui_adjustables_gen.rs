@@ -49,6 +49,12 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         label: "Debug Bool",
     },
     GeneratedGuiParamDescriptor {
+        section: "Audio",
+        id: "master_volume",
+        kind: "float",
+        label: "Master Volume",
+    },
+    GeneratedGuiParamDescriptor {
         section: "Sky",
         id: "sun_size",
         kind: "float",
@@ -548,6 +554,7 @@ pub struct GuiAdjustables {
     pub debug_uint: crate::gui_adjustables::UintParam,
     pub lod_distance: crate::gui_adjustables::FloatParam,
     pub debug_bool: crate::gui_adjustables::BoolParam,
+    pub master_volume: crate::gui_adjustables::FloatParam,
     pub sun_size: crate::gui_adjustables::FloatParam,
     pub sun_color: crate::gui_adjustables::ColorParam,
     pub sun_luminance: crate::gui_adjustables::FloatParam,
@@ -647,6 +654,7 @@ impl GuiAdjustables {
         let mut debug_uint_field: Option<crate::gui_adjustables::UintParam> = None;
         let mut lod_distance_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut debug_bool_field: Option<crate::gui_adjustables::BoolParam> = None;
+        let mut master_volume_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut sun_size_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut sun_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut sun_luminance_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -757,6 +765,13 @@ impl GuiAdjustables {
                     "debug_bool" => {
                         if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
                             debug_bool_field = Some(crate::gui_adjustables::BoolParam::new(*value));
+                        }
+                    }
+                    "master_volume" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0.0);
+                            let max = max.unwrap_or(1.0);
+                            master_volume_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
                     "sun_size" => {
@@ -1305,6 +1320,7 @@ impl GuiAdjustables {
             debug_uint: debug_uint_field.expect("Missing parameter: debug_uint"),
             lod_distance: lod_distance_field.expect("Missing parameter: lod_distance"),
             debug_bool: debug_bool_field.expect("Missing parameter: debug_bool"),
+            master_volume: master_volume_field.expect("Missing parameter: master_volume"),
             sun_size: sun_size_field.expect("Missing parameter: sun_size"),
             sun_color: sun_color_field.expect("Missing parameter: sun_color"),
             sun_luminance: sun_luminance_field.expect("Missing parameter: sun_luminance"),
@@ -1396,6 +1412,7 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
     match id {
         "debug_float" => Some(&adjustables.debug_float),
         "lod_distance" => Some(&adjustables.lod_distance),
+        "master_volume" => Some(&adjustables.master_volume),
         "sun_size" => Some(&adjustables.sun_size),
         "sun_luminance" => Some(&adjustables.sun_luminance),
         "sun_display_luminance" => Some(&adjustables.sun_display_luminance),
@@ -1517,6 +1534,7 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
     match id {
         "debug_float" => Some(&mut adjustables.debug_float),
         "lod_distance" => Some(&mut adjustables.lod_distance),
+        "master_volume" => Some(&mut adjustables.master_volume),
         "sun_size" => Some(&mut adjustables.sun_size),
         "sun_luminance" => Some(&mut adjustables.sun_luminance),
         "sun_display_luminance" => Some(&mut adjustables.sun_display_luminance),

@@ -65,6 +65,27 @@ impl Deref for Buffer {
 }
 
 impl Buffer {
+    pub fn from_uniform_layout(device: Device, allocator: Allocator, layout: BufferLayout) -> Self {
+        Self::from_buffer_layout(
+            device,
+            allocator,
+            layout,
+            BufferUsage::empty(),
+            MemoryLocation::CpuToGpu,
+        )
+    }
+
+    #[allow(dead_code)]
+    pub fn new_uniform<T: bytemuck::Pod>(device: Device, allocator: Allocator) -> Self {
+        Self::new_sized(
+            device,
+            allocator,
+            BufferUsage::from_flags(vk::BufferUsageFlags::UNIFORM_BUFFER),
+            MemoryLocation::CpuToGpu,
+            std::mem::size_of::<T>() as u64,
+        )
+    }
+
     pub fn from_buffer_layout(
         device: Device,
         allocator: Allocator,
@@ -326,6 +347,14 @@ impl Buffer {
             return Ok(());
         }
         Err(anyhow::anyhow!("Failed to map buffer memory"))
+    }
+
+    /// Fills the buffer with a single `Pod` value (uniform buffer convenience method).
+    ///
+    /// The value is serialized via `bytemuck::bytes_of` and written to offset 0.
+    /// The buffer size must exactly match `size_of::<T>()`.
+    pub fn fill_uniform<T: bytemuck::Pod>(&self, value: &T) -> Result<()> {
+        self.fill_with_raw_u8(bytemuck::bytes_of(value))
     }
 
     /// Reads raw data from the buffer.

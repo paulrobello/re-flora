@@ -36,6 +36,9 @@ pub struct SpatialSoundManager {
 
     // Cache listener state to avoid unnecessary updates
     listener_state: Arc<Mutex<ListenerState>>,
+
+    // Global master gain (dB) applied to all sources.
+    global_volume_gain_db: Arc<Mutex<f32>>,
 }
 
 #[derive(Clone, Debug)]
@@ -101,7 +104,12 @@ impl SpatialSoundManager {
             clip_cache,
             uuid_to_source: Arc::new(Mutex::new(HashMap::new())),
             listener_state: Arc::new(Mutex::new(ListenerState::default())),
+            global_volume_gain_db: Arc::new(Mutex::new(0.0)),
         })
+    }
+
+    fn global_gain_db(&self) -> f32 {
+        *self.global_volume_gain_db.lock().unwrap()
     }
 
     fn add_source(
@@ -123,10 +131,12 @@ impl SpatialSoundManager {
             PetalQuat::IDENTITY,
         );
 
+        let effective_volume_db = volume + self.global_gain_db();
+
         // Register in PetalSonic world with spatial configuration
         let source_id = self.world.register_audio(
             audio_data,
-            SourceConfig::spatial_with_volume_db(petal_pose, volume),
+            SourceConfig::spatial_with_volume_db(petal_pose, effective_volume_db),
         )?;
 
         // Start playback
@@ -206,10 +216,13 @@ impl SpatialSoundManager {
             .get(path)
             .ok_or_else(|| anyhow::anyhow!("Audio clip not found in cache: {}", path))?;
 
+        let effective_volume_db = volume + self.global_gain_db();
+
         // Register in PetalSonic world with non-spatial configuration and volume
-        let source_id = self
-            .world
-            .register_audio(audio_data, SourceConfig::non_spatial_with_volume_db(volume))?;
+        let source_id = self.world.register_audio(
+            audio_data,
+            SourceConfig::non_spatial_with_volume_db(effective_volume_db),
+        )?;
 
         // Start playback with one-shot mode
         self.world.play(source_id, LoopMode::Once)?;
@@ -242,9 +255,12 @@ impl SpatialSoundManager {
             .get(path)
             .ok_or_else(|| anyhow::anyhow!("Audio clip not found in cache: {}", path))?;
 
-        let source_id = self
-            .world
-            .register_audio(audio_data, SourceConfig::non_spatial_with_volume_db(volume))?;
+        let effective_volume_db = volume + self.global_gain_db();
+
+        let source_id = self.world.register_audio(
+            audio_data,
+            SourceConfig::non_spatial_with_volume_db(effective_volume_db),
+        )?;
 
         self.world.play(source_id, LoopMode::Infinite)?;
 
@@ -321,6 +337,7 @@ impl SpatialSoundManager {
 
     #[allow(dead_code)]
     pub fn update_source_pos(&self, source_uuid: Uuid, target_pos: Vec3) -> Result<()> {
+        let global_gain_db = self.global_gain_db();
         let (source_id, volume) = {
             let mut uuid_map = self.uuid_to_source.lock().unwrap();
             if let Some(source_info) = uuid_map.get_mut(&source_uuid) {
@@ -340,13 +357,14 @@ impl SpatialSoundManager {
         // Update the source configuration with new position, preserving volume
         self.world.update_source_config(
             source_id,
-            SourceConfig::spatial_with_volume_db(petal_pose, volume),
+            SourceConfig::spatial_with_volume_db(petal_pose, volume + global_gain_db),
         )?;
 
         Ok(())
     }
 
     pub fn update_source_volume(&self, source_uuid: Uuid, volume_db: f32) -> Result<()> {
+        let global_gain_db = self.global_gain_db();
         let (source_id, position_opt) = {
             let mut uuid_map = self.uuid_to_source.lock().unwrap();
             if let Some(source_info) = uuid_map.get_mut(&source_uuid) {
@@ -364,13 +382,58 @@ impl SpatialSoundManager {
             );
             self.world.update_source_config(
                 source_id,
-                SourceConfig::spatial_with_volume_db(petal_pose, volume_db),
+                SourceConfig::spatial_with_volume_db(petal_pose, volume_db + global_gain_db),
             )?;
         } else {
             self.world.update_source_config(
                 source_id,
-                SourceConfig::non_spatial_with_volume_db(volume_db),
+                SourceConfig::non_spatial_with_volume_db(volume_db + global_gain_db),
             )?;
+        }
+
+        Ok(())
+    }
+
+    pub fn set_global_volume_gain_db(&self, gain_db: f32) -> Result<()> {
+        {
+            let mut global_gain = self.global_volume_gain_db.lock().unwrap();
+            if (*global_gain - gain_db).abs() < f32::EPSILON {
+                return Ok(());
+            }
+            *global_gain = gain_db;
+        }
+
+        let sources_to_update: Vec<(SourceId, Option<Vec3>, f32)> = self
+            .uuid_to_source
+            .lock()
+            .unwrap()
+            .values()
+            .map(|source_info| {
+                (
+                    source_info.source_id,
+                    source_info.position,
+                    source_info.volume,
+                )
+            })
+            .collect();
+
+        for (source_id, position_opt, base_volume_db) in sources_to_update {
+            let effective_volume_db = base_volume_db + gain_db;
+            if let Some(position) = position_opt {
+                let pose = Pose::new(
+                    PetalVec3::new(position.x, position.y, position.z),
+                    PetalQuat::IDENTITY,
+                );
+                self.world.update_source_config(
+                    source_id,
+                    SourceConfig::spatial_with_volume_db(pose, effective_volume_db),
+                )?;
+            } else {
+                self.world.update_source_config(
+                    source_id,
+                    SourceConfig::non_spatial_with_volume_db(effective_volume_db),
+                )?;
+            }
         }
 
         Ok(())
@@ -404,6 +467,7 @@ impl Clone for SpatialSoundManager {
             clip_cache: self.clip_cache.clone(),
             uuid_to_source: self.uuid_to_source.clone(),
             listener_state: self.listener_state.clone(),
+            global_volume_gain_db: self.global_volume_gain_db.clone(),
         }
     }
 }

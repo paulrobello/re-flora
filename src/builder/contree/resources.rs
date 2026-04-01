@@ -43,12 +43,10 @@ impl ContreeBuilderResources {
         let contree_build_info_layout = contree_buffer_setup_sm
             .get_buffer_layout("U_ContreeBuildInfo")
             .unwrap();
-        let contree_build_info = Buffer::from_buffer_layout(
+        let contree_build_info = Buffer::from_uniform_layout(
             device.clone(),
             allocator.clone(),
             contree_build_info_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
         );
 
         let contree_build_state_layout = contree_buffer_setup_sm

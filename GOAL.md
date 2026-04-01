@@ -1,20 +1,14 @@
-# GOALs
+# Goals
 
-Goals for this project.
+Goals matter - even for a small cozy game that could keep evolving forever. They help guide decisions, keep development focused, and make it easier to measure progress.
 
-Making goals are essential, even for this little cozy game that i can make forever.
+## Long-Term Goals
 
-## Longterm goals
+- Share development updates regularly on Reddit and YouTube.
+- Prioritize players first, while also creating value for other developers.
+- Release a playable version on itch.io first, then expand to Steam.
 
-- Share periodically on reddit and YouTube.
+## Short-Term Goals
 
-- Player oriented first, and must, then benifit for other devs.
-
-- Make playable on itch.io, then on steam
-
-## Shortterm goals
-
-- Make a minimum viable product first, make it plable
-
-- Test on the market feedback on reddit & youtube
-
+- Build a minimum viable product first and make it playable.
+- Test market interest and gather feedback through Reddit and YouTube.

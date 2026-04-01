@@ -2,6 +2,7 @@ mod resources;
 pub use resources::*;
 
 use super::SurfaceResources;
+use crate::generated::gpu_structs::ContreeBuildInfo;
 use crate::util::AllocationStrategy;
 use crate::util::FirstFitAllocator;
 use crate::util::ShaderCompiler;
@@ -13,13 +14,11 @@ use crate::vkn::DescriptorPool;
 use crate::vkn::Extent3D;
 use crate::vkn::MemoryBarrier;
 use crate::vkn::PipelineBarrier;
-use crate::vkn::PlainMemberTypeWithData;
 use crate::vkn::ShaderModule;
-use crate::vkn::StructMemberDataBuilder;
-use crate::vkn::StructMemberDataReader;
 use crate::vkn::VulkanContext;
 use anyhow::Result;
 use ash::vk;
+use bytemuck::Zeroable;
 use glam::UVec3;
 use std::collections::HashMap;
 
@@ -297,27 +296,16 @@ impl ContreeBuilder {
 
     /// Returns: (node_size_in_bytes, leaf_size_in_bytes)
     pub fn get_contree_size_info(&self, resources: &ContreeBuilderResources) -> (u64, u64) {
-        let layout = &resources
-            .contree_build_result
-            .get_layout()
-            .unwrap()
-            .root_member;
         let raw_data = resources.contree_build_result.read_back().unwrap();
-        let reader = StructMemberDataReader::new(layout, &raw_data);
-
-        let leaf_len = reader.get_field("leaf_len").unwrap();
-        let leaf_size_in_bytes = if let PlainMemberTypeWithData::UInt(val) = leaf_len {
-            val as u64 * SIZE_OF_LEAF_ELEMENT
-        } else {
-            panic!("Expected UInt type for leaf_len")
-        };
-
-        let node_len = reader.get_field("node_len").unwrap();
-        let node_size_in_bytes = if let PlainMemberTypeWithData::UInt(val) = node_len {
-            val as u64 * SIZE_OF_NODE_ELEMENT
-        } else {
-            panic!("Expected UInt type for node_len")
-        };
+        assert!(
+            raw_data.len() >= 8,
+            "contree_build_result buffer too small: expected at least 8 bytes, got {}",
+            raw_data.len()
+        );
+        let node_len = u32::from_ne_bytes(raw_data[0..4].try_into().unwrap()) as u64;
+        let leaf_len = u32::from_ne_bytes(raw_data[4..8].try_into().unwrap()) as u64;
+        let leaf_size_in_bytes = leaf_len * SIZE_OF_LEAF_ELEMENT;
+        let node_size_in_bytes = node_len * SIZE_OF_NODE_ELEMENT;
 
         (node_size_in_bytes, leaf_size_in_bytes)
     }
@@ -355,20 +343,13 @@ impl ContreeBuilder {
             node_write_offset: u32,
             leaf_write_offset: u32,
         ) -> Result<()> {
-            let data = StructMemberDataBuilder::from_buffer(contree_build_info)
-                .set_field("dim", PlainMemberTypeWithData::UInt(contree_dim.x))
-                .set_field("max_level", PlainMemberTypeWithData::UInt(max_level))
-                .set_field(
-                    "node_write_offset",
-                    PlainMemberTypeWithData::UInt(node_write_offset),
-                )
-                .set_field(
-                    "leaf_write_offset",
-                    PlainMemberTypeWithData::UInt(leaf_write_offset),
-                )
-                .build()?;
-            contree_build_info.fill_with_raw_u8(&data)?;
-            Ok(())
+            contree_build_info.fill_uniform(&ContreeBuildInfo {
+                dim: contree_dim.x,
+                max_level,
+                node_write_offset,
+                leaf_write_offset,
+                ..ContreeBuildInfo::zeroed()
+            })
         }
     }
 
