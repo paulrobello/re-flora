@@ -6,7 +6,7 @@
 
 **Re: Flora** is an experimental relaxation game that allows players to design and nurture their own island paradise. Using vibrant voxel rendering, players can cultivate a diverse ecosystem of plants, shape terrain, and create a personal sanctuary. The game emphasizes creativity and tranquility with no failure states, focusing instead on the joy of watching your garden evolve.
 
-![Re: Flora](demo/img/title.png)
+![Re: Flora](demo/img/splash.png)
 
 This project aims to give players:
 
