@@ -163,3 +163,14 @@ Runtime-editable parameters (sky, audio, particles, etc.) live in `config/gui.to
 - **Khronos Group** — [Synchronization Examples](https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples) and [Command Buffer Lifecycle](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#commandbuffers-lifecycle) docs
 - **Cambridge in Colour** — [Gamma Correction Tutorial](https://www.cambridgeincolour.com/tutorials/gamma-correction.htm)
 - **Sébastien Piquemal** — [Interactive Gamma Correction & sRGB](https://observablehq.com/@sebastien/srgb-rgb-gamma)
+
+---
+
+## License
+
+This project uses a dual license:
+
+- **Source code** — [GNU General Public License v3.0](./LICENSE)
+  - You may use, modify, and distribute the code under GPLv3 terms.
+- **All other assets** (art, audio, images, config, etc.) — [CC BY-NC-SA 4.0](./LICENSE-ASSETS)
+  - Attribution required. Non-commercial use only. Derivatives must share under the same license.
