@@ -467,7 +467,7 @@ label = "Bottom Dark"
 type = "Color"
 
 [section.param.data]
-value = "#005240"
+value = "#225200"
 
 [[section.param]]
 id = "grass_bottom_light_color"
@@ -476,7 +476,7 @@ label = "Bottom Light"
 type = "Color"
 
 [section.param.data]
-value = "#00AF6C"
+value = "#40AF00"
 
 [[section.param]]
 id = "grass_tip_dark_color"
