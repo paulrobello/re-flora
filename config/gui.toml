@@ -46,6 +46,20 @@ type = "Bool"
 value = true
 
 [[section]]
+name = "Audio"
+
+[[section.param]]
+id = "master_volume_db"
+kind = "float"
+label = "Master Volume (dB)"
+type = "Float"
+
+[section.param.data]
+value = 0
+min = -80
+max = 12
+
+[[section]]
 name = "Sky"
 
 [[section.param]]

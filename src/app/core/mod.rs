@@ -406,6 +406,13 @@ impl App {
             tree_audio_manager,
         };
 
+        if let Err(err) = app
+            .spatial_sound_manager
+            .set_global_volume_gain_db(app.gui_adjustables.master_volume_db.value)
+        {
+            log::error!("Failed to apply initial master volume: {}", err);
+        }
+
         app.configure_gui_font()?;
         app.load_item_panel_icons()?;
         app.ensure_map_butterfly_emitter();
@@ -864,7 +871,19 @@ impl App {
                                 .collapsible(false)
                                 .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
                                 .default_size(settings_size)
-                                .show(ctx, |_ui| {});
+                                .show(ctx, |ui| {
+                                    ui.heading(
+                                        RichText::new("Audio").size(18.0).color(GOLD_ACCENT),
+                                    );
+                                    ui.add_space(8.0);
+                                    ui.add(
+                                        egui::Slider::new(
+                                            &mut self.gui_adjustables.master_volume_db.value,
+                                            -80.0..=12.0,
+                                        )
+                                        .text("Master Volume (dB)"),
+                                    );
+                                });
                         }
 
                         draw_item_panel(
@@ -940,6 +959,13 @@ impl App {
                             });
                     });
                 self.sync_cursor_with_panels();
+
+                if let Err(err) = self
+                    .spatial_sound_manager
+                    .set_global_volume_gain_db(self.gui_adjustables.master_volume_db.value)
+                {
+                    log::error!("Failed to apply master volume: {}", err);
+                }
 
                 if tree_desc_changed {
                     self.add_tree(
