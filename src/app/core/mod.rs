@@ -190,6 +190,10 @@ const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
 const FLORA_FULL_GROWTH_TICKS: u32 = 30;
 
 impl App {
+    fn linear_to_db(linear: f32) -> f32 {
+        ((linear - 0.5) * 200.0).clamp(-80.0, 12.0)
+    }
+
     pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
         let window_state = Self::create_window_state(_event_loop);
@@ -408,7 +412,7 @@ impl App {
 
         if let Err(err) = app
             .spatial_sound_manager
-            .set_global_volume_gain_db(app.gui_adjustables.master_volume_db.value)
+            .set_global_volume_gain_db(Self::linear_to_db(app.gui_adjustables.master_volume.value))
         {
             log::error!("Failed to apply initial master volume: {}", err);
         }
@@ -878,10 +882,10 @@ impl App {
                                     ui.add_space(8.0);
                                     ui.add(
                                         egui::Slider::new(
-                                            &mut self.gui_adjustables.master_volume_db.value,
-                                            -80.0..=12.0,
+                                            &mut self.gui_adjustables.master_volume.value,
+                                            0.0..=1.0,
                                         )
-                                        .text("Master Volume (dB)"),
+                                        .text("Master Volume"),
                                     );
                                 });
                         }
@@ -960,9 +964,11 @@ impl App {
                     });
                 self.sync_cursor_with_panels();
 
-                if let Err(err) = self
-                    .spatial_sound_manager
-                    .set_global_volume_gain_db(self.gui_adjustables.master_volume_db.value)
+                if let Err(err) =
+                    self.spatial_sound_manager
+                        .set_global_volume_gain_db(Self::linear_to_db(
+                            self.gui_adjustables.master_volume.value,
+                        ))
                 {
                     log::error!("Failed to apply master volume: {}", err);
                 }

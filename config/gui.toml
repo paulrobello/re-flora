@@ -49,15 +49,15 @@ value = true
 name = "Audio"
 
 [[section.param]]
-id = "master_volume_db"
+id = "master_volume"
 kind = "float"
-label = "Master Volume (dB)"
+label = "Master Volume"
 type = "Float"
 
 [section.param.data]
-value = 0
-min = -80
-max = 12
+value = 0.5
+min = 0
+max = 1
 
 [[section]]
 name = "Sky"
