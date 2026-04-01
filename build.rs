@@ -1113,6 +1113,15 @@ fn generate_gpu_structs() {
 }
 
 fn main() {
+    // Tell Cargo to rerun this script if these files/directories change.
+    // config/gui.toml drives GuiAdjustables codegen.
+    println!("cargo:rerun-if-changed=config/gui.toml");
+
+    // All shader files drive gpu_structs codegen.
+    for (path, _) in SHADER_FILES {
+        println!("cargo:rerun-if-changed={}", path);
+    }
+
     dump_env();
     generate_gui_adjustables();
     generate_gpu_structs();
