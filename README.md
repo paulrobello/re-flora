@@ -10,7 +10,7 @@
 
 - **Rust** (latest stable)
 - **Vulkan SDK** — [LunarG](https://vulkan.lunarg.com/)
-- A Vulkan-capable GPU with up-to-date drivers
+- A Vulkan-capable GPU with up-to-date drivers, non-RTX cards are also first class supported.
 
 ---
 
