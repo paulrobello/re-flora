@@ -170,6 +170,57 @@ impl SurfaceBuilder {
             return Err(anyhow::anyhow!("Chunk ID out of bounds"));
         }
 
+        self.submit_surface_build(chunk_id)?;
+        self.vulkan_ctx
+            .device()
+            .wait_queue_idle(&self.vulkan_ctx.get_general_queue());
+
+        let active_voxel_len = get_make_surface_result(&self.resources.make_surface_result);
+        if place_flora {
+            self.seed_and_rebuild_flora_from_surface(chunk_id, 0)?;
+        }
+
+        Ok(active_voxel_len)
+    }
+
+    /// Submit surface build GPU work without waiting. The caller must ensure
+    /// a later wait_queue_idle or fence covers this submission before reading
+    /// results. Same-queue submissions after this will execute in order.
+    pub fn build_surface_submit_only(&mut self, chunk_id: UVec3) -> Result<()> {
+        if !self.chunk_bound.in_bound(chunk_id) {
+            return Err(anyhow::anyhow!("Chunk ID out of bounds"));
+        }
+        self.submit_surface_build(chunk_id)
+    }
+
+    /// Submit surface build + flora seeding GPU work without waiting.
+    /// GPU queue ordering ensures surface completes before flora seeding runs.
+    /// Call `finalize_flora_seeding(chunk_id)` after a later wait_queue_idle
+    /// to read back the flora instance lengths.
+    pub fn build_surface_and_flora_submit_only(&mut self, chunk_id: UVec3) -> Result<()> {
+        if !self.chunk_bound.in_bound(chunk_id) {
+            return Err(anyhow::anyhow!("Chunk ID out of bounds"));
+        }
+        self.submit_surface_build(chunk_id)?;
+        self.submit_flora_seeding(chunk_id, 0)
+    }
+
+    /// Read back flora instance lengths after a prior wait_queue_idle
+    /// that covered the flora seeding submission.
+    pub fn finalize_flora_seeding(&mut self, chunk_id: UVec3) -> Result<()> {
+        let chunk_idx = self.get_chunk_resource_index(chunk_id)?;
+        let lengths = get_occupancy_to_instances_result(
+            &self.resources.occupancy_to_instances_result,
+            self.flora_species_count,
+        );
+        let chunk_resources_mut = &mut self.resources.instances.chunk_flora_instances[chunk_idx].1;
+        for (species_idx, len) in lengths.iter().enumerate() {
+            chunk_resources_mut.get_mut(species_idx).instances_len = *len;
+        }
+        Ok(())
+    }
+
+    fn submit_surface_build(&mut self, chunk_id: UVec3) -> Result<()> {
         let atlas_read_offset = chunk_id * self.voxel_dim_per_chunk;
         let atlas_read_dim = self.voxel_dim_per_chunk;
         let device = self.vulkan_ctx.device();
@@ -207,14 +258,43 @@ impl SurfaceBuilder {
 
         cmdbuf.end();
         cmdbuf.submit(&self.vulkan_ctx.get_general_queue(), None);
-        device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
+        Ok(())
+    }
 
-        let active_voxel_len = get_make_surface_result(&self.resources.make_surface_result);
-        if place_flora {
-            self.seed_and_rebuild_flora_from_surface(chunk_id, 0)?;
+    /// DEBUG: Read back the surface texture and count voxels by type.
+    /// This is expensive (reads entire 256^3 texture) — only use for diagnostics.
+    #[allow(dead_code)]
+    pub fn debug_count_surface_voxel_types(&self, chunk_id: UVec3) {
+        let image = self.resources.surface.get_image();
+        match image.fetch_data(
+            &self.vulkan_ctx.get_general_queue(),
+            self.vulkan_ctx.command_pool(),
+        ) {
+            Ok(data) => {
+                let mut type_counts: [u32; 256] = [0; 256];
+                // R32_UINT: 4 bytes per voxel
+                for chunk in data.chunks_exact(4) {
+                    let val = u32::from_ne_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                    let voxel_type = (val & 0xFF) as usize;
+                    if val != 0 {
+                        type_counts[voxel_type] += 1;
+                    }
+                }
+                let mut summary = String::new();
+                for (i, &count) in type_counts.iter().enumerate() {
+                    if count > 0 {
+                        summary.push_str(&format!(" type{}={}", i, count));
+                    }
+                }
+                log::info!(
+                    "[SURFACE-DEBUG] chunk={:?} total_nonzero={} types:{}",
+                    chunk_id,
+                    type_counts.iter().sum::<u32>(),
+                    summary,
+                );
+            }
+            Err(e) => log::error!("[SURFACE-DEBUG] fetch_data failed: {}", e),
         }
-
-        Ok(active_voxel_len)
     }
 
     pub fn edit_flora_instances(
@@ -275,6 +355,16 @@ impl SurfaceBuilder {
         chunk_id: UVec3,
         flora_tick: u32,
     ) -> Result<()> {
+        self.submit_flora_seeding(chunk_id, flora_tick)?;
+        self.vulkan_ctx
+            .device()
+            .wait_queue_idle(&self.vulkan_ctx.get_general_queue());
+        self.finalize_flora_seeding(chunk_id)
+    }
+
+    /// Submit flora seeding GPU work without waiting. Assumes the surface
+    /// build for this chunk has already been submitted to the same queue.
+    fn submit_flora_seeding(&mut self, chunk_id: UVec3, flora_tick: u32) -> Result<()> {
         let chunk_world_offset = chunk_id * self.voxel_dim_per_chunk;
         let center = chunk_world_offset.as_vec3() + self.voxel_dim_per_chunk.as_vec3() * 0.5;
         let radius = self.voxel_dim_per_chunk.as_vec3().length();
@@ -351,17 +441,6 @@ impl SurfaceBuilder {
 
         cmdbuf.end();
         cmdbuf.submit(&self.vulkan_ctx.get_general_queue(), None);
-        device.wait_queue_idle(&self.vulkan_ctx.get_general_queue());
-
-        let lengths = get_occupancy_to_instances_result(
-            &self.resources.occupancy_to_instances_result,
-            self.flora_species_count,
-        );
-        let chunk_resources_mut = &mut self.resources.instances.chunk_flora_instances[chunk_idx].1;
-        for (species_idx, len) in lengths.iter().enumerate() {
-            chunk_resources_mut.get_mut(species_idx).instances_len = *len;
-        }
-
         Ok(())
     }
 

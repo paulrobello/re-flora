@@ -19,7 +19,9 @@ impl SceneAccelBuilderResources {
         let tex_desc = ImageDesc {
             extent: chunk_bound.get_extent(),
             format: vk::Format::R32G32_UINT,
-            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
+            usage: vk::ImageUsageFlags::STORAGE
+                | vk::ImageUsageFlags::TRANSFER_DST
+                | vk::ImageUsageFlags::TRANSFER_SRC,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()

@@ -373,6 +373,7 @@ fn device_extension_requirements() -> Vec<DeviceExtensionRequirement> {
         return requirements;
     }
 
+    #[allow(unreachable_code)]
     requirements
 }
 

@@ -11,6 +11,9 @@ use winit::event_loop::ActiveEventLoop;
 
 impl App {
     pub(super) fn sync_cursor_with_panels(&mut self) {
+        if !self.cursor_engaged {
+            return;
+        }
         let any_panel_open = self.config_panel_visible || self.settings_panel_visible;
         self.window_state.set_cursor_visibility(any_panel_open);
         self.window_state.set_cursor_grab(!any_panel_open);

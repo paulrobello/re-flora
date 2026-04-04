@@ -1,0 +1,131 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+
+// Pass 1: Compute 2D heightmap (surface_height, base_shape_2d) for each (x,z) column.
+// Stores results in a storage buffer for the per-voxel pass to read.
+// This avoids recomputing noise 256 times per vertical column.
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) readonly uniform U_RegionInfo {
+    uvec3 offset;
+    uvec3 dim;
+}
+region_info;
+
+struct HeightmapEntry {
+    float surface_height;
+    float base_shape;
+};
+
+layout(set = 0, binding = 1) writeonly buffer B_Heightmap {
+    HeightmapEntry data[];
+}
+heightmap;
+
+#include "../../include/config.glsl"
+
+// ---- Hash-based value noise FBM (replaces FastNoiseLite — Metal const-array penalty) ----
+
+// Wellons hash for seeded 2D → float [0,1]
+float hash2d(float x, float y, uint seed) {
+    uint h = uint(int(floor(x))) * 73856093u;
+    h ^= uint(int(floor(y))) * 19349663u;
+    h ^= seed;
+    h ^= h >> 16u;
+    h *= 0x45d9f3bu;
+    h ^= h >> 16u;
+    h *= 0x45d9f3bu;
+    return float(h & 0xFFFFu) / 65535.0;
+}
+
+// Smooth value noise 2D → [-1, 1]
+float value_noise_2d(float x, float y, uint seed) {
+    float fx = floor(x);
+    float fy = floor(y);
+    float tx = x - fx;
+    float ty = y - fy;
+    // Quintic interpolation for smoother gradients
+    tx = tx * tx * tx * (tx * (tx * 6.0 - 15.0) + 10.0);
+    ty = ty * ty * ty * (ty * (ty * 6.0 - 15.0) + 10.0);
+    float c00 = hash2d(fx, fy, seed);
+    float c10 = hash2d(fx + 1.0, fy, seed);
+    float c01 = hash2d(fx, fy + 1.0, seed);
+    float c11 = hash2d(fx + 1.0, fy + 1.0, seed);
+    float m0 = mix(c00, c10, tx);
+    float m1 = mix(c01, c11, tx);
+    return mix(m0, m1, ty) * 2.0 - 1.0; // map [0,1] → [-1,1]
+}
+
+// FBM value noise 2D → [-1, 1] range (amplitude-normalized)
+float fbm_value_noise_2d(float x, float y, uint seed, float frequency, int octaves, float lacunarity, float gain) {
+    float sum = 0.0;
+    float amp = 1.0;
+    float amp_sum = 0.0;
+    float freq = frequency;
+    for (int i = 0; i < octaves; i++) {
+        sum += value_noise_2d(x * freq, y * freq, seed + uint(i) * 1000u) * amp;
+        amp_sum += amp;
+        freq *= lacunarity;
+        amp *= gain;
+    }
+    return sum / amp_sum;
+}
+
+float compute_island_shape_2d(vec2 world_xz) {
+    const float MAP_SIZE = 5.0;
+    vec2 uv   = world_xz / MAP_SIZE;
+    vec2 c    = (uv - vec2(0.5)) * 2.0;
+    float dist = length(c);
+    float ang  = atan(c.y, c.x);
+
+    vec2 coast_sample = vec2(cos(ang), sin(ang)) * 2.5 + vec2(10.0);
+    float coast_noise = fbm_value_noise_2d(coast_sample.x, coast_sample.y, 133u, 0.2, 5, 2.0, 0.5);
+    float coast_warp  = coast_noise * 0.3;
+
+    float threshold_noise = fbm_value_noise_2d(world_xz.x, world_xz.y, 777u, 0.1, 3, 2.0, 0.5);
+    float threshold_01    = threshold_noise * 0.5 + 0.5;
+
+    float coast_inner     = mix(0.33, 0.88, threshold_01);
+
+    float island_shape_01 = clamp(1.0 - smoothstep(coast_inner, 0.88, dist + coast_warp),
+                                  0.0, 1.0);
+
+    return island_shape_01;
+}
+
+float compute_base_shape_2d(vec2 world_xz) {
+    // Large-scale terrain shape
+    float base = fbm_value_noise_2d(world_xz.x, world_xz.y, 42u, 0.15, 5, 2.2, 0.55) * 0.5 + 0.5;
+    // Medium-frequency ridges and valleys
+    float detail = fbm_value_noise_2d(world_xz.x, world_xz.y, 999u, 0.8, 4, 2.0, 0.5);
+    // High-frequency surface roughness
+    float fine = fbm_value_noise_2d(world_xz.x, world_xz.y, 5555u, 3.0, 3, 2.0, 0.5);
+    return base + detail * 0.15 + fine * 0.04;
+}
+
+float compute_surface_height_2d(vec2 world_xz) {
+    float base_shape = compute_base_shape_2d(world_xz);
+    float island_shape_01 = compute_island_shape_2d(world_xz);
+    return island_shape_01 * base_shape;
+}
+
+void main() {
+    // gl_GlobalInvocationID.xy maps to (x, z) in the chunk
+    uint x = gl_GlobalInvocationID.x;
+    uint z = gl_GlobalInvocationID.y;
+    if (x >= region_info.dim.x || z >= region_info.dim.z) {
+        return;
+    }
+
+    const float VOXEL_SCALE = 1.0 / 256.0;
+    ivec3 atlas_uvi = ivec3(region_info.offset + uvec3(x, 0, z));
+    vec3 world_voxel_pos = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
+
+    float surface_height = compute_surface_height_2d(world_voxel_pos.xz);
+    float base_shape_2d  = compute_base_shape_2d(world_voxel_pos.xz);
+
+    uint index = x * region_info.dim.z + z;
+    heightmap.data[index].surface_height = surface_height;
+    heightmap.data[index].base_shape = base_shape_2d;
+}

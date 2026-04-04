@@ -33,6 +33,7 @@ make deps                       # Install brew dependencies
 | `--screenshot <path>` | Save GPU readback screenshot to `<path>` after rendering starts |
 | `--screenshot-delay <secs>` | Seconds to wait after rendering starts before taking screenshot (default: 5) |
 | `--auto-exit <secs>` | Auto-exit N seconds after rendering starts |
+| `--perf` | Enable per-frame FPS and timing output to console |
 
 Combine flags for profiling: `make run-windowed-novalidation ARGS="--no-shadows --no-tracer --no-denoise --no-god-rays --no-lens-flare --no-particles --no-flora"`
 
@@ -75,8 +76,11 @@ The app logs per-frame timing:
 - Vulkan environment variables are set in the Makefile (DYLD_LIBRARY_PATH, VK_ICD_FILENAMES, etc.)
 - Phonon (Steam Audio) library path is auto-detected from build artifacts
 - Validation layers are available but add overhead; use `novalidation` builds for FPS testing
-- D32_SFLOAT with STORAGE_BIT works on MoltenVK for read-only access (imageLoad)
+- D32_SFLOAT with STORAGE_BIT works on MoltenVK for read-only access (imageLoad), but prefer SAMPLED + sampler2D/texelFetch for read-only depth access
 - `GL_ARB_gpu_shader_int64` is NOT natively supported on Metal/MoltenVK — uint64_t in shaders causes software emulation
+- Metal/MoltenVK penalizes large const arrays with loop-based indexing (~25-500x slowdown); use hash functions or unrolled if-else chains instead. This applies to ALL shaders including compute — not just vertex shaders.
+- FastNoiseLite (fast_noise_lite.glsl) uses large const float arrays (GRADIENTS_2D, RAND_VECS_2D etc.) — NEVER use in compute shaders on MoltenVK. Use hash-based value noise FBM instead.
+- FBM noise (4+ octave) in vertex shaders is extremely expensive on Metal; use hash-based approximations for LOD/shadow passes
 
 ## Architecture
 
@@ -89,21 +93,22 @@ The app logs per-frame timing:
 
 ## Performance (M4 Max, MoltenVK)
 
-**Root cause found and fixed: Flora LOD1 vertex shaders doing expensive FBM noise per-vertex on 5.57M vertices/frame.**
-
-The original hypothesis (MoltenVK presentation pipeline) and second hypothesis (tracer compute shader) were both wrong. Systematic profiling isolated the real bottleneck to the flora/leaves graphics vertex shaders.
+**Six bottlenecks found and fixed: FBM noise in vertex shaders, skylight constant-array penalty, leaves shadow FBM wind, and three compute shader const-array penalties (surface builder, flora seeding, heightmap).**
 
 ### Profiling results (progressive isolation)
 
 | Config | img_fence | FPS | Finding |
 |--------|-----------|-----|---------|
 | All passes disabled | 0ms | 4100 | Baseline overhead |
-| Tracer only (no flora) | 46ms | 21 | Tracer compute = 46ms |
-| Flora enabled, tracer disabled | ~1350ms | 0.7 | **Flora = ~1300ms** |
-| Flora + LOD1 optimizations | ~66ms | 14.7 | LOD1 cost reduced to ~20ms |
-| Full pipeline (all passes) | ~91ms | 10.9 | **15.6x improvement** |
+| All passes disabled (after skylight fix) | 0.6ms | ~1000 | Skylight was 48ms base |
+| Flora only (original) | ~1350ms | 0.7 | Flora vertex shaders = ~1300ms |
+| Flora only (LOD1 fix) | ~66ms | 14.7 | LOD1 FBM replaced with hashes |
+| Flora only (+ skylight fix) | ~48ms | 20 | Skylight constant-array removed |
+| Flora only (+ shadow fix) | ~12ms | 80 | Shadow FBM wind eliminated |
+| Full pipeline (after render fixes) | ~16ms | **58** | **5.3x total improvement** |
+| Full pipeline (+ compute fixes) | ~8ms | **117** | **10x total improvement** |
 
-### What was fixed (shader/foliage/flora_lod.vert)
+### Fix 1: Flora LOD1 vertex shader (shader/foliage/flora_lod.vert)
 
 LOD1 flora draws 116K instances × 48 indices = 5.57M vertices. The original shader ran per-vertex:
 - 3× FBM noise calls (4 octaves each) for wind = ~83M noise evaluations/frame
@@ -117,9 +122,21 @@ All replaced with cheap hash-based approximations:
 - Height: single Wellons hash → uniform mix
 - Color: single hash → linear interpolation between dark/light pairs
 
+### Fix 2: Skylight constant-array penalty (shader/include/skylight.glsl)
+
+Metal/MoltenVK handles large const struct arrays with loop-based indexing extremely poorly (~25-50x penalty). The skylight TIME_KEYFRAMES[11] and VIEW_KEYFRAMES[7] with loop interpolation + srgb_to_linear (pow) calls cost 26ms alone. Replaced with pre-linearized vec3 constants and unrolled if-else chain. Base GPU overhead dropped from 48ms to <1ms.
+
+### Fix 3: Leaves shadow FBM wind (shader/foliage/leaves_shadow.vert)
+
+The leaves shadow pass drew tree leaf instances into a 1024x1024 shadow map using the same expensive `get_wind()` function (3× FBM noise, 4 octaves each). Cost: 33ms/frame. Replaced with the same hash-based sway from flora_lod.vert. Cost reduced to <1ms.
+
+### Fix 4: gfx_depth_tex and gfx_output_tex STORAGE→SAMPLED
+
+Changed both render pass attachments from `imageLoad`/`image2D` (requires STORAGE) to `texelFetch`/`sampler2D` (requires SAMPLED). Updated composition.comp, god_ray.comp, and lens_flare_sun_visible.comp. While this didn't measurably improve performance (the render pass overhead was from vertex shaders, not attachment formats), it's architecturally correct — SAMPLED is the proper descriptor type for read-only texture access in compute shaders.
+
 ### Render pass batching
 
-All flora species (3 types × 2 LOD levels) + tree leaves now draw in a **single Vulkan render pass** via `record_all_flora_and_leaves()`, eliminating 8+ separate render pass begin/end cycles. (This alone didn't measurably help — the vertex shader cost dominated.)
+All flora species (3 types × 2 LOD levels) + tree leaves now draw in a **single Vulkan render pass** via `record_all_flora_and_leaves()`, eliminating 8+ separate render pass begin/end cycles.
 
 ### Infrastructure changes (from voxel-world comparison)
 
@@ -128,10 +145,21 @@ All flora species (3 types × 2 LOD levels) + tree leaves now draw in a **single
 - `execute_one_time_command` uses fence-based wait instead of `wait_queue_idle`
 - Added `--no-flora` and `--no-particles` CLI flags for profiling isolation
 
+### Fix 5: Surface builder blue noise const array (shader/builder/surface/make_surface.comp)
+
+`voxel_hash_blue_noise_packed[2048]` const array with computed-index access — exact same Metal penalty as skylight. Called for every surface voxel in 256³ chunks. Replaced with a Wellons hash returning 2-bit bucket ID. Surface build time: 890ms → 2ms per chunk.
+
+### Fix 6: Flora seeding FNL const arrays (shader/builder/surface/occupancy_to_flora_instances.comp)
+
+FastNoiseLite's `GRADIENTS_2D[]`, `RAND_VECS_2D[]` const arrays triggered the Metal penalty in compute shaders too. The flora seeding uses Perlin noise for density placement and biome selection. Replaced with hash-based value noise. Flora seeding time: 830ms → 1ms per chunk.
+
+### Fix 7: Heightmap FNL const arrays (shader/builder/chunk_writer/chunk_heightmap.comp)
+
+Same FastNoiseLite const-array penalty in the terrain heightmap generator. Four FBM noise calls (3-5 octaves each) for terrain shape, coastline, and island masking. Replaced with hash-based value noise FBM. Chunk init time: 40ms → <5ms per chunk. **Total loading time: ~90s → ~0.4s for 50 chunks.**
+
 ### Remaining opportunities
 
 - LOD0 flora still uses full 4-octave FBM wind (only 408 instances — negligible cost)
 - Particle passes still use their own render pass (could merge)
-- Leaves shadow LOD pass still separate (could merge)
 - Particle terrain queries still do synchronous GPU roundtrips
 

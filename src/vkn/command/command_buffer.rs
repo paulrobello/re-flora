@@ -94,6 +94,9 @@ fn create_cmdbuf(device: &Device, command_pool: vk::CommandPool) -> vk::CommandB
 }
 
 /// Execute a one-time command buffer, workload is guaranteed to be finished before return.
+/// Uses wait_queue_idle to ensure all prior GPU work on the queue is complete.
+/// On MoltenVK this flushes the entire Metal command pipeline, but fence-based
+/// wait caused Bus Error crashes — likely a MoltenVK command buffer recycling issue.
 pub fn execute_one_time_command<R, F: FnOnce(&CommandBuffer) -> R>(
     device: &Device,
     pool: &CommandPool,

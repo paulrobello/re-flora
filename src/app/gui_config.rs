@@ -43,6 +43,12 @@ fn color_to_hex(color: Color32) -> String {
 impl GuiAdjustables {
     const SAVE_DENYLIST: &'static [&'static str] = &["time_of_day"];
 
+    pub fn reload_from_config(&mut self) {
+        let config = GuiConfigLoader::load();
+        *self = Self::from_config(&config);
+        log::info!("GUI config reset to defaults from file");
+    }
+
     pub fn save_to_config(&self) -> std::io::Result<()> {
         let mut config = GuiConfigLoader::load();
 

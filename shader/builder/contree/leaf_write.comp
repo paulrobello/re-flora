@@ -75,7 +75,8 @@ void main() {
     }
 
     uint temp[64];
-    uint64_t child_mask = 0;
+    uint child_mask_lo = 0u;
+    uint child_mask_hi = 0u;
     for (uint yi = 0; yi < 4; yi++) {
         for (uint zi = 0; zi < 4; zi++) {
             for (uint xi = 0; xi < 4; xi++) {
@@ -87,12 +88,18 @@ void main() {
 
                 // the node is valid if voxel type is non zero
                 bool exists = (v != 0);
-                child_mask |= exists ? (uint64_t(1) << i) : 0ul;
+                if (exists) {
+                    if (i < 32u) {
+                        child_mask_lo |= (1u << i);
+                    } else {
+                        child_mask_hi |= (1u << (i - 32u));
+                    }
+                }
             }
         }
     }
 
-    uint cnt  = bit_count_u64(child_mask);
+    uint cnt  = bit_count_dual(child_mask_lo, child_mask_hi);
     uint base = register_and_get_local_base(cnt, gl_LocalInvocationIndex);
 
     uint sparse_node_write_offset = node_offset_for_levels.data[contree_build_state.level];
@@ -102,8 +109,9 @@ void main() {
 
     // early out: if no voxels are presented in this brick
     if (cnt == 0) {
-        sparse_nodes.data[brick_idx].packed_0   = 0;
-        sparse_nodes.data[brick_idx].child_mask = 0ul;
+        sparse_nodes.data[brick_idx].packed_0     = 0;
+        sparse_nodes.data[brick_idx].child_mask_lo = 0u;
+        sparse_nodes.data[brick_idx].child_mask_hi = 0u;
         return;
     }
 
@@ -112,7 +120,9 @@ void main() {
     uint w = 0;
     for (uint i = 0; i < 64; i++) {
         // check if the i-th voxel in the 4x4x4 brick is valid.
-        if ((child_mask & (uint64_t(1) << i)) != 0) {
+        bool set = (i < 32u) ? ((child_mask_lo & (1u << i)) != 0u)
+                              : ((child_mask_hi & (1u << (i - 32u))) != 0u);
+        if (set) {
             contree_leaf_data.data[contree_build_info.leaf_write_offset + base + w] = temp[i];
             w++;
         }
@@ -123,6 +133,7 @@ void main() {
     // 1290^3 = 2146689000, 2^31 = 2147483648, so we are safe
     // so the maximum available voxel dim limit is 1024^3, to match the 4^n dimension need of
     // contree
-    sparse_nodes.data[brick_idx].packed_0   = 1 | (base << 1);
-    sparse_nodes.data[brick_idx].child_mask = child_mask;
+    sparse_nodes.data[brick_idx].packed_0     = 1 | (base << 1);
+    sparse_nodes.data[brick_idx].child_mask_lo = child_mask_lo;
+    sparse_nodes.data[brick_idx].child_mask_hi = child_mask_hi;
 }

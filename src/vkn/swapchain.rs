@@ -381,7 +381,7 @@ fn create_vulkan_swapchain(
             .expect("Failed to get physical device surface capabilities")
     };
 
-    let image_count = capabilities.min_image_count;
+    let image_count = capabilities.min_image_count.max(3);
 
     let (swapchain_device, swapchain_khr) = create_swapchain_device_khr(
         vulkan_context,

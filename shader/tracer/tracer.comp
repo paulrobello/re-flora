@@ -129,6 +129,7 @@ bool scene_hit(inout MarchingResult o_res, vec3 o, vec3 d, ivec3 map_pos, uvec4 
     if (scene_tex_read.x == 0) {
         return false;
     }
+
     scene_tex_read -= 1;
 
     ContreeMarchingResult contree_res =
@@ -145,6 +146,7 @@ bool scene_hit(inout MarchingResult o_res, vec3 o, vec3 d, ivec3 map_pos, uvec4 
         o_res.voxel_addr      = contree_res.voxel_addr;
         return true;
     }
+
     return false;
 }
 #include "../include/dda_scene_marching.glsl"
@@ -302,6 +304,7 @@ void get_pixel_color(out vec3 o_color, out float o_depth_01, out vec3 o_primary_
 
     vec3 ambient_color = shading_info.ambient_light * albedo;
     vec3 direct_color  = calc_direct_lighting(albedo, res_primary_ray.normal, next_tracing_pos, seed);
+
     vec3 indirect_color =
         gui_input.debug_bool != 0u
             ? calc_indirect_lighting(albedo, res_primary_ray.normal, next_tracing_pos, seed)

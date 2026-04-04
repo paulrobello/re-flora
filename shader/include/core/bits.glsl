@@ -1,33 +1,21 @@
 #ifndef BITS_GLSL
 #define BITS_GLSL
 
-#extension GL_ARB_gpu_shader_int64 : enable
+// NOTE: Original used uint64_t / GL_ARB_gpu_shader_int64 but Metal/MoltenVK
+// lacks native 64-bit integer support, causing massive performance regression.
+// All operations now use uint32 pair (child_mask_lo, child_mask_hi).
 
-// GLSL popcount for a 64-bit integer
-uint bit_count_u64(uint64_t x) {
-    // split into high and low 32-bit halves
-    return bitCount(uint(x >> 32)) + bitCount(uint(x));
+uint bit_count_dual(uint lo, uint hi) {
+    return bitCount(lo) + bitCount(hi);
 }
 
-// count number of set bits in the lower [0..width) bits of a 64-bit mask
-uint bit_count_u64_var(uint64_t mask, uint width) {
-    // extract the low 32 bits
-    uint himask = uint(mask);
-    uint count  = 0u;
-
-    // if width ≥ 32, count all bits in the low half, then prepare the high half
-    if (width >= 32u) {
-        count  = bitCount(himask);
-        himask = uint(mask >> 32);
+// Count set bits in dual mask below the given index
+uint bit_count_dual_var(uint lo, uint hi, uint width) {
+    if (width < 32u) {
+        return bitCount(lo & ((1u << width) - 1u));
+    } else {
+        return bitCount(lo) + bitCount(hi & ((1u << (width - 32u)) - 1u));
     }
-
-    // now mask off only the lower (width mod 32) bits of himask
-    // width & 31 gives the remainder in [0..31],
-    // so (1 << (width & 31)) − 1 is a mask of that many low bits
-    uint m = 1u << (width & 31u);
-    count += bitCount(himask & (m - 1u));
-
-    return count;
 }
 
 #endif // BITS_GLSL

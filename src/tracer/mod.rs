@@ -617,6 +617,7 @@ impl Tracer {
         &self,
         surface_resources: &'a SurfaceResources,
         lod_distance: f32,
+        flora_draw_distance: f32,
     ) -> HashMap<LodState, Vec<&'a FloraInstanceResources>> {
         let mut lod0_instances = Vec::new();
         let mut lod1_instances = Vec::new();
@@ -631,6 +632,11 @@ impl Tracer {
             // calculate distance from camera to chunk center
             let chunk_center = aabb.center();
             let distance = (camera_pos - chunk_center).length();
+
+            // skip chunks beyond max flora draw distance
+            if distance > flora_draw_distance {
+                continue;
+            }
 
             if distance <= lod_distance {
                 lod0_instances.push(instances);
@@ -654,6 +660,8 @@ impl Tracer {
         let mut lod1_instances = Vec::new();
         let camera_pos = self.camera.position();
 
+        const LEAVES_MAX_DRAW_DISTANCE: f32 = 4.0;
+
         for tree_instance in surface_resources.instances.leaves_instances.values() {
             // perform frustum culling
             if !tree_instance
@@ -666,6 +674,10 @@ impl Tracer {
             // calculate distance from camera to tree center
             let tree_center = tree_instance.aabb.center();
             let distance = (camera_pos - tree_center).length();
+
+            if distance > LEAVES_MAX_DRAW_DISTANCE {
+                continue;
+            }
 
             if distance <= lod_distance {
                 lod0_instances.push(tree_instance);
@@ -686,10 +698,12 @@ impl Tracer {
         cmdbuf: &CommandBuffer,
         surface_resources: &SurfaceResources,
         lod_distance: f32,
+        flora_draw_distance: f32,
         time: f32,
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
         leaf_tip_color: Vec3,
+        render_flags: &crate::RenderFlags,
     ) -> Result<()> {
         let shader_access_memory_barrier = MemoryBarrier::new_shader_access();
         let compute_to_compute_barrier = PipelineBarrier::new(
@@ -703,118 +717,122 @@ impl Tracer {
             vec![shader_access_memory_barrier],
         );
 
-        self.record_clear_render_targets(cmdbuf);
+        self.record_clear_render_targets(cmdbuf, render_flags);
 
-        self.record_leaves_shadow_lod_pass(
-            cmdbuf,
-            surface_resources,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-        );
-        let frag_to_compute_barrier = PipelineBarrier::new(
-            vk::PipelineStageFlags::FRAGMENT_SHADER,
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        frag_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        let has_graphics_pass = render_flags.enable_flora || render_flags.enable_particles;
 
-        self.record_tracer_shadow_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_vsm_filtering_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-
-        let b1 = PipelineBarrier::new(
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
-
-        assert_eq!(
-            flora_colors.len(),
-            self.resources.flora_meshes.len(),
-            "Flora color count ({}) must match flora mesh count ({})",
-            flora_colors.len(),
-            self.resources.flora_meshes.len()
-        );
-
-        let chunks_by_lod = self.chunks_needs_to_draw_this_frame(surface_resources, lod_distance);
-        for (species_index, (bottom_color, tip_color)) in flora_colors.iter().enumerate() {
-            self.record_flora_pass(
+        if render_flags.enable_flora {
+            self.record_leaves_shadow_lod_pass(
                 cmdbuf,
-                &chunks_by_lod[&LodState::Lod0],
-                LodState::Lod0,
-                species_index,
-                *bottom_color,
-                *tip_color,
+                surface_resources,
+                leaf_bottom_color,
+                leaf_tip_color,
                 time,
             );
-            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-            self.record_flora_pass(
-                cmdbuf,
-                &chunks_by_lod[&LodState::Lod1],
-                LodState::Lod1,
-                species_index,
-                *bottom_color,
-                *tip_color,
-                time,
-            );
-            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         }
 
-        let trees_by_lod = self.trees_needs_to_draw_this_frame(surface_resources, lod_distance);
-        self.record_leaves_pass(
-            cmdbuf,
-            &trees_by_lod[&LodState::Lod0],
-            LodState::Lod0,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_leaves_pass(
-            cmdbuf,
-            &trees_by_lod[&LodState::Lod1],
-            LodState::Lod1,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-        );
-        self.record_particle_passes(cmdbuf);
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if has_graphics_pass || render_flags.enable_shadows {
+            let frag_to_compute_barrier = PipelineBarrier::new(
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            frag_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if render_flags.enable_shadows {
+            self.record_tracer_shadow_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_vsm_filtering_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if has_graphics_pass {
+            let b1 = PipelineBarrier::new(
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if render_flags.enable_flora {
+            assert_eq!(
+                flora_colors.len(),
+                self.resources.flora_meshes.len(),
+                "Flora color count ({}) must match flora mesh count ({})",
+                flora_colors.len(),
+                self.resources.flora_meshes.len()
+            );
+        }
+
+        if render_flags.enable_flora || render_flags.enable_particles {
+            self.record_all_graphics_passes(
+                cmdbuf,
+                surface_resources,
+                lod_distance,
+                flora_draw_distance,
+                flora_colors,
+                leaf_bottom_color,
+                leaf_tip_color,
+                time,
+                render_flags.enable_flora,
+                render_flags.enable_particles,
+            );
+        }
+
+        if has_graphics_pass {
+            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        record_denoiser_resources_transition_barrier(&self.resources.denoiser_resources, cmdbuf);
+        if render_flags.enable_denoiser {
+            record_denoiser_resources_transition_barrier(
+                &self.resources.denoiser_resources,
+                cmdbuf,
+            );
+        }
 
-        self.record_tracer_pass(cmdbuf);
+        if render_flags.enable_tracer {
+            self.record_tracer_pass(cmdbuf);
+        }
 
-        let b2 = PipelineBarrier::new(
-            vk::PipelineStageFlags::FRAGMENT_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        b2.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if has_graphics_pass || render_flags.enable_tracer {
+            let b2 = PipelineBarrier::new(
+                vk::PipelineStageFlags::FRAGMENT_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            b2.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
-        self.record_god_ray_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_god_rays {
+            self.record_god_ray_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
-        self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        if render_flags.enable_denoiser {
+            self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        }
 
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_sun_visible_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_downsample_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_lens_flare {
+            self.record_lens_flare_sun_visible_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_downsample_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
         self.record_composition_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_post_processing_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_player_collider_pass(cmdbuf);
 
-        copy_current_to_prev(&self.resources, cmdbuf);
+        if render_flags.enable_denoiser {
+            copy_current_to_prev(&self.resources, cmdbuf);
+        }
 
         return Ok(());
 
@@ -869,79 +887,82 @@ impl Tracer {
         }
     }
 
-    fn record_clear_render_targets(&self, cmdbuf: &CommandBuffer) {
-        self.resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
-            );
-        self.resources
-            .extent_dependent_resources
-            .gfx_depth_tex
-            .get_image()
-            .record_clear(
+    fn record_clear_render_targets(
+        &self,
+        cmdbuf: &CommandBuffer,
+        render_flags: &crate::RenderFlags,
+    ) {
+        // gfx_output_tex and gfx_depth_tex are cleared by the flora/particle render
+        // pass (loadOp=clear). Only clear them standalone when no render pass will run,
+        // so the composition shader reads valid zeros.
+        // NOTE: do NOT double-clear — on MoltenVK, clearing a D32_SFLOAT+STORAGE
+        // texture in GENERAL layout and then beginning a render pass that clears again
+        // causes a ~33ms layout transition stall.
+        if !render_flags.enable_flora && !render_flags.enable_particles {
+            self.resources
+                .extent_dependent_resources
+                .gfx_output_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+                );
+            self.resources
+                .extent_dependent_resources
+                .gfx_depth_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
+                );
+        }
+
+        if render_flags.enable_shadows {
+            self.resources.shadow_map_tex.get_image().record_clear(
                 cmdbuf,
                 Some(vk::ImageLayout::GENERAL),
                 0,
                 ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
             );
+        }
 
-        self.resources.shadow_map_tex.get_image().record_clear(
-            cmdbuf,
-            Some(vk::ImageLayout::GENERAL),
-            0,
-            ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
-        );
-
-        self.resources
-            .extent_dependent_resources
-            .lens_flare_visible_count_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
-            );
+        if render_flags.enable_lens_flare {
+            self.resources
+                .extent_dependent_resources
+                .lens_flare_visible_count_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
+                );
+        }
     }
 
+    /// Draw all flora species (LOD0+LOD1), leaves (LOD0+LOD1), and particles
+    /// inside a single Vulkan render pass to avoid tile-memory load/store
+    /// overhead on tile-based GPUs (Apple Silicon via MoltenVK) and prevent
+    /// the particle pass from clearing the flora output.
     #[allow(clippy::too_many_arguments)]
-    fn record_flora_pass(
+    fn record_all_graphics_passes(
         &self,
         cmdbuf: &CommandBuffer,
-        flora_instances: &[&FloraInstanceResources],
-        lod_state: LodState,
-        species_index: usize,
-        bottom_color: Vec3,
-        tip_color: Vec3,
+        surface_resources: &SurfaceResources,
+        lod_distance: f32,
+        flora_draw_distance: f32,
+        flora_colors: &[(Vec3, Vec3)],
+        leaf_bottom_color: Vec3,
+        leaf_tip_color: Vec3,
         time: f32,
+        enable_flora: bool,
+        enable_particles: bool,
     ) {
-        let pipeline = match lod_state {
-            LodState::Lod0 => &self.graphics_pipelines.flora_ppl,
-            LodState::Lod1 => &self.graphics_pipelines.flora_lod_ppl,
-        };
-
         let render_target = &self.render_target_color_and_depth;
-
-        let push_constant = flora_push_constant(time, bottom_color, tip_color);
-
-        let mesh_collection = match lod_state {
-            LodState::Lod0 => &self.resources.flora_meshes,
-            LodState::Lod1 => &self.resources.flora_meshes_lod,
-        };
-        let mesh = mesh_collection
-            .get(species_index)
-            .unwrap_or_else(|| panic!("Missing flora mesh for species index {}", species_index));
-        let indices_buf = &mesh.indices;
-        let vertices_buf = &mesh.vertices;
-        let indices_len = mesh.indices_len;
-
-        pipeline.record_bind(cmdbuf);
 
         let clear_values = [
             vk::ClearValue {
@@ -975,277 +996,183 @@ impl Tracer {
             },
         };
 
-        pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
-
-        unsafe {
-            self.vulkan_ctx.device().cmd_bind_index_buffer(
-                cmdbuf.as_raw(),
-                indices_buf.as_raw(),
-                0,
-                vk::IndexType::UINT32,
+        // Draw all flora species, both LOD levels
+        if enable_flora {
+            let chunks_by_lod = self.chunks_needs_to_draw_this_frame(
+                surface_resources,
+                lod_distance,
+                flora_draw_distance,
             );
-        }
+            for (species_index, (bottom_color, tip_color)) in flora_colors.iter().enumerate() {
+                let push_constant = flora_push_constant(time, *bottom_color, *tip_color);
 
-        for instances in flora_instances {
-            let instance_resource = instances.get(species_index);
-            let instances_buf = &instance_resource.instances_buf;
-            let instances_len = instance_resource.instances_len;
+                for &lod_state in &[LodState::Lod0, LodState::Lod1] {
+                    let pipeline = match lod_state {
+                        LodState::Lod0 => &self.graphics_pipelines.flora_ppl,
+                        LodState::Lod1 => &self.graphics_pipelines.flora_lod_ppl,
+                    };
+                    let mesh_collection = match lod_state {
+                        LodState::Lod0 => &self.resources.flora_meshes,
+                        LodState::Lod1 => &self.resources.flora_meshes_lod,
+                    };
+                    let mesh = mesh_collection.get(species_index).unwrap_or_else(|| {
+                        panic!("Missing flora mesh for species index {}", species_index)
+                    });
 
-            // only draw if this chunk actually has grass instances.
-            if instances_len == 0 {
-                continue;
+                    pipeline.record_bind(cmdbuf);
+                    pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
+
+                    unsafe {
+                        self.vulkan_ctx.device().cmd_bind_index_buffer(
+                            cmdbuf.as_raw(),
+                            mesh.indices.as_raw(),
+                            0,
+                            vk::IndexType::UINT32,
+                        );
+                    }
+
+                    let flora_instances = &chunks_by_lod[&lod_state];
+                    for instances in flora_instances.iter() {
+                        let instance_resource = instances.get(species_index);
+                        if instance_resource.instances_len == 0 {
+                            continue;
+                        }
+
+                        unsafe {
+                            self.vulkan_ctx.device().cmd_bind_vertex_buffers(
+                                cmdbuf.as_raw(),
+                                0,
+                                &[
+                                    mesh.vertices.as_raw(),
+                                    instance_resource.instances_buf.as_raw(),
+                                ],
+                                &[0, 0],
+                            );
+                        }
+
+                        pipeline.record_indexed(
+                            cmdbuf,
+                            mesh.indices_len,
+                            instance_resource.instances_len,
+                            0,
+                            0,
+                            0,
+                            Some(&PushConstantInfo {
+                                shader_stage: vk::ShaderStageFlags::VERTEX,
+                                push_constants: bytemuck::bytes_of(&push_constant).to_vec(),
+                            }),
+                        );
+                    }
+                }
             }
 
-            // bind the vertex buffers for this specific chunk.
-            // binding point 0: common grass blade vertices.
-            // binding point 1: per-chunk, per-instance data.
-            unsafe {
-                self.vulkan_ctx.device().cmd_bind_vertex_buffers(
-                    cmdbuf.as_raw(),
-                    0, // firstBinding
-                    &[vertices_buf.as_raw(), instances_buf.as_raw()],
-                    &[0, 0], // offsets
-                );
+            // Draw leaves, both LOD levels
+            let trees_by_lod = self.trees_needs_to_draw_this_frame(surface_resources, lod_distance);
+            let leaf_push = flora_push_constant(time, leaf_bottom_color, leaf_tip_color);
+
+            for &lod_state in &[LodState::Lod0, LodState::Lod1] {
+                let pipeline = match lod_state {
+                    LodState::Lod0 => &self.graphics_pipelines.flora_ppl,
+                    LodState::Lod1 => &self.graphics_pipelines.flora_lod_ppl,
+                };
+                let (indices_buf, vertices_buf, indices_len) = match lod_state {
+                    LodState::Lod0 => (
+                        &self.resources.leaves_resources.indices,
+                        &self.resources.leaves_resources.vertices,
+                        self.resources.leaves_resources.indices_len,
+                    ),
+                    LodState::Lod1 => (
+                        &self.resources.leaves_resources_lod.indices,
+                        &self.resources.leaves_resources_lod.vertices,
+                        self.resources.leaves_resources_lod.indices_len,
+                    ),
+                };
+
+                let leaves_instances = &trees_by_lod[&lod_state];
+                if leaves_instances.is_empty() {
+                    continue;
+                }
+
+                pipeline.record_bind(cmdbuf);
+                pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
+
+                unsafe {
+                    self.vulkan_ctx.device().cmd_bind_index_buffer(
+                        cmdbuf.as_raw(),
+                        indices_buf.as_raw(),
+                        0,
+                        vk::IndexType::UINT32,
+                    );
+                }
+
+                for tree_instance in leaves_instances.iter() {
+                    if tree_instance.resources.instances_len == 0 {
+                        continue;
+                    }
+                    unsafe {
+                        self.vulkan_ctx.device().cmd_bind_vertex_buffers(
+                            cmdbuf.as_raw(),
+                            0,
+                            &[
+                                vertices_buf.as_raw(),
+                                tree_instance.resources.instances_buf.as_raw(),
+                            ],
+                            &[0, 0],
+                        );
+                    }
+                    pipeline.record_indexed(
+                        cmdbuf,
+                        indices_len,
+                        tree_instance.resources.instances_len,
+                        0,
+                        0,
+                        0,
+                        Some(&PushConstantInfo {
+                            shader_stage: vk::ShaderStageFlags::VERTEX,
+                            push_constants: bytemuck::bytes_of(&leaf_push).to_vec(),
+                        }),
+                    );
+                }
             }
+        } // end enable_flora
 
-            // issue the draw call for the current chunk.
-            // no barriers are needed here.
-            pipeline.record_indexed(
-                cmdbuf,
-                indices_len,
-                instances_len,
-                0, // firstIndex
-                0, // vertexOffset
-                0, // firstInstance
-                Some(&PushConstantInfo {
-                    shader_stage: vk::ShaderStageFlags::VERTEX,
-                    push_constants: bytemuck::bytes_of(&push_constant).to_vec(),
-                }),
-            );
-        }
-        render_target.record_end(cmdbuf);
+        // Draw particles in the same render pass (no second CLEAR)
+        if enable_particles {
+            let particle_resources = &self.particle_resources;
+            if particle_resources.instance_count > 0 {
+                let particle_ppl = &self.graphics_pipelines.particle_ppl;
+                particle_ppl.record_bind(cmdbuf);
+                particle_ppl.record_viewport_scissor(cmdbuf, viewport, scissor);
 
-        let desc = render_target.get_desc();
-        self.resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .set_layout(0, desc.attachments[0].final_layout);
-        self.resources
-            .extent_dependent_resources
-            .gfx_depth_tex
-            .get_image()
-            .set_layout(0, desc.attachments[1].final_layout);
-    }
+                unsafe {
+                    self.vulkan_ctx.device().cmd_bind_index_buffer(
+                        cmdbuf.as_raw(),
+                        particle_resources.indices.as_raw(),
+                        0,
+                        vk::IndexType::UINT32,
+                    );
 
-    fn record_particle_passes(&self, cmdbuf: &CommandBuffer) {
-        let particle_resources = &self.particle_resources;
-        if particle_resources.instance_count == 0 {
-            return;
-        }
+                    self.vulkan_ctx.device().cmd_bind_vertex_buffers(
+                        cmdbuf.as_raw(),
+                        0,
+                        &[
+                            particle_resources.vertices.as_raw(),
+                            particle_resources.instance_buffer.as_raw(),
+                        ],
+                        &[0, 0],
+                    );
+                }
 
-        let render_target = &self.render_target_color_and_depth;
-
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 0.0],
-                },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                },
-            },
-        ];
-        render_target.record_begin(cmdbuf, &clear_values);
-
-        let render_extent = self
-            .resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .get_desc()
-            .extent;
-        let viewport = Viewport::from_extent(render_extent.as_extent_2d().unwrap());
-        let scissor = vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent: vk::Extent2D {
-                width: render_extent.width,
-                height: render_extent.height,
-            },
-        };
-        let draw_particles = |pipeline: &GraphicsPipeline,
-                              vertices: &Buffer,
-                              indices: &Buffer,
-                              indices_len: u32,
-                              instance_buffer: &Buffer,
-                              count: u32| {
-            if count == 0 {
-                return;
-            }
-
-            pipeline.record_bind(cmdbuf);
-            pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
-
-            unsafe {
-                self.vulkan_ctx.device().cmd_bind_index_buffer(
-                    cmdbuf.as_raw(),
-                    indices.as_raw(),
+                particle_ppl.record_indexed(
+                    cmdbuf,
+                    particle_resources.indices_len,
+                    particle_resources.instance_count,
                     0,
-                    vk::IndexType::UINT32,
-                );
-
-                self.vulkan_ctx.device().cmd_bind_vertex_buffers(
-                    cmdbuf.as_raw(),
                     0,
-                    &[vertices.as_raw(), instance_buffer.as_raw()],
-                    &[0, 0],
-                );
-            }
-
-            pipeline.record_indexed(cmdbuf, indices_len, count, 0, 0, 0, None);
-        };
-
-        draw_particles(
-            &self.graphics_pipelines.particle_ppl,
-            &particle_resources.vertices,
-            &particle_resources.indices,
-            particle_resources.indices_len,
-            &particle_resources.instance_buffer,
-            particle_resources.instance_count,
-        );
-
-        render_target.record_end(cmdbuf);
-
-        let desc = render_target.get_desc();
-        self.resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .set_layout(0, desc.attachments[0].final_layout);
-        self.resources
-            .extent_dependent_resources
-            .gfx_depth_tex
-            .get_image()
-            .set_layout(0, desc.attachments[1].final_layout);
-    }
-
-    fn record_leaves_pass(
-        &self,
-        cmdbuf: &CommandBuffer,
-        leaves_instances: &[&TreeLeavesInstance],
-        lod_state: LodState,
-        bottom_color: Vec3,
-        tip_color: Vec3,
-        time: f32,
-    ) {
-        // skip rendering entirely if no leaf instances exist
-        if leaves_instances.is_empty() {
-            return;
-        }
-
-        let pipeline = match lod_state {
-            LodState::Lod0 => &self.graphics_pipelines.flora_ppl,
-            LodState::Lod1 => &self.graphics_pipelines.flora_lod_ppl,
-        };
-
-        let render_target = &self.render_target_color_and_depth;
-
-        let push_constant = flora_push_constant(time, bottom_color, tip_color);
-
-        let (indices_buf, vertices_buf, indices_len) = match lod_state {
-            LodState::Lod0 => (
-                &self.resources.leaves_resources.indices,
-                &self.resources.leaves_resources.vertices,
-                self.resources.leaves_resources.indices_len,
-            ),
-            LodState::Lod1 => (
-                &self.resources.leaves_resources_lod.indices,
-                &self.resources.leaves_resources_lod.vertices,
-                self.resources.leaves_resources_lod.indices_len,
-            ),
-        };
-
-        pipeline.record_bind(cmdbuf);
-
-        let clear_values = [
-            vk::ClearValue {
-                color: vk::ClearColorValue {
-                    float32: [0.0, 0.0, 0.0, 0.0],
-                },
-            },
-            vk::ClearValue {
-                depth_stencil: vk::ClearDepthStencilValue {
-                    depth: 1.0,
-                    stencil: 0,
-                },
-            },
-        ];
-
-        render_target.record_begin(cmdbuf, &clear_values);
-
-        let render_extent = self
-            .resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .get_desc()
-            .extent;
-        let viewport = Viewport::from_extent(render_extent.as_extent_2d().unwrap());
-        let scissor = vk::Rect2D {
-            offset: vk::Offset2D { x: 0, y: 0 },
-            extent: vk::Extent2D {
-                width: render_extent.width,
-                height: render_extent.height,
-            },
-        };
-
-        pipeline.record_viewport_scissor(cmdbuf, viewport, scissor);
-
-        unsafe {
-            // bind the index buffer for leaves
-            self.vulkan_ctx.device().cmd_bind_index_buffer(
-                cmdbuf.as_raw(),
-                indices_buf.as_raw(),
-                0,
-                vk::IndexType::UINT32,
-            );
-        }
-
-        // loop through all tree leaves instances for this LOD level
-        for tree_instance in leaves_instances {
-            if tree_instance.resources.instances_len == 0 {
-                continue;
-            }
-
-            // bind vertex buffers for this instance
-            unsafe {
-                self.vulkan_ctx.device().cmd_bind_vertex_buffers(
-                    cmdbuf.as_raw(),
                     0,
-                    &[
-                        vertices_buf.as_raw(),
-                        tree_instance.resources.instances_buf.as_raw(),
-                    ],
-                    &[0, 0],
+                    None,
                 );
             }
-
-            // render this instance
-            pipeline.record_indexed(
-                cmdbuf,
-                indices_len,
-                tree_instance.resources.instances_len,
-                0,
-                0,
-                0,
-                Some(&PushConstantInfo {
-                    shader_stage: vk::ShaderStageFlags::VERTEX,
-                    push_constants: bytemuck::bytes_of(&push_constant).to_vec(),
-                }),
-            );
         }
 
         render_target.record_end(cmdbuf);
@@ -1418,16 +1345,17 @@ impl Tracer {
             .get_image()
             .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
 
-        self.compute_pipelines.tracer_ppl.record(
-            cmdbuf,
-            self.resources
-                .extent_dependent_resources
-                .compute_output_tex
-                .get_image()
-                .get_desc()
-                .extent,
-            None,
-        );
+        let extent = self
+            .resources
+            .extent_dependent_resources
+            .compute_output_tex
+            .get_image()
+            .get_desc()
+            .extent;
+
+        self.compute_pipelines
+            .tracer_ppl
+            .record(cmdbuf, extent, None);
     }
 
     fn record_god_ray_pass(&self, cmdbuf: &CommandBuffer) {
@@ -1873,6 +1801,8 @@ impl Tracer {
         inner_radius: f32,
         outer_radius: f32,
     ) -> Result<()> {
+        // Clamp so inner <= outer to prevent crash from GUI slider race
+        let inner_radius = inner_radius.min(outer_radius);
         let device = self.vulkan_ctx.device();
         self.resources.leaves_resources = LeavesResources::new_with_params(
             device.clone(),

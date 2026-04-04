@@ -8,8 +8,8 @@
 // configuration derived from "Seascape (fast version)"
 const float OCEAN_DRAG_MULT     = 0.1;
 const float OCEAN_WATER_DEPTH   = 0.2;
-const int   OCEAN_ITER_RAYMARCH = 12;
-const int   OCEAN_ITER_NORMAL   = 36;
+const int   OCEAN_ITER_RAYMARCH = 4;
+const int   OCEAN_ITER_NORMAL   = 6;
 const float OCEAN_SPEED         = 0.4;
 
 float ocean_time() {
@@ -114,7 +114,7 @@ float ocean_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth) {
     vec3 dir = normalize(end - start);
     float sea_level = ocean_sea_level();
 
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < 16; i++) {
         float height = ocean_get_waves(pos.xz, OCEAN_ITER_RAYMARCH) * depth - depth + sea_level;
 
         if (height + 0.01 > pos.y) {
@@ -137,7 +137,8 @@ vec3 ocean_get_sea_color_fast(vec3 p, vec3 n, vec3 light_dir,
     vec3 R = normalize(reflect(view_dir, n));
     R.y    = abs(R.y);
 
-    vec3 reflection = compute_sky_with_sun_and_stars(R);
+    // Use cheap sky-only color for ocean reflection (skip expensive starlight)
+    vec3 reflection = get_sky_color(R, sun_info.sun_dir);
 
     vec3 deep    = ocean_base_color();
     vec3 shallow = ocean_water_color();

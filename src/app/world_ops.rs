@@ -14,6 +14,7 @@ pub(crate) struct FloraSphereEdit {
     pub(crate) tick: u32,
 }
 
+#[allow(dead_code)]
 struct BuilderOnlyWorldBackend<'a> {
     plain_builder: &'a mut PlainBuilder,
     surface_builder: &'a mut SurfaceBuilder,
@@ -91,6 +92,7 @@ pub(crate) fn apply_build_edit(
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn execute_edit_plan_on_builders(
     plain_builder: &mut PlainBuilder,
     surface_builder: &mut SurfaceBuilder,
@@ -124,6 +126,71 @@ pub(crate) fn execute_edit_plan_on_backend<B: WorldBuildBackend>(
     Ok(())
 }
 
+#[allow(dead_code)]
+pub(crate) fn init_chunk_by_chunk(
+    plain_builder: &mut PlainBuilder,
+    surface_builder: &mut SurfaceBuilder,
+    contree_builder: &mut ContreeBuilder,
+    scene_accel_builder: &mut SceneAccelBuilder,
+    voxel_dim_per_chunk: UVec3,
+    world_dim: UVec3,
+) -> Result<()> {
+    let world_bound = UAabb3::new(UVec3::ZERO, world_dim - UVec3::ONE);
+    let chunk_indices =
+        get_affected_chunk_indices(world_bound.min(), world_bound.max(), voxel_dim_per_chunk);
+
+    let total = chunk_indices.len();
+    for (i, chunk_id) in chunk_indices.into_iter().enumerate() {
+        let atlas_offset = chunk_id * voxel_dim_per_chunk;
+
+        log::info!(
+            "[INIT] chunk {}/{}/{chunk_id:?} generating terrain...",
+            i + 1,
+            total
+        );
+        let now = Instant::now();
+        plain_builder.chunk_init(atlas_offset, voxel_dim_per_chunk)?;
+        BENCH.lock().unwrap().record("chunk_init", now.elapsed());
+
+        log::info!(
+            "[INIT] chunk {}/{}/{chunk_id:?} build_surface...",
+            i + 1,
+            total
+        );
+        let now = Instant::now();
+        let res = surface_builder.build_surface(chunk_id, true);
+        if let Err(e) = res {
+            log::error!("Failed to build surface for chunk {chunk_id:?}: {e}");
+            continue;
+        }
+        BENCH.lock().unwrap().record("build_surface", now.elapsed());
+
+        log::info!(
+            "[INIT] chunk {}/{}/{chunk_id:?} build_and_alloc...",
+            i + 1,
+            total
+        );
+        let now = Instant::now();
+        let res = contree_builder.build_and_alloc(atlas_offset).unwrap();
+        BENCH
+            .lock()
+            .unwrap()
+            .record("build_and_alloc", now.elapsed());
+
+        if let Some((node_buffer_offset, leaf_buffer_offset)) = res {
+            scene_accel_builder.update_scene_tex(
+                chunk_id,
+                node_buffer_offset,
+                leaf_buffer_offset,
+            )?;
+        }
+
+        log::info!("[INIT] chunk {}/{}/{chunk_id:?} done.", i + 1, total);
+    }
+
+    Ok(())
+}
+
 pub(crate) fn mesh_generate(
     surface_builder: &mut SurfaceBuilder,
     contree_builder: &mut ContreeBuilder,
@@ -134,16 +201,22 @@ pub(crate) fn mesh_generate(
     let affected_chunk_indices =
         get_affected_chunk_indices(bound.min(), bound.max(), voxel_dim_per_chunk);
 
-    for chunk_id in affected_chunk_indices {
+    let total_chunks = affected_chunk_indices.len();
+    for (i, chunk_id) in affected_chunk_indices.into_iter().enumerate() {
         let atlas_offset = chunk_id * voxel_dim_per_chunk;
 
+        log::debug!(
+            "[MESH] chunk {}/{} id={} build_surface...",
+            i + 1,
+            total_chunks,
+            chunk_id
+        );
         let now = Instant::now();
         let res = surface_builder.build_surface(chunk_id, true);
         if let Err(e) = res {
             log::error!("Failed to build surface for chunk {}: {}", chunk_id, e);
             continue;
         }
-
         BENCH.lock().unwrap().record("build_surface", now.elapsed());
 
         let now = Instant::now();
@@ -153,16 +226,19 @@ pub(crate) fn mesh_generate(
             .unwrap()
             .record("build_and_alloc", now.elapsed());
 
-        if let Some(res) = res {
-            let (node_buffer_offset, leaf_buffer_offset) = res;
+        if let Some((node_buffer_offset, leaf_buffer_offset)) = res {
             scene_accel_builder.update_scene_tex(
                 chunk_id,
                 node_buffer_offset,
                 leaf_buffer_offset,
             )?;
-        } else {
-            log::debug!("Don't need to update scene tex because the chunk is empty");
         }
+        log::debug!(
+            "[MESH] chunk {}/{} id={} done.",
+            i + 1,
+            total_chunks,
+            chunk_id
+        );
     }
 
     Ok(())
@@ -182,13 +258,13 @@ pub(crate) fn mesh_generate_preserve_flora_for_sphere_edit(
     for chunk_id in affected_chunk_indices {
         let atlas_offset = chunk_id * voxel_dim_per_chunk;
 
-        let now = Instant::now();
-        let res = surface_builder.build_surface(chunk_id, false);
-        if let Err(e) = res {
+        // Submit surface build without waiting — GPU queue ordering ensures
+        // it completes before subsequent same-queue submissions (flora edit,
+        // contree build). This eliminates one wait_queue_idle per chunk.
+        if let Err(e) = surface_builder.build_surface_submit_only(chunk_id) {
             log::error!("Failed to build surface for chunk {}: {}", chunk_id, e);
             continue;
         }
-        BENCH.lock().unwrap().record("build_surface", now.elapsed());
 
         surface_builder.edit_flora_instances(
             chunk_id,
@@ -197,22 +273,14 @@ pub(crate) fn mesh_generate_preserve_flora_for_sphere_edit(
             flora_edit.tick,
         )?;
 
-        let now = Instant::now();
         let res = contree_builder.build_and_alloc(atlas_offset).unwrap();
-        BENCH
-            .lock()
-            .unwrap()
-            .record("build_and_alloc", now.elapsed());
 
-        if let Some(res) = res {
-            let (node_buffer_offset, leaf_buffer_offset) = res;
+        if let Some((node_buffer_offset, leaf_buffer_offset)) = res {
             scene_accel_builder.update_scene_tex(
                 chunk_id,
                 node_buffer_offset,
                 leaf_buffer_offset,
             )?;
-        } else {
-            log::debug!("Don't need to update scene tex because the chunk is empty");
         }
     }
 
@@ -279,7 +347,7 @@ pub(crate) fn mesh_trim_flora_for_sphere_edit(
     Ok(())
 }
 
-fn get_affected_chunk_indices(
+pub(crate) fn get_affected_chunk_indices(
     min_bound: UVec3,
     max_bound: UVec3,
     voxel_dim_per_chunk: UVec3,

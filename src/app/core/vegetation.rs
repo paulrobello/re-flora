@@ -151,8 +151,10 @@ struct CompiledTerrainSurfaceRemoval {
     rebuild_bound: UAabb3,
 }
 
+#[allow(dead_code)]
 struct FencePostPlacementService;
 
+#[allow(dead_code)]
 impl FencePostPlacementService {
     fn compile(
         edit: FencePostPlacementEdit,
@@ -594,6 +596,7 @@ impl App {
         })
     }
 
+    #[allow(dead_code)]
     pub(super) fn plant_map_region_fence_posts(&mut self) -> Result<()> {
         const BASE_FENCE_HEIGHT: f32 = 60.0;
         const FENCE_HEIGHT_SCALE: f32 = 0.45;
@@ -650,6 +653,7 @@ impl App {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(super) fn apply_fence_post_placement(
         &mut self,
         edit: FencePostPlacementEdit,
@@ -657,6 +661,7 @@ impl App {
         self.apply_fence_like_placement(edit, VOXEL_TYPE_OAK_WOOD)
     }
 
+    #[allow(dead_code)]
     fn apply_fence_like_placement(
         &mut self,
         edit: FencePostPlacementEdit,
@@ -833,6 +838,29 @@ impl App {
         };
 
         let compiled = TreePlacementService::compile(tree_desc, tree_pos, self.prev_bound);
+
+        log::info!(
+            "[TREE] tree_pos={:?} rebuild_bound=({:?}..{:?}) leaves={}",
+            compiled.tree_pos,
+            compiled.rebuild_bound.min(),
+            compiled.rebuild_bound.max(),
+            compiled.quantized_leaf_positions.len(),
+        );
+        if let VoxelEdit::StampRoundCones {
+            ref round_cones,
+            ref bvh_nodes,
+            voxel_type,
+        } = compiled.trunk_voxel_edit
+        {
+            log::info!(
+                "[TREE] trunk: {} round_cones, {} bvh_nodes, voxel_type={}, aabb=({:?}..{:?})",
+                round_cones.len(),
+                bvh_nodes.len(),
+                voxel_type,
+                bvh_nodes.first().map(|n| n.aabb.min_uvec3()),
+                bvh_nodes.first().map(|n| n.aabb.max_uvec3()),
+            );
+        }
 
         self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.trunk_voxel_edit))?;
         self.tracer.add_tree_leaves(
