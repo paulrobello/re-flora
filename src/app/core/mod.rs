@@ -54,7 +54,7 @@ use ui_style::{
 };
 use uuid::Uuid;
 use winit::{
-    event::{ElementState, MouseButton, WindowEvent},
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::WindowId,
@@ -728,6 +728,25 @@ impl App {
                         ElementState::Released => {
                             self.shovel_dig_held = false;
                             self.stop_terrain_edit_loop_sound();
+                        }
+                    }
+                }
+            }
+
+            WindowEvent::MouseWheel { delta, .. } => {
+                if !self.window_state.is_cursor_visible() {
+                    let scroll_y: f64 = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y as f64,
+                        MouseScrollDelta::PixelDelta(pos) => pos.y,
+                    };
+                    if scroll_y.abs() > 0.0 {
+                        let direction: isize = if scroll_y > 0.0 { -1 } else { 1 };
+                        let max_slot: isize = (ITEM_PANEL_SLOT_COUNT - 1) as isize;
+                        let new_slot = (self.selected_item_panel_slot as isize + direction)
+                            .rem_euclid(max_slot + 1) as usize;
+                        if new_slot != self.selected_item_panel_slot {
+                            self.selected_item_panel_slot = new_slot;
+                            self.play_item_panel_scroll_sound();
                         }
                     }
                 }
