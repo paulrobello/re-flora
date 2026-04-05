@@ -38,6 +38,10 @@ All notable changes to re-flora on the `macos` branch (since diverging from `mai
 - Fix clicking in debug panel recapturing mouse cursor
 - Fix mouse tracking activating before first click in windowed mode (`cursor_engaged` guard)
 
+### Controls
+
+- Scroll wheel cycles through equipped tools (wraps around)
+
 ### CLI
 
 - `--perf` flag to enable per-frame FPS and timing output to console
