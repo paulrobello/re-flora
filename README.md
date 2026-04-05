@@ -92,6 +92,27 @@ Runtime-editable parameters (sky, audio, particles, etc.) live in `config/gui.to
 
 ---
 
+## macOS / Metal Support
+
+Re: Flora runs on macOS via [MoltenVK](https://github.com/KhronosGroup/MoltenVK), a Vulkan-to-Metal translation layer. The `macos` branch contains targeted shader and pipeline optimizations for Metal's execution model:
+
+- All large `const` array lookups replaced with hash-based alternatives (Metal penalizes computed-index const arrays 25-500x)
+- FBM noise in vertex/compute shaders replaced with cheap hash approximations
+- `uint64_t` removed from all shaders (no native Metal support)
+- Render passes batched to minimize Metal command encoder overhead
+
+**macOS build prerequisites:**
+
+```bash
+brew install vulkan-headers vulkan-loader molten-vk shaderc
+make deps        # install all brew dependencies
+make run-windowed-novalidation   # build and run
+```
+
+See the [CHANGELOG](./CHANGELOG.md) for the full list of changes.
+
+---
+
 ## Resources & References
 
 ### Vulkan
