@@ -81,7 +81,7 @@ ContreeMarchingResult _contree_marching(vec3 origin, vec3 dir, bool coarse, uint
     vec3 inv_dir   = 1.0 / -abs(dir);
     vec3 side_dist = vec3(0.0);
 
-    for (int i = 0; i < 512; ++i) {
+    for (int i = 0; i < 1024; ++i) {
         if (coarse && i > 20 && (node.packed_0 & 1u) != 0u) {
             break;
         }
