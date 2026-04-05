@@ -13,6 +13,9 @@ All notable changes to re-flora on the `macos` branch (since diverging from `mai
 - Replace blue noise const array in surface builder with Wellons hash (`make_surface.comp`)
 - Replace FastNoiseLite const arrays in flora seeding with hash-based value noise (`occupancy_to_flora_instances.comp`)
 - Replace FastNoiseLite const arrays in heightmap generator with hash-based value noise FBM (`chunk_heightmap.comp`)
+- Replace FastNoiseLite in grass band color noise with hash-based FBM (`grass_band_color.glsl`)
+- Remove all dead FastNoiseLite includes from compiled shaders (`flora_lod.vert`, `composition.comp`)
+- Extract shared hash-based value noise FBM into `hash.glsl` (eliminates duplication)
 - Batch all flora species (3 types x 2 LOD levels) + tree leaves into a single Vulkan render pass
 - Change depth and output textures from STORAGE to SAMPLED descriptor type for read-only compute access
 
@@ -47,7 +50,8 @@ All notable changes to re-flora on the `macos` branch (since diverging from `mai
 
 ### Build
 
-- Add `Makefile` and `Makefile.macos` with standard build targets (`build-release`, `run-windowed`, `kill`, `fmt`, `lint`, `checkall`)
+- Add platform-dispatching `Makefile` with `Makefile.macos`, `Makefile.linux`, and `Makefile.windows` variants
+- Standard targets across all platforms: `build-release`, `run-windowed`, `kill`, `fmt`, `lint`, `checkall`, `deps`
 - Add `chunk_heightmap.comp` compute shader (extracted from `chunk_init.comp`)
 
 ### Dependencies
