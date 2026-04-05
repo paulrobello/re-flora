@@ -24,53 +24,7 @@ layout(set = 0, binding = 1) writeonly buffer B_Heightmap {
 heightmap;
 
 #include "../../include/config.glsl"
-
-// ---- Hash-based value noise FBM (replaces FastNoiseLite — Metal const-array penalty) ----
-
-// Wellons hash for seeded 2D → float [0,1]
-float hash2d(float x, float y, uint seed) {
-    uint h = uint(int(floor(x))) * 73856093u;
-    h ^= uint(int(floor(y))) * 19349663u;
-    h ^= seed;
-    h ^= h >> 16u;
-    h *= 0x45d9f3bu;
-    h ^= h >> 16u;
-    h *= 0x45d9f3bu;
-    return float(h & 0xFFFFu) / 65535.0;
-}
-
-// Smooth value noise 2D → [-1, 1]
-float value_noise_2d(float x, float y, uint seed) {
-    float fx = floor(x);
-    float fy = floor(y);
-    float tx = x - fx;
-    float ty = y - fy;
-    // Quintic interpolation for smoother gradients
-    tx = tx * tx * tx * (tx * (tx * 6.0 - 15.0) + 10.0);
-    ty = ty * ty * ty * (ty * (ty * 6.0 - 15.0) + 10.0);
-    float c00 = hash2d(fx, fy, seed);
-    float c10 = hash2d(fx + 1.0, fy, seed);
-    float c01 = hash2d(fx, fy + 1.0, seed);
-    float c11 = hash2d(fx + 1.0, fy + 1.0, seed);
-    float m0 = mix(c00, c10, tx);
-    float m1 = mix(c01, c11, tx);
-    return mix(m0, m1, ty) * 2.0 - 1.0; // map [0,1] → [-1,1]
-}
-
-// FBM value noise 2D → [-1, 1] range (amplitude-normalized)
-float fbm_value_noise_2d(float x, float y, uint seed, float frequency, int octaves, float lacunarity, float gain) {
-    float sum = 0.0;
-    float amp = 1.0;
-    float amp_sum = 0.0;
-    float freq = frequency;
-    for (int i = 0; i < octaves; i++) {
-        sum += value_noise_2d(x * freq, y * freq, seed + uint(i) * 1000u) * amp;
-        amp_sum += amp;
-        freq *= lacunarity;
-        amp *= gain;
-    }
-    return sum / amp_sum;
-}
+#include "../../include/core/hash.glsl"
 
 float compute_island_shape_2d(vec2 world_xz) {
     const float MAP_SIZE = 5.0;
