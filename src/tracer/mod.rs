@@ -702,6 +702,7 @@ impl Tracer {
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
         leaf_tip_color: Vec3,
+        render_flags: &crate::RenderFlags,
     ) -> Result<()> {
         let shader_access_memory_barrier = MemoryBarrier::new_shader_access();
         let compute_to_compute_barrier = PipelineBarrier::new(
@@ -715,86 +716,122 @@ impl Tracer {
             vec![shader_access_memory_barrier],
         );
 
-        self.record_clear_render_targets(cmdbuf);
+        self.record_clear_render_targets(cmdbuf, render_flags);
 
-        self.record_leaves_shadow_lod_pass(
-            cmdbuf,
-            surface_resources,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-        );
-        let frag_to_compute_barrier = PipelineBarrier::new(
-            vk::PipelineStageFlags::FRAGMENT_SHADER,
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        frag_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        let has_graphics_pass = render_flags.enable_flora || render_flags.enable_particles;
 
-        self.record_tracer_shadow_pass(cmdbuf);
+        if render_flags.enable_flora {
+            self.record_leaves_shadow_lod_pass(
+                cmdbuf,
+                surface_resources,
+                leaf_bottom_color,
+                leaf_tip_color,
+                time,
+            );
+        }
+
+        if has_graphics_pass || render_flags.enable_shadows {
+            let frag_to_compute_barrier = PipelineBarrier::new(
+                vk::PipelineStageFlags::FRAGMENT_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            frag_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if render_flags.enable_shadows {
+            self.record_tracer_shadow_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_vsm_filtering_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if has_graphics_pass {
+            let b1 = PipelineBarrier::new(
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if render_flags.enable_flora {
+            assert_eq!(
+                flora_colors.len(),
+                self.resources.flora_meshes.len(),
+                "Flora color count ({}) must match flora mesh count ({})",
+                flora_colors.len(),
+                self.resources.flora_meshes.len()
+            );
+        }
+
+        if render_flags.enable_flora || render_flags.enable_particles {
+            self.record_all_graphics_passes(
+                cmdbuf,
+                surface_resources,
+                lod_distance,
+                flora_draw_distance,
+                flora_colors,
+                leaf_bottom_color,
+                leaf_tip_color,
+                time,
+                render_flags.enable_flora,
+                render_flags.enable_particles,
+            );
+        }
+
+        if has_graphics_pass {
+            frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_vsm_filtering_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        let b1 = PipelineBarrier::new(
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_denoiser {
+            record_denoiser_resources_transition_barrier(
+                &self.resources.denoiser_resources,
+                cmdbuf,
+            );
+        }
 
-        assert_eq!(
-            flora_colors.len(),
-            self.resources.flora_meshes.len(),
-            "Flora color count ({}) must match flora mesh count ({})",
-            flora_colors.len(),
-            self.resources.flora_meshes.len()
-        );
-        self.record_all_graphics_passes(
-            cmdbuf,
-            surface_resources,
-            lod_distance,
-            flora_draw_distance,
-            flora_colors,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-            true,
-            true,
-        );
-        frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_tracer {
+            self.record_tracer_pass(cmdbuf);
+        }
 
-        record_denoiser_resources_transition_barrier(&self.resources.denoiser_resources, cmdbuf);
+        if has_graphics_pass || render_flags.enable_tracer {
+            let b2 = PipelineBarrier::new(
+                vk::PipelineStageFlags::FRAGMENT_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            b2.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
-        self.record_tracer_pass(cmdbuf);
+        if render_flags.enable_god_rays {
+            self.record_god_ray_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
-        let b2 = PipelineBarrier::new(
-            vk::PipelineStageFlags::FRAGMENT_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
-            vk::PipelineStageFlags::COMPUTE_SHADER,
-            vec![shader_access_memory_barrier],
-        );
-        b2.record_insert(self.vulkan_ctx.device(), cmdbuf);
-
-        self.record_god_ray_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-
-        self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        if render_flags.enable_denoiser {
+            self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        }
 
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_sun_visible_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_downsample_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_lens_flare {
+            self.record_lens_flare_sun_visible_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_downsample_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
         self.record_composition_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_post_processing_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_player_collider_pass(cmdbuf);
 
-        copy_current_to_prev(&self.resources, cmdbuf);
+        if render_flags.enable_denoiser {
+            copy_current_to_prev(&self.resources, cmdbuf);
+        }
 
         return Ok(());
 
@@ -849,45 +886,61 @@ impl Tracer {
         }
     }
 
-    fn record_clear_render_targets(&self, cmdbuf: &CommandBuffer) {
-        self.resources
-            .extent_dependent_resources
-            .gfx_output_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
-            );
-        self.resources
-            .extent_dependent_resources
-            .gfx_depth_tex
-            .get_image()
-            .record_clear(
+    fn record_clear_render_targets(
+        &self,
+        cmdbuf: &CommandBuffer,
+        render_flags: &crate::RenderFlags,
+    ) {
+        // gfx_output_tex and gfx_depth_tex are cleared by the flora/particle render
+        // pass (loadOp=clear). Only clear them standalone when no render pass will run,
+        // so the composition shader reads valid zeros.
+        // NOTE: do NOT double-clear — on MoltenVK, clearing a D32_SFLOAT+STORAGE
+        // texture in GENERAL layout and then beginning a render pass that clears again
+        // causes a ~33ms layout transition stall.
+        if !render_flags.enable_flora && !render_flags.enable_particles {
+            self.resources
+                .extent_dependent_resources
+                .gfx_output_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+                );
+            self.resources
+                .extent_dependent_resources
+                .gfx_depth_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
+                );
+        }
+
+        if render_flags.enable_shadows {
+            self.resources.shadow_map_tex.get_image().record_clear(
                 cmdbuf,
                 Some(vk::ImageLayout::GENERAL),
                 0,
                 ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
             );
+        }
 
-        self.resources.shadow_map_tex.get_image().record_clear(
-            cmdbuf,
-            Some(vk::ImageLayout::GENERAL),
-            0,
-            ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
-        );
-
-        self.resources
-            .extent_dependent_resources
-            .lens_flare_visible_count_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
-            );
+        if render_flags.enable_lens_flare {
+            self.resources
+                .extent_dependent_resources
+                .lens_flare_visible_count_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
+                );
+        }
     }
 
     /// Draw all flora species (LOD0+LOD1), leaves (LOD0+LOD1), and particles
@@ -1295,16 +1348,17 @@ impl Tracer {
             .get_image()
             .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
 
-        self.compute_pipelines.tracer_ppl.record(
-            cmdbuf,
-            self.resources
-                .extent_dependent_resources
-                .compute_output_tex
-                .get_image()
-                .get_desc()
-                .extent,
-            None,
-        );
+        let extent = self
+            .resources
+            .extent_dependent_resources
+            .compute_output_tex
+            .get_image()
+            .get_desc()
+            .extent;
+
+        self.compute_pipelines
+            .tracer_ppl
+            .record(cmdbuf, extent, None);
     }
 
     fn record_god_ray_pass(&self, cmdbuf: &CommandBuffer) {
@@ -1750,6 +1804,8 @@ impl Tracer {
         inner_radius: f32,
         outer_radius: f32,
     ) -> Result<()> {
+        // Clamp so inner <= outer to prevent crash from GUI slider race
+        let inner_radius = inner_radius.min(outer_radius);
         let device = self.vulkan_ctx.device();
         self.resources.leaves_resources = LeavesResources::new_with_params(
             device.clone(),

@@ -43,6 +43,8 @@ void main() {
     ivec2 mapped_uvi    = ivec2(vec2(uvi) * scaling_factor);
     vec3 final_color    = imageLoad(composited_tex, mapped_uvi).rgb;
 
+    // DIAG: pass through composited_tex to check tracer output
+
     vec3 dither_mask = get_dither_mask(uvi);
     final_color += dither_mask * 3.0;
 

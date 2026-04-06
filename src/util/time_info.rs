@@ -54,7 +54,7 @@ impl TimeInfo {
     /// - Computes the delta time (dt) since the last update.
     /// - Updates an accumulator and frame count for smoothed FPS calculation.
     /// - Updates the total frame count.
-    pub fn update(&mut self) {
+    pub fn update(&mut self, log_fps: bool) {
         let now = Instant::now();
         // calculate delta time (in seconds) since the last update.
         self.dt = now.duration_since(self.last_update_instant).as_secs_f32();
@@ -71,6 +71,13 @@ impl TimeInfo {
         // calculate an average FPS for display purposes.
         if self.fps_accumulator >= self.display_update_interval {
             self.display_fps_value = self.fps_frame_count as f32 / self.fps_accumulator;
+            if log_fps {
+                log::info!(
+                    "[FPS] {:.1} fps (frame {})",
+                    self.display_fps_value,
+                    self.total_frame_count
+                );
+            }
             // reset for the next interval.
             self.fps_accumulator = 0.0;
             self.fps_frame_count = 0;

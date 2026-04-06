@@ -1,17 +1,27 @@
 use super::core::App;
+use crate::AppOptions;
 use winit::{
     application::ApplicationHandler, event::WindowEvent, event_loop::ActiveEventLoop,
     window::WindowId,
 };
 
-#[derive(Default)]
 pub struct AppController {
+    options: AppOptions,
     initialized: Option<App>,
+}
+
+impl AppController {
+    pub fn new(options: AppOptions) -> Self {
+        Self {
+            options,
+            initialized: None,
+        }
+    }
 }
 
 impl ApplicationHandler for AppController {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        self.initialized = Some(App::new(event_loop).unwrap());
+        self.initialized = Some(App::new(event_loop, &self.options).unwrap());
     }
 
     fn window_event(&mut self, event_loop: &ActiveEventLoop, id: WindowId, event: WindowEvent) {
