@@ -652,6 +652,7 @@ struct PlainField {
     name: String,
     ty: FieldType,
     offset: u32,
+    #[allow(dead_code)]
     size: u32,
     padded_size: u32,
 }
