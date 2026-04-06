@@ -5,6 +5,9 @@ use winit::{
     window::{Fullscreen, Window},
 };
 
+#[cfg(not(target_os = "macos"))]
+use winit::window::CursorGrabMode;
+
 /// Native macOS cursor grab using CoreGraphics + AppKit.
 /// winit's CursorGrabMode::Confined is unsupported on macOS, and set_cursor_visible
 /// can crash with SIGBUS. These native APIs are reliable.
@@ -29,6 +32,7 @@ mod macos_cursor {
 }
 
 #[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
 mod macos_cursor {
     pub fn grab_and_hide() {}
     pub fn release_and_show() {}
@@ -102,6 +106,8 @@ impl Default for WindowStateDesc {
 pub struct WindowState {
     window: Arc<Window>,
     desc: WindowStateDesc,
+    #[cfg(not(target_os = "macos"))]
+    cursor_grab_pending: bool,
 }
 
 impl WindowState {
@@ -144,14 +150,24 @@ impl WindowState {
         // after it has been created
         window.set_visible(true);
 
-        let state = Self {
+        let mut state = Self {
             window: Arc::new(window),
             desc: desc.clone(),
+            #[cfg(not(target_os = "macos"))]
+            cursor_grab_pending: false,
         };
         // Apply initial cursor state
+        #[cfg(target_os = "macos")]
         if desc.cursor_locked {
             macos_cursor::grab_and_hide();
         }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            state.window.set_cursor_visible(desc.cursor_visible);
+            state.apply_cursor_grab();
+        }
+
         state
     }
 
@@ -216,16 +232,32 @@ impl WindowState {
         }
         self.desc.cursor_locked = cursor_locked;
         self.desc.cursor_visible = !cursor_locked;
+
+        #[cfg(target_os = "macos")]
         if cursor_locked {
             macos_cursor::grab_and_hide();
         } else {
             macos_cursor::release_and_show();
         }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            self.window.set_cursor_visible(self.desc.cursor_visible);
+            if !cursor_locked {
+                self.cursor_grab_pending = false;
+            }
+            self.apply_cursor_grab();
+        }
     }
 
     /// No-op on macOS (native APIs handle grab state persistently).
     /// Retained for API compatibility.
-    pub fn maintain_cursor_grab(&mut self) {}
+    pub fn maintain_cursor_grab(&mut self) {
+        #[cfg(not(target_os = "macos"))]
+        if self.cursor_grab_pending {
+            self.apply_cursor_grab();
+        }
+    }
 
     /// Size of the physical window, in (width, height).
     pub fn window_extent(&self) -> Extent2D {
@@ -246,5 +278,33 @@ impl WindowState {
             (size.width as f64 / scale_factor) as f32,
             (size.height as f64 / scale_factor) as f32,
         ]
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn get_cursor_grab_mode(locked: bool) -> CursorGrabMode {
+        if !locked {
+            return CursorGrabMode::None;
+        }
+        CursorGrabMode::Confined
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn apply_cursor_grab(&mut self) {
+        let mode = Self::get_cursor_grab_mode(self.desc.cursor_locked);
+        match self.window.set_cursor_grab(mode) {
+            Ok(_) => self.cursor_grab_pending = false,
+            Err(e) => {
+                if self.desc.cursor_locked {
+                    if !self.cursor_grab_pending {
+                        log::warn!("Failed to grab cursor (will retry): {:?}", e);
+                    } else {
+                        log::debug!("Retrying cursor grab failed: {:?}", e);
+                    }
+                    self.cursor_grab_pending = true;
+                } else {
+                    log::warn!("Failed to release cursor grab: {:?}", e);
+                }
+            }
+        }
     }
 }
