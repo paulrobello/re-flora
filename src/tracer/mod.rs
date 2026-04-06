@@ -617,6 +617,7 @@ impl Tracer {
         &self,
         surface_resources: &'a SurfaceResources,
         lod_distance: f32,
+        flora_draw_distance: f32,
     ) -> HashMap<LodState, Vec<&'a FloraInstanceResources>> {
         let mut lod0_instances = Vec::new();
         let mut lod1_instances = Vec::new();
@@ -631,6 +632,11 @@ impl Tracer {
             // calculate distance from camera to chunk center
             let chunk_center = aabb.center();
             let distance = (camera_pos - chunk_center).length();
+
+            // skip chunks beyond max flora draw distance
+            if distance > flora_draw_distance {
+                continue;
+            }
 
             if distance <= lod_distance {
                 lod0_instances.push(instances);
@@ -686,6 +692,7 @@ impl Tracer {
         cmdbuf: &CommandBuffer,
         surface_resources: &SurfaceResources,
         lod_distance: f32,
+        flora_draw_distance: f32,
         time: f32,
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
@@ -739,7 +746,8 @@ impl Tracer {
             self.resources.flora_meshes.len()
         );
 
-        let chunks_by_lod = self.chunks_needs_to_draw_this_frame(surface_resources, lod_distance);
+        let chunks_by_lod =
+            self.chunks_needs_to_draw_this_frame(surface_resources, lod_distance, flora_draw_distance);
         for (species_index, (bottom_color, tip_color)) in flora_colors.iter().enumerate() {
             self.record_flora_pass(
                 cmdbuf,
