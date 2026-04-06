@@ -378,6 +378,7 @@ impl EguiRenderer {
     pub fn update(&mut self, window: &Window, run_ui: impl FnMut(&egui::Context)) {
         let raw_input = self.egui_winit_state.take_egui_input(window);
 
+        #[allow(deprecated)]
         let egui::FullOutput {
             platform_output,
             textures_delta,
