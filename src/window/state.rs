@@ -2,8 +2,37 @@ use crate::vkn::Extent2D;
 use std::sync::Arc;
 use winit::{
     dpi::{LogicalPosition, LogicalSize},
-    window::{CursorGrabMode, Fullscreen, Window},
+    window::{Fullscreen, Window},
 };
+
+/// Native macOS cursor grab using CoreGraphics + AppKit.
+/// winit's CursorGrabMode::Confined is unsupported on macOS, and set_cursor_visible
+/// can crash with SIGBUS. These native APIs are reliable.
+#[cfg(target_os = "macos")]
+mod macos_cursor {
+    use core_graphics::display::CGAssociateMouseAndMouseCursorPosition;
+    use objc2_app_kit::NSCursor;
+
+    pub fn grab_and_hide() {
+        unsafe {
+            CGAssociateMouseAndMouseCursorPosition(0);
+            NSCursor::hide();
+        }
+    }
+
+    pub fn release_and_show() {
+        unsafe {
+            CGAssociateMouseAndMouseCursorPosition(1);
+            NSCursor::unhide();
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+mod macos_cursor {
+    pub fn grab_and_hide() {}
+    pub fn release_and_show() {}
+}
 
 /// Defines the way a window
 /// is displayed.
@@ -73,7 +102,6 @@ impl Default for WindowStateDesc {
 pub struct WindowState {
     window: Arc<Window>,
     desc: WindowStateDesc,
-    cursor_grab_pending: bool,
 }
 
 impl WindowState {
@@ -116,14 +144,14 @@ impl WindowState {
         // after it has been created
         window.set_visible(true);
 
-        window.set_cursor_visible(desc.cursor_visible);
-
-        let mut state = Self {
+        let state = Self {
             window: Arc::new(window),
             desc: desc.clone(),
-            cursor_grab_pending: desc.cursor_locked,
         };
-        state.apply_cursor_grab();
+        // Apply initial cursor state
+        if desc.cursor_locked {
+            macos_cursor::grab_and_hide();
+        }
         state
     }
 
@@ -156,9 +184,13 @@ impl WindowState {
         self.desc.cursor_visible
     }
 
-    /// Sets the cursor visibility, this is the only way to change the cursor visibility, do not change it directly, otherwise the internal state will be out of sync.
+    /// Sets the cursor visibility. On macOS this is handled by the grab/release
+    /// via native NSCursor APIs; on other platforms it uses winit.
     pub fn set_cursor_visibility(&mut self, cursor_visible: bool) {
         self.desc.cursor_visible = cursor_visible;
+        // On macOS, visibility is managed by grab_and_hide / release_and_show.
+        // On other platforms, fall back to winit.
+        #[cfg(not(target_os = "macos"))]
         self.window.set_cursor_visible(cursor_visible);
     }
 
@@ -172,20 +204,28 @@ impl WindowState {
         self.desc.cursor_locked
     }
 
-    /// Sets the cursor grab, this is the only way to change the cursor grab, do not change it directly, otherwise the internal state will be out of sync.
+    /// Sets the cursor grab using native macOS APIs. On macOS, winit's
+    /// `CursorGrabMode::Confined` is unsupported and `set_cursor_visible` can SIGBUS,
+    /// so we bypass winit entirely.
+    ///
+    /// Idempotent: skips native calls if the state hasn't changed, preventing
+    /// `NSCursor::hide/unhide` reference count imbalance.
     pub fn set_cursor_grab(&mut self, cursor_locked: bool) {
-        self.desc.cursor_locked = cursor_locked;
-        if !cursor_locked {
-            self.cursor_grab_pending = false;
+        if self.desc.cursor_locked == cursor_locked {
+            return;
         }
-        self.apply_cursor_grab();
+        self.desc.cursor_locked = cursor_locked;
+        self.desc.cursor_visible = !cursor_locked;
+        if cursor_locked {
+            macos_cursor::grab_and_hide();
+        } else {
+            macos_cursor::release_and_show();
+        }
     }
 
-    pub fn maintain_cursor_grab(&mut self) {
-        if self.cursor_grab_pending {
-            self.apply_cursor_grab();
-        }
-    }
+    /// No-op on macOS (native APIs handle grab state persistently).
+    /// Retained for API compatibility.
+    pub fn maintain_cursor_grab(&mut self) {}
 
     /// Size of the physical window, in (width, height).
     pub fn window_extent(&self) -> Extent2D {
@@ -206,32 +246,5 @@ impl WindowState {
             (size.width as f64 / scale_factor) as f32,
             (size.height as f64 / scale_factor) as f32,
         ]
-    }
-
-    /// Returns the cursor grab mode that should be used for the current platform.
-    fn get_cursor_grab_mode(locked: bool) -> CursorGrabMode {
-        if !locked {
-            return CursorGrabMode::None;
-        }
-        CursorGrabMode::Confined
-    }
-
-    fn apply_cursor_grab(&mut self) {
-        let mode = Self::get_cursor_grab_mode(self.desc.cursor_locked);
-        match self.window.set_cursor_grab(mode) {
-            Ok(_) => self.cursor_grab_pending = false,
-            Err(e) => {
-                if self.desc.cursor_locked {
-                    if !self.cursor_grab_pending {
-                        log::warn!("Failed to grab cursor (will retry): {:?}", e);
-                    } else {
-                        log::debug!("Retrying cursor grab failed: {:?}", e);
-                    }
-                    self.cursor_grab_pending = true;
-                } else {
-                    log::warn!("Failed to release cursor grab: {:?}", e);
-                }
-            }
-        }
     }
 }
