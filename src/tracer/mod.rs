@@ -655,6 +655,7 @@ impl Tracer {
         &self,
         surface_resources: &'a SurfaceResources,
         lod_distance: f32,
+        flora_draw_distance: f32,
     ) -> HashMap<LodState, Vec<&'a TreeLeavesInstance>> {
         let mut lod0_instances = Vec::new();
         let mut lod1_instances = Vec::new();
@@ -672,6 +673,10 @@ impl Tracer {
             // calculate distance from camera to tree center
             let tree_center = tree_instance.aabb.center();
             let distance = (camera_pos - tree_center).length();
+
+            if distance > flora_draw_distance {
+                continue;
+            }
 
             if distance <= lod_distance {
                 lod0_instances.push(tree_instance);
@@ -771,7 +776,7 @@ impl Tracer {
             frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         }
 
-        let trees_by_lod = self.trees_needs_to_draw_this_frame(surface_resources, lod_distance);
+        let trees_by_lod = self.trees_needs_to_draw_this_frame(surface_resources, lod_distance, flora_draw_distance);
         self.record_leaves_pass(
             cmdbuf,
             &trees_by_lod[&LodState::Lod0],
