@@ -86,7 +86,7 @@ impl ExtentDependentResources {
             extent: rendering_extent.into(),
             format: vk::Format::D32_SFLOAT,
             usage: vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
-                | vk::ImageUsageFlags::STORAGE
+                | vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::DEPTH,
@@ -102,10 +102,10 @@ impl ExtentDependentResources {
     ) -> Texture {
         let tex_desc = ImageDesc {
             extent: rendering_extent.into(),
-            format: vk::Format::D32_SFLOAT,
+            format: vk::Format::R32_SFLOAT,
             usage: vk::ImageUsageFlags::STORAGE,
             initial_layout: vk::ImageLayout::UNDEFINED,
-            aspect: vk::ImageAspectFlags::DEPTH,
+            aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
         };
         Texture::new(device, allocator, &tex_desc, &Default::default())
@@ -135,7 +135,7 @@ impl ExtentDependentResources {
         let tex_desc = ImageDesc {
             extent: rendering_extent.into(),
             format: vk::Format::R8G8B8A8_UNORM,
-            usage: vk::ImageUsageFlags::STORAGE
+            usage: vk::ImageUsageFlags::SAMPLED
                 | vk::ImageUsageFlags::COLOR_ATTACHMENT
                 | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
