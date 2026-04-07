@@ -151,8 +151,10 @@ struct CompiledTerrainSurfaceRemoval {
     rebuild_bound: UAabb3,
 }
 
+#[allow(dead_code)]
 struct FencePostPlacementService;
 
+#[allow(dead_code)]
 impl FencePostPlacementService {
     fn compile(
         edit: FencePostPlacementEdit,
@@ -594,6 +596,7 @@ impl App {
         })
     }
 
+    #[allow(dead_code)]
     pub(super) fn plant_map_region_fence_posts(&mut self) -> Result<()> {
         const BASE_FENCE_HEIGHT: f32 = 60.0;
         const FENCE_HEIGHT_SCALE: f32 = 0.45;
@@ -650,6 +653,7 @@ impl App {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub(super) fn apply_fence_post_placement(
         &mut self,
         edit: FencePostPlacementEdit,
@@ -657,6 +661,7 @@ impl App {
         self.apply_fence_like_placement(edit, VOXEL_TYPE_OAK_WOOD)
     }
 
+    #[allow(dead_code)]
     fn apply_fence_like_placement(
         &mut self,
         edit: FencePostPlacementEdit,

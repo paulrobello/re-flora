@@ -71,8 +71,8 @@ layout(set = 0, binding = 6) uniform U_StarlightInfo {
     float saturation;
 }
 starlight_info;
-layout(set = 0, binding = 7, rgba8) uniform readonly image2D gfx_output_tex;
-layout(set = 0, binding = 8, r32f) uniform readonly image2D gfx_depth_tex;
+layout(set = 0, binding = 7) uniform sampler2D gfx_output_tex;
+layout(set = 0, binding = 8) uniform sampler2D gfx_depth_tex;
 layout(set = 0, binding = 9, r11f_g11f_b10f) uniform readonly image2D denoiser_spatial_pong_tex;
 layout(set = 0, binding = 10, r32f) uniform readonly image2D compute_depth_tex;
 layout(set = 0, binding = 11, r32f) uniform readonly image2D god_ray_output_tex;
@@ -83,7 +83,6 @@ layout(set = 0, binding = 14) uniform sampler2D sun_sprite_tex;
 #include "../include/core/color.glsl"
 #include "../include/core/dither.glsl"
 #include "../include/core/transform.glsl"
-#include "../include/core/fast_noise_lite.glsl"
 #include "../include/ray.glsl"
 #include "../include/skylight.glsl"
 #include "../include/starlight.glsl"
@@ -226,15 +225,15 @@ void main() {
     vec2 img_size  = vec2(imageSize(composited_tex));
     vec2 screen_uv = (vec2(gl_GlobalInvocationID.xy) + vec2(0.5)) / img_size;
 
-    float gfx_depth_01             = imageLoad(gfx_depth_tex, uvi).r;
+    float gfx_depth_01             = texelFetch(gfx_depth_tex, uvi, 0).r;
     float compute_depth_01         = imageLoad(compute_depth_tex, uvi).r;
-    vec4 gfx_rgba                  = imageLoad(gfx_output_tex, uvi);
+
+    vec4 gfx_rgba                  = texelFetch(gfx_output_tex, uvi, 0);
     vec3 denoiser_spatial_pong_tex = imageLoad(denoiser_spatial_pong_tex, uvi).rgb;
     vec3 final_color               = combine_colors(gfx_depth_01, compute_depth_01, gfx_rgba,
                                                     denoiser_spatial_pong_tex, screen_uv);
     final_color += sample_lens_flare(screen_uv);
 
-    // TODO:
     float sun_visibility = sun_luminance_from_dir(sun_info.sun_dir, 1.0);
     float god_ray_weight = imageLoad(god_ray_output_tex, uvi).r * god_ray_info.weight;
     god_ray_weight *= sun_visibility;

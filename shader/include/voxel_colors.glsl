@@ -25,6 +25,9 @@ float _voxel_hash_variance_lut(uint voxel_type) {
     if (voxel_type == VOXEL_TYPE_DIRT || voxel_type == VOXEL_TYPE_SAND) {
         return 1.0;
     }
+    if (voxel_type == VOXEL_TYPE_ROCK) {
+        return 0.6;
+    }
     return 0.0;
 }
 

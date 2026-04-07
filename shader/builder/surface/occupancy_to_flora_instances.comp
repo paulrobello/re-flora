@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "../../include/core/hash.glsl"
+#include "../../include/core/gradient_noise.glsl"
 #include "../../include/flora_registry.glsl"
 
 #define GROUP_SIZE 8
@@ -29,7 +30,6 @@ manual_flora_instances[MAX_FLORA_SPECIES];
 
 #include "../../include/config.glsl"
 #include "../../include/core/definitions.glsl"
-#include "../../include/core/fast_noise_lite.glsl"
 #include "../../include/core/packer.glsl"
 #include "../../include/grass_type.glsl"
 #include "../../include/voxel_data.glsl"
@@ -63,10 +63,8 @@ void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
                                  out bool o_allow_grass) {
     float rng_placement = hash(vec2(world_pos.x, world_pos.z));
 
-    fnl_state density_noise_state  = fnlCreateState(42);
-    density_noise_state.noise_type = FNL_NOISE_PERLIN;
-    density_noise_state.frequency  = 5.0;
-    float density_noise            = fnlGetNoise2D(density_noise_state, world_pos.x, world_pos.z);
+    float density_noise =
+        cnoise_seeded(vec2(float(world_pos.x), float(world_pos.z)) * 5.0, 42u);
 
     float placement_threshold = (density_noise + 1.0) * 0.5;
     placement_threshold       = clamp(0.08 + placement_threshold * 0.22, 0.0, 1.0);
@@ -94,10 +92,7 @@ bool check_surface_plantability(uint voxel_type, vec3 normal, bool is_normal_val
 }
 
 bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
-    fnl_state biome_state  = fnlCreateState(1337);
-    biome_state.noise_type = FNL_NOISE_PERLIN;
-    biome_state.frequency  = 0.02;
-    float biome_val        = fnlGetNoise2D(biome_state, world_pos.x, world_pos.z);
+    float biome_val = cnoise_seeded(vec2(float(world_pos.x), float(world_pos.z)) * 0.02, 1337u);
 
     float species_rng = hash(vec2(world_pos.x + 42.0, world_pos.z - 15.0));
 

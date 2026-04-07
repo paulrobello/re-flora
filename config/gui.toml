@@ -37,6 +37,17 @@ min = 0
 max = 10
 
 [[section.param]]
+id = "flora_draw_distance"
+kind = "float"
+label = "Flora Draw Distance"
+type = "Float"
+
+[section.param.data]
+value = 5
+min = 0.5
+max = 5
+
+[[section.param]]
 id = "debug_bool"
 kind = "bool"
 label = "Debug Bool"

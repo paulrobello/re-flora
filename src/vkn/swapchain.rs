@@ -217,6 +217,20 @@ impl Swapchain {
         self.render_target
             .record_begin_with_index(cmdbuf, image_index as usize, &clear_values);
     }
+
+    pub fn record_prepare_image_for_render_pass(&self, cmdbuf: &CommandBuffer, image_index: u32) {
+        let image = self.get_image(image_index);
+        record_image_transition_barrier(
+            self.vulkan_context.device().as_raw(),
+            cmdbuf.as_raw(),
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            image,
+            vk::ImageAspectFlags::COLOR,
+            0,
+            1,
+        );
+    }
 }
 
 fn print_swapchain_format_and_color_space(
@@ -381,7 +395,16 @@ fn create_vulkan_swapchain(
             .expect("Failed to get physical device surface capabilities")
     };
 
-    let image_count = capabilities.min_image_count;
+    let mut image_count = capabilities.min_image_count.max(3);
+    if capabilities.max_image_count > 0 {
+        image_count = image_count.min(capabilities.max_image_count);
+    }
+    log::info!(
+        "Swapchain image count: min={}, max={}, using={}",
+        capabilities.min_image_count,
+        capabilities.max_image_count,
+        image_count
+    );
 
     let (swapchain_device, swapchain_khr) = create_swapchain_device_khr(
         vulkan_context,

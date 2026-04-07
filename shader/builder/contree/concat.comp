@@ -74,7 +74,8 @@ void main() {
                 cn.packed_0 = (fetched.packed_0 & 1u) | (abs_offset << 1);
             }
 
-            cn.child_mask = fetched.child_mask;
+            cn.child_mask_lo = fetched.child_mask_lo;
+            cn.child_mask_hi = fetched.child_mask_hi;
 
             contree_node_data.data[contree_build_info.node_write_offset + idx] = cn;
             break;

@@ -29,7 +29,7 @@ use crate::particles::{
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::TreeDesc;
 use crate::util::TimeInfo;
-use crate::util::{get_sun_dir, ShaderCompiler};
+use crate::util::{get_sun_dir, ShaderCompiler, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
 use crate::{
     egui_renderer::EguiRenderer,
@@ -54,7 +54,7 @@ use ui_style::{
 };
 use uuid::Uuid;
 use winit::{
-    event::{ElementState, MouseButton, WindowEvent},
+    event::{ElementState, MouseButton, MouseScrollDelta, WindowEvent},
     event_loop::ActiveEventLoop,
     keyboard::{KeyCode, PhysicalKey},
     window::WindowId,
@@ -68,8 +68,44 @@ struct FrameSync {
     command_buffer: CommandBuffer,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum LoadingPhase {
+    Terrain,
+    Building,
+}
+
+struct LoadingState {
+    chunk_indices: Vec<UVec3>,
+    current: usize,
+    step_label: String,
+    phase: LoadingPhase,
+}
+
+impl LoadingState {
+    fn total(&self) -> usize {
+        self.chunk_indices.len()
+    }
+
+    fn progress_fraction(&self) -> f32 {
+        if self.chunk_indices.is_empty() {
+            return 1.0;
+        }
+
+        let total = self.chunk_indices.len() as f32;
+        match self.phase {
+            LoadingPhase::Terrain => (self.current as f32 / total) * 0.5,
+            LoadingPhase::Building => 0.5 + (self.current as f32 / total) * 0.5,
+        }
+    }
+
+    fn is_done(&self) -> bool {
+        self.phase == LoadingPhase::Building && self.current >= self.chunk_indices.len()
+    }
+}
+
 pub struct App {
     egui_renderer: EguiRenderer,
+    loading_state: Option<LoadingState>,
     is_resize_pending: bool,
     swapchain: Swapchain,
     window_state: WindowState,
@@ -267,7 +303,7 @@ impl App {
             swapchain.get_render_pass(),
         );
 
-        let mut plain_builder = PlainBuilder::new(
+        let plain_builder = PlainBuilder::new(
             vulkan_ctx.clone(),
             &shader_compiler,
             allocator.clone(),
@@ -275,7 +311,7 @@ impl App {
             FREE_ATLAS_DIM,
         );
 
-        let mut surface_builder = SurfaceBuilder::new(
+        let surface_builder = SurfaceBuilder::new(
             vulkan_ctx.clone(),
             allocator.clone(),
             &shader_compiler,
@@ -284,7 +320,7 @@ impl App {
             chunk_bound,
         );
 
-        let mut contree_builder = ContreeBuilder::new(
+        let contree_builder = ContreeBuilder::new(
             vulkan_ctx.clone(),
             allocator.clone(),
             &shader_compiler,
@@ -294,19 +330,24 @@ impl App {
             512 * 1024 * 1024, // leaf buffer pool size
         );
 
-        let mut scene_accel_builder = SceneAccelBuilder::new(
+        let scene_accel_builder = SceneAccelBuilder::new(
             vulkan_ctx.clone(),
             allocator.clone(),
             &shader_compiler,
             chunk_bound,
         )?;
 
-        Self::init(
-            &mut plain_builder,
-            &mut surface_builder,
-            &mut contree_builder,
-            &mut scene_accel_builder,
-        )?;
+        let chunk_indices = {
+            let mut indices = Vec::new();
+            for x in 0..CHUNK_DIM.x {
+                for y in 0..CHUNK_DIM.y {
+                    for z in 0..CHUNK_DIM.z {
+                        indices.push(UVec3::new(x, y, z));
+                    }
+                }
+            }
+            indices
+        };
 
         // Shared spatial audio engine (PetalSonic) used by both the tracer (camera)
         // and the app-level tree ambience sources.
@@ -360,6 +401,12 @@ impl App {
             vulkan_ctx,
             egui_renderer: renderer,
             window_state,
+            loading_state: Some(LoadingState {
+                chunk_indices,
+                current: 0,
+                step_label: "Initializing...".to_owned(),
+                phase: LoadingPhase::Terrain,
+            }),
 
             accumulated_mouse_delta: Vec2::ZERO,
             smoothed_mouse_delta: Vec2::ZERO,
@@ -440,23 +487,281 @@ impl App {
 
         app.configure_gui_font()?;
         app.load_item_panel_icons()?;
-        app.ensure_map_butterfly_emitter();
-
-        app.add_tree(
-            app.debug_tree_desc.clone(),
-            TreePlacement::Terrain(Vec2::new(app.debug_tree_pos.x, app.debug_tree_pos.z)),
-            TreeAddOptions::default(),
-        )?;
-
-        // configure leaves with the app's actual density values (now that app struct exists)
-        app.tracer.regenerate_leaves(
-            app.gui_adjustables.leaves_inner_density.value,
-            app.gui_adjustables.leaves_outer_density.value,
-            app.gui_adjustables.leaves_inner_radius.value,
-            app.gui_adjustables.leaves_outer_radius.value,
-        )?;
 
         Ok(app)
+    }
+
+    fn process_loading_step(&mut self) {
+        let loading = match &mut self.loading_state {
+            Some(loading) => loading,
+            None => return,
+        };
+
+        if loading.is_done() {
+            return;
+        }
+
+        let total = loading.total();
+        let current = loading.current + 1;
+
+        match loading.phase {
+            LoadingPhase::Terrain => {
+                let chunk_id = loading.chunk_indices[loading.current];
+                let atlas_offset = chunk_id * VOXEL_DIM_PER_CHUNK;
+                loading.step_label = format!("Terrain {}/{}", current, total);
+
+                if let Err(err) = self
+                    .plain_builder
+                    .chunk_init(atlas_offset, VOXEL_DIM_PER_CHUNK)
+                {
+                    log::error!("chunk_init failed for {chunk_id:?}: {err}");
+                }
+
+                loading.current += 1;
+                if loading.current >= total {
+                    loading.current = 0;
+                    loading.phase = LoadingPhase::Building;
+                }
+            }
+            LoadingPhase::Building => {
+                let chunk_id = loading.chunk_indices[loading.current];
+                let atlas_offset = chunk_id * VOXEL_DIM_PER_CHUNK;
+                loading.step_label = format!("Building {}/{}", current, total);
+
+                if let Err(err) = self.surface_builder.build_surface(chunk_id, true) {
+                    log::error!("build_surface failed for {chunk_id:?}: {err}");
+                    loading.current += 1;
+                    return;
+                }
+
+                match self.contree_builder.build_and_alloc(atlas_offset) {
+                    Ok(Some((node_buffer_offset, leaf_buffer_offset))) => {
+                        if let Err(err) = self.scene_accel_builder.update_scene_tex(
+                            chunk_id,
+                            node_buffer_offset,
+                            leaf_buffer_offset,
+                        ) {
+                            log::error!("update_scene_tex failed for {chunk_id:?}: {err}");
+                        }
+                    }
+                    Ok(None) => {}
+                    Err(err) => {
+                        log::error!("build_and_alloc failed for {chunk_id:?}: {err}");
+                    }
+                }
+
+                loading.current += 1;
+            }
+        }
+    }
+
+    fn render_loading_frame(&mut self) {
+        let loading = match &self.loading_state {
+            Some(loading) => loading,
+            None => return,
+        };
+
+        let progress = loading.progress_fraction();
+        let step_label = loading.step_label.clone();
+        let is_done = loading.is_done();
+        let total = loading.total();
+        let current = loading.current;
+
+        self.egui_renderer
+            .update(&self.window_state.window(), |ctx| {
+                #[allow(deprecated)]
+                egui::CentralPanel::default()
+                    .frame(egui::containers::Frame {
+                        fill: Color32::from_rgb(20, 20, 25),
+                        ..Default::default()
+                    })
+                    .show(ctx, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(ui.available_height() * 0.3);
+
+                            ui.label(
+                                RichText::new("Re: Flora")
+                                    .size(36.0)
+                                    .color(Color32::from_rgb(200, 180, 140)),
+                            );
+                            ui.add_space(8.0);
+                            ui.label(
+                                RichText::new("Loading world...")
+                                    .size(18.0)
+                                    .color(Color32::from_rgb(160, 160, 170)),
+                            );
+                            ui.add_space(24.0);
+
+                            let bar_width = ui.available_width().min(400.0);
+                            let progress = if is_done { 1.0 } else { progress };
+                            let bar_height = 24.0;
+                            let (rect, _) = ui.allocate_at_least(
+                                egui::vec2(bar_width, bar_height),
+                                egui::Sense::hover(),
+                            );
+
+                            let painter = ui.painter();
+                            painter.rect_filled(rect, 2.0, Color32::from_rgb(40, 40, 50));
+
+                            let fill_width = rect.width() * progress;
+                            let fill_rect = egui::Rect::from_min_max(
+                                rect.min,
+                                egui::pos2(rect.min.x + fill_width, rect.max.y),
+                            );
+                            painter.rect_filled(fill_rect, 2.0, Color32::from_rgb(100, 140, 80));
+
+                            let pct_text = format!("{}%", (progress * 100.0) as u32);
+                            let font = egui::FontId::proportional(14.0);
+                            let shadow_galley = painter.layout_no_wrap(
+                                pct_text.clone(),
+                                font.clone(),
+                                Color32::from_black_alpha(120),
+                            );
+                            let galley = painter.layout_no_wrap(pct_text, font, Color32::WHITE);
+                            let text_pos = egui::pos2(
+                                rect.center().x - galley.size().x / 2.0,
+                                rect.center().y - galley.size().y / 2.0,
+                            );
+                            painter.galley(
+                                egui::pos2(text_pos.x + 1.0, text_pos.y + 1.0),
+                                shadow_galley,
+                                Color32::from_black_alpha(120),
+                            );
+                            painter.galley(text_pos, galley, Color32::WHITE);
+
+                            ui.add_space(12.0);
+
+                            let status = if is_done {
+                                "Finalizing...".to_owned()
+                            } else {
+                                format!("{} - chunk {}/{}", step_label, current + 1, total)
+                            };
+                            ui.label(
+                                RichText::new(status)
+                                    .size(14.0)
+                                    .color(Color32::from_rgb(130, 130, 140)),
+                            );
+                        });
+                    });
+            });
+
+        let device = self.vulkan_ctx.device();
+        let sync = &self.frames_in_flight[self.current_frame];
+        let cmdbuf = &sync.command_buffer;
+
+        self.vulkan_ctx
+            .wait_for_fences(&[sync.fence.as_raw()])
+            .unwrap();
+
+        let image_idx = match self.swapchain.acquire_next(&sync.image_available) {
+            Ok((image_index, _)) => image_index,
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                self.is_resize_pending = true;
+                return;
+            }
+            Err(error) => panic!("Error while acquiring next image. Cause: {}", error),
+        };
+
+        let image_index_usize = image_idx as usize;
+        let image_in_flight_fence = self.images_in_flight[image_index_usize];
+        if image_in_flight_fence != vk::Fence::null() {
+            self.vulkan_ctx
+                .wait_for_fences(&[image_in_flight_fence])
+                .unwrap();
+        }
+        self.images_in_flight[image_index_usize] = sync.fence.as_raw();
+
+        unsafe {
+            device
+                .as_raw()
+                .reset_fences(&[sync.fence.as_raw()])
+                .expect("Failed to reset fences")
+        };
+
+        cmdbuf.begin(false);
+
+        let render_area = self.window_state.window_extent();
+
+        self.swapchain
+            .record_prepare_image_for_render_pass(cmdbuf, image_idx);
+
+        self.swapchain
+            .record_begin_render_pass_cmdbuf(cmdbuf, image_idx, render_area);
+
+        self.egui_renderer
+            .record_command_buffer(device, cmdbuf, render_area);
+
+        unsafe {
+            device.cmd_end_render_pass(cmdbuf.as_raw());
+        };
+
+        cmdbuf.end();
+
+        let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
+        let wait_semaphores = [sync.image_available.as_raw()];
+        let render_finished = &self.image_render_finished_semaphores[image_index_usize];
+        let signal_semaphores = [render_finished.as_raw()];
+        let command_buffers = [cmdbuf.as_raw()];
+        let submit_info = [vk::SubmitInfo::default()
+            .wait_semaphores(&wait_semaphores)
+            .wait_dst_stage_mask(&wait_stages)
+            .command_buffers(&command_buffers)
+            .signal_semaphores(&signal_semaphores)];
+
+        unsafe {
+            self.vulkan_ctx
+                .device()
+                .as_raw()
+                .queue_submit(
+                    self.vulkan_ctx.get_general_queue().as_raw(),
+                    &submit_info,
+                    sync.fence.as_raw(),
+                )
+                .expect("Failed to submit work to gpu.")
+        };
+
+        let present_result = self.swapchain.present(&signal_semaphores, image_idx);
+        match present_result {
+            Ok(is_suboptimal) if is_suboptimal => {
+                self.is_resize_pending = true;
+            }
+            Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                self.is_resize_pending = true;
+            }
+            Err(error) => panic!("Failed to present queue. Cause: {}", error),
+            _ => {}
+        }
+
+        self.current_frame = (self.current_frame + 1) % self.frames_in_flight.len();
+
+        if is_done {
+            self.loading_state = None;
+            self.finalize_loading();
+        }
+    }
+
+    fn finalize_loading(&mut self) {
+        self.vulkan_ctx.device().wait_idle();
+        BENCH.lock().unwrap().summary();
+
+        self.ensure_map_butterfly_emitter();
+
+        if let Err(err) = self.add_tree(
+            self.debug_tree_desc.clone(),
+            TreePlacement::Terrain(Vec2::new(self.debug_tree_pos.x, self.debug_tree_pos.z)),
+            TreeAddOptions::default(),
+        ) {
+            log::error!("Failed to add debug tree: {}", err);
+        }
+
+        if let Err(err) = self.tracer.regenerate_leaves(
+            self.gui_adjustables.leaves_inner_density.value,
+            self.gui_adjustables.leaves_outer_density.value,
+            self.gui_adjustables.leaves_inner_radius.value,
+            self.gui_adjustables.leaves_outer_radius.value,
+        ) {
+            log::error!("Failed to regenerate leaves: {}", err);
+        }
     }
 
     fn configure_gui_font(&mut self) -> Result<()> {
@@ -733,6 +1038,26 @@ impl App {
                 }
             }
 
+            WindowEvent::MouseWheel { delta, .. } => {
+                if !self.window_state.is_cursor_visible() {
+                    let scroll_y: f64 = match delta {
+                        MouseScrollDelta::LineDelta(_, y) => y as f64,
+                        MouseScrollDelta::PixelDelta(pos) => pos.y,
+                    };
+                    if scroll_y.abs() > 0.0 {
+                        let direction: isize = if scroll_y > 0.0 { -1 } else { 1 };
+                        let max_slot: isize = (ITEM_PANEL_SLOT_COUNT - 1) as isize;
+                        let new_slot = (self.selected_item_panel_slot as isize + direction)
+                            .rem_euclid(max_slot + 1)
+                            as usize;
+                        if new_slot != self.selected_item_panel_slot {
+                            self.selected_item_panel_slot = new_slot;
+                            self.play_item_panel_scroll_sound();
+                        }
+                    }
+                }
+            }
+
             // redraw the window
             WindowEvent::RedrawRequested => {
                 // when the windiw is resized, redraw is called afterwards, so when the window is minimized, return
@@ -748,6 +1073,13 @@ impl App {
                 self.window_state.maintain_cursor_grab();
 
                 self.time_info.update();
+
+                if self.loading_state.is_some() {
+                    self.process_loading_step();
+                    self.render_loading_frame();
+                    return;
+                }
+
                 if self.shovel_dig_held {
                     self.update_terrain_query_debug_text();
                     let now = Instant::now();
@@ -800,9 +1132,9 @@ impl App {
                 let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
-                        let mut style = (*ctx.style()).clone();
+                        let mut style = (*ctx.global_style()).clone();
                         apply_gui_style(&mut style);
-                        ctx.set_style(style);
+                        ctx.set_global_style(style);
 
                         let mut config_panel_open = self.config_panel_visible;
                         if config_panel_open {
@@ -1244,6 +1576,7 @@ impl App {
                         cmdbuf,
                         self.surface_builder.get_resources(),
                         self.gui_adjustables.lod_distance.value,
+                        self.gui_adjustables.flora_draw_distance.value,
                         self.time_info.time_since_start(),
                         &flora_colors,
                         leaf_bottom,

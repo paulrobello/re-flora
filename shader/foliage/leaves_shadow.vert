@@ -70,7 +70,7 @@ shadow_camera_info;
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
 #include "../include/instance.glsl"
-#include "../include/wind.glsl"
+#include "../include/wind_hash.glsl"
 #include "./billboard.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
