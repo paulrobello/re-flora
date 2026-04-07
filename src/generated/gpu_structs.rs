@@ -476,4 +476,3 @@ pub struct VoxelColors {
     pub oak_wood_color: [f32; 3],
     pub hash_color_variance: f32,
 }
-
