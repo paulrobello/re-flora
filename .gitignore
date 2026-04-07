@@ -1,4 +1,5 @@
 /target
+.claude/
 .aider*
 __pycache__/
 /resource_container_derive
