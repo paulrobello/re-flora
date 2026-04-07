@@ -144,18 +144,6 @@ pub struct PushConstantFlora {
     pub _pad2: [u8; 4],
 }
 
-/// Auto-generated from `PushConstantFloraLod` (GLSL source of truth).
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct PushConstantFloraLod {
-    pub time: f32,
-    pub _pad0: [u8; 12],
-    pub bottom_color: [f32; 3],
-    pub _pad1: [u8; 4],
-    pub tip_color: [f32; 3],
-    pub _pad2: [u8; 4],
-}
-
 /// Auto-generated from `PushConstantLeavesShadow` (GLSL source of truth).
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]

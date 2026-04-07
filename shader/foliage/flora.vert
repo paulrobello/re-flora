@@ -96,6 +96,7 @@ flora_growth_info;
 #include "../include/instance.glsl"
 #include "../include/sunlight.glsl"
 #include "../include/vsm.glsl"
+#include "../include/wind_hash.glsl"
 #include "./color_variation.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
@@ -203,12 +204,9 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    // Cheap hash-based sway instead of expensive 3x FBM noise wind
     float wind_time = flora_bucketed_time(pc.time, instance_seed);
-    uint sway_hash    = wellons_hash(instance_seed ^ 0xDEAD);
-    float sway_phase  = construct_float_01(sway_hash) * 6.2832;
-    float sway_amount = sin(wind_time * 2.0 + sway_phase) * 0.3;
-    vec3 wind_offset  = vec3(sway_amount, 0.0, sway_amount * 0.7) * wind_gradient * wind_gradient;
+    vec3 wind_vec    = get_wind(instance_pos, wind_time);
+    vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos   = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos    = anchor_pos + vec3(0.5) * scaling_factor;
     vec3 vert_pos     = anchor_pos + vec3(vert_offset_in_vox) * scaling_factor;
