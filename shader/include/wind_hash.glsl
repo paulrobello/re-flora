@@ -1,13 +1,12 @@
 #ifndef WIND_HASH_GLSL
 #define WIND_HASH_GLSL
 
-// Hash-based wind simulation — Metal/MoltenVK-safe replacement for wind.glsl.
+// Gradient-noise wind simulation — Metal/MoltenVK-safe replacement for wind.glsl.
 // Preserves the original spatial variation, traveling gusts, and direction/strength
-// behavior but uses fbm_value_noise_2d (hash-based) instead of FastNoiseLite
-// (which triggers catastrophic const-array penalties on Metal).
+// behavior using Perlin gradient noise (no large permutation tables).
 
 #include "./core/definitions.glsl"
-#include "./core/hash.glsl"
+#include "./core/gradient_noise.glsl"
 
 const float WIND_DIRECTION_FREQUENCY       = 0.0025f;
 const float WIND_STRENGTH_FREQUENCY        = 0.00125f;
@@ -28,13 +27,13 @@ vec3 get_wind(vec3 world_pos, float time) {
     vec2 strength_time  = WIND_STRENGTH_TIME_SCROLL * scroll_time;
 
     // Primary direction noise (replaces FNL OpenSimplex2 FBM, seed 1729)
-    float primary_direction_noise = fbm_value_noise_2d(
+    float primary_direction_noise = fbm_cnoise_2d(
         sample_pos.x + direction_time.x,
         sample_pos.y + direction_time.y,
         1729u, WIND_DIRECTION_FREQUENCY, 4, 2.0, 0.5);
 
     // Detail direction noise (second sample offset)
-    float detail_direction_noise = fbm_value_noise_2d(
+    float detail_direction_noise = fbm_cnoise_2d(
         sample_pos.x + WIND_SECOND_SAMPLE_OFFSET.x + direction_time.x,
         sample_pos.y + WIND_SECOND_SAMPLE_OFFSET.y + direction_time.y,
         1729u, WIND_DIRECTION_FREQUENCY, 4, 2.0, 0.5);
@@ -44,7 +43,7 @@ vec3 get_wind(vec3 world_pos, float time) {
     vec2 direction     = vec2(cos(base_angle + detail_angle), sin(base_angle + detail_angle));
 
     // Strength noise (replaces FNL OpenSimplex2 FBM, seed 2843)
-    float strength_noise = fbm_value_noise_2d(
+    float strength_noise = fbm_cnoise_2d(
         sample_pos.x + WIND_STRENGTH_OFFSET.x + strength_time.x,
         sample_pos.y + WIND_STRENGTH_OFFSET.y + strength_time.y,
         2843u, WIND_STRENGTH_FREQUENCY, 4, 2.0, 0.5);

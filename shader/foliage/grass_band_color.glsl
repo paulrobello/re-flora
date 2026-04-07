@@ -2,10 +2,11 @@
 #define GRASS_BAND_COLOR_GLSL
 
 #include "../include/core/color.glsl"
+#include "../include/core/gradient_noise.glsl"
 
 float sample_grass_band_noise(vec2 world_xz) {
-    // Hash-based value noise FBM (replaces FastNoiseLite — Metal const-array penalty)
-    float noise = fbm_value_noise_2d(world_xz.x, world_xz.y, 9041u, 0.008, 3, 2.0, 0.5);
+    // Perlin gradient noise FBM (no large const tables — Metal-safe)
+    float noise = fbm_cnoise_2d(world_xz.x, world_xz.y, 9041u, 0.008, 3, 2.0, 0.5);
     return noise * 0.5f + 0.5f;
 }
 
