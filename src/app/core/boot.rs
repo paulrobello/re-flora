@@ -11,6 +11,7 @@ use glam::UVec3;
 use winit::event_loop::ActiveEventLoop;
 
 impl App {
+    #[allow(dead_code)]
     pub(super) fn init(
         plain_builder: &mut PlainBuilder,
         surface_builder: &mut SurfaceBuilder,
