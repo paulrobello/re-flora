@@ -1,6 +1,4 @@
-use super::ui_style::{
-    COPPER_SHOVEL_SLOT_INDEX, HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX,
-};
+use super::ui_style::{HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -24,10 +22,6 @@ impl App {
         self.selected_item_panel_slot == SHOVEL_SLOT_INDEX
     }
 
-    pub(super) fn is_copper_shovel_selected(&self) -> bool {
-        self.selected_item_panel_slot == COPPER_SHOVEL_SLOT_INDEX
-    }
-
     pub(super) fn is_staff_selected(&self) -> bool {
         self.selected_item_panel_slot == STAFF_SLOT_INDEX
     }
@@ -36,8 +30,60 @@ impl App {
         self.selected_item_panel_slot == HOE_SLOT_INDEX
     }
 
-    pub(super) fn has_dirt_in_backpack(&self) -> bool {
-        self.backpack_dirt_count > 0
+    fn active_voxel_type_id(&self) -> u32 {
+        self.active_voxel_type.voxel_type()
+    }
+
+    fn active_voxel_count(&self) -> u32 {
+        match self.active_voxel_type {
+            super::ActiveVoxelType::Dirt => self.backpack_dirt_count,
+            super::ActiveVoxelType::Sand => self.backpack_sand_count,
+            super::ActiveVoxelType::CherryWood => self.backpack_cherry_wood_count,
+            super::ActiveVoxelType::OakWood => self.backpack_oak_wood_count,
+            super::ActiveVoxelType::Rock => self.backpack_rock_count,
+        }
+    }
+
+    fn add_active_voxel_to_backpack(&mut self, amount: u32) {
+        match self.active_voxel_type {
+            super::ActiveVoxelType::Dirt => {
+                self.backpack_dirt_count = self.backpack_dirt_count.saturating_add(amount)
+            }
+            super::ActiveVoxelType::Sand => {
+                self.backpack_sand_count = self.backpack_sand_count.saturating_add(amount)
+            }
+            super::ActiveVoxelType::CherryWood => {
+                self.backpack_cherry_wood_count =
+                    self.backpack_cherry_wood_count.saturating_add(amount)
+            }
+            super::ActiveVoxelType::OakWood => {
+                self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_add(amount)
+            }
+            super::ActiveVoxelType::Rock => {
+                self.backpack_rock_count = self.backpack_rock_count.saturating_add(amount)
+            }
+        }
+    }
+
+    fn remove_active_voxel_from_backpack(&mut self, amount: u32) {
+        match self.active_voxel_type {
+            super::ActiveVoxelType::Dirt => {
+                self.backpack_dirt_count = self.backpack_dirt_count.saturating_sub(amount)
+            }
+            super::ActiveVoxelType::Sand => {
+                self.backpack_sand_count = self.backpack_sand_count.saturating_sub(amount)
+            }
+            super::ActiveVoxelType::CherryWood => {
+                self.backpack_cherry_wood_count =
+                    self.backpack_cherry_wood_count.saturating_sub(amount)
+            }
+            super::ActiveVoxelType::OakWood => {
+                self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_sub(amount)
+            }
+            super::ActiveVoxelType::Rock => {
+                self.backpack_rock_count = self.backpack_rock_count.saturating_sub(amount)
+            }
+        }
     }
 
     pub(super) fn start_terrain_edit_loop_sound(&mut self, position: Vec3) {
@@ -178,27 +224,17 @@ impl App {
                 }
 
                 if let Err(err) = self
-                    .apply_surface_terrain_removal(TerrainRemovalEdit {
-                        center,
-                        radius: super::SHOVEL_REMOVE_RADIUS,
-                    })
+                    .apply_surface_terrain_removal(
+                        TerrainRemovalEdit {
+                            center,
+                            radius: super::SHOVEL_REMOVE_RADIUS,
+                        },
+                        Some(self.active_voxel_type_id()),
+                    )
                     .map(|stats| {
-                        self.backpack_dirt_count = self
-                            .backpack_dirt_count
-                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_DIRT));
-                        self.backpack_sand_count = self
-                            .backpack_sand_count
-                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_SAND));
-                        self.backpack_cherry_wood_count =
-                            self.backpack_cherry_wood_count.saturating_add(
-                                stats.count_removed(crate::builder::VOXEL_TYPE_CHERRY_WOOD),
-                            );
-                        self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_add(
-                            stats.count_removed(crate::builder::VOXEL_TYPE_OAK_WOOD),
+                        self.add_active_voxel_to_backpack(
+                            stats.count_removed(self.active_voxel_type_id()),
                         );
-                        self.backpack_rock_count = self
-                            .backpack_rock_count
-                            .saturating_add(stats.count_removed(crate::builder::VOXEL_TYPE_ROCK));
                     })
                 {
                     log::error!("Failed to apply terrain removal: {}", err);
@@ -254,22 +290,25 @@ impl App {
         }
     }
 
-    pub(super) fn try_copper_shovel_place(&mut self, now: Instant) {
-        if self.window_state.is_cursor_visible() || !self.is_copper_shovel_selected() {
+    pub(super) fn try_shovel_place(&mut self, now: Instant) {
+        if self.window_state.is_cursor_visible() || !self.is_shovel_selected() {
             self.stop_terrain_edit_loop_sound();
             return;
         }
 
-        if !self.has_dirt_in_backpack() {
+        if self.active_voxel_count() == 0 {
             self.stop_terrain_edit_loop_sound();
             return;
         }
+
+        let active_voxel_type = self.active_voxel_type_id();
+        let active_voxel_count = self.active_voxel_count();
 
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
                 self.start_terrain_edit_loop_sound(center);
 
-                if let Some(last_place) = self.last_copper_shovel_place_time {
+                if let Some(last_place) = self.last_shovel_place_time {
                     if now.duration_since(last_place) < super::SHOVEL_DIG_INTERVAL {
                         return;
                     }
@@ -281,28 +320,26 @@ impl App {
                             center,
                             radius: super::SHOVEL_REMOVE_RADIUS,
                         },
-                        self.backpack_dirt_count,
+                        active_voxel_type,
+                        active_voxel_count,
                     )
                     .map(|stats| {
-                        self.backpack_dirt_count = self
-                            .backpack_dirt_count
-                            .saturating_sub(stats.count_added(crate::builder::VOXEL_TYPE_DIRT));
+                        self.remove_active_voxel_from_backpack(
+                            stats.count_added(self.active_voxel_type_id()),
+                        );
                     })
                 {
                     log::error!("Failed to apply terrain placement: {}", err);
                     return;
                 }
-                self.last_copper_shovel_place_time = Some(now);
+                self.last_shovel_place_time = Some(now);
             }
             Ok(None) => {
                 self.stop_terrain_edit_loop_sound();
-                self.last_copper_shovel_place_time = Some(now);
+                self.last_shovel_place_time = Some(now);
             }
             Err(err) => {
-                log::error!(
-                    "Copper shovel place attempt failed during terrain query: {}",
-                    err
-                );
+                log::error!("Shovel place attempt failed during terrain query: {}", err);
             }
         }
     }

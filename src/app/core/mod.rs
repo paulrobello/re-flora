@@ -45,12 +45,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use ui_style::{
-    apply_gui_style, draw_backpack_summary, draw_item_panel, CUSTOM_GUI_FONT_NAME,
-    CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT, GOLD_ACCENT, ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH,
-    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH, ITEM_PANEL_HOE_ICON_FALLBACK_PATH,
-    ITEM_PANEL_HOE_ICON_PATH, ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH,
-    ITEM_PANEL_SLOT_COUNT, ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH,
-    PANEL_BG, PANEL_DARK, SAGE_ACCENT, SHADOW_COLOR,
+    apply_gui_style, draw_active_voxel_display, draw_backpack_summary, draw_item_panel,
+    CUSTOM_GUI_FONT_NAME, CUSTOM_GUI_FONT_PATH, FLOWER_ACCENT, GOLD_ACCENT,
+    ITEM_PANEL_HOE_ICON_FALLBACK_PATH, ITEM_PANEL_HOE_ICON_PATH,
+    ITEM_PANEL_SHOVEL_ICON_FALLBACK_PATH, ITEM_PANEL_SHOVEL_ICON_PATH, ITEM_PANEL_SLOT_COUNT,
+    ITEM_PANEL_STAFF_ICON_FALLBACK_PATH, ITEM_PANEL_STAFF_ICON_PATH, PANEL_BG, PANEL_DARK,
+    SAGE_ACCENT, SHADOW_COLOR,
 };
 use uuid::Uuid;
 use winit::{
@@ -133,15 +133,16 @@ pub struct App {
     settings_panel_visible: bool,
     is_fly_mode: bool,
     item_panel_shovel_icon: Option<TextureHandle>,
-    item_panel_copper_shovel_icon: Option<TextureHandle>,
     item_panel_staff_icon: Option<TextureHandle>,
     item_panel_hoe_icon: Option<TextureHandle>,
     selected_item_panel_slot: usize,
+    active_voxel_type: ActiveVoxelType,
     terrain_query_debug_text: String,
     left_mouse_held: bool,
+    right_mouse_held: bool,
     shovel_dig_held: bool,
     last_shovel_dig_time: Option<Instant>,
-    last_copper_shovel_place_time: Option<Instant>,
+    last_shovel_place_time: Option<Instant>,
     last_staff_regen_time: Option<Instant>,
     last_hoe_trim_time: Option<Instant>,
     backpack_dirt_count: u32,
@@ -224,6 +225,55 @@ const ITEM_PANEL_SCROLL_SFX_VOLUME_DB: f32 = -6.0;
 const FLORA_TICK_RATE_HZ: f32 = 1.0;
 const FLORA_SPROUT_DELAY_TICKS: u32 = 2;
 const FLORA_FULL_GROWTH_TICKS: u32 = 30;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ActiveVoxelType {
+    Dirt,
+    Sand,
+    CherryWood,
+    OakWood,
+    Rock,
+}
+
+const ACTIVE_VOXEL_TYPES: [ActiveVoxelType; 5] = [
+    ActiveVoxelType::Dirt,
+    ActiveVoxelType::Sand,
+    ActiveVoxelType::CherryWood,
+    ActiveVoxelType::OakWood,
+    ActiveVoxelType::Rock,
+];
+
+impl ActiveVoxelType {
+    pub(super) fn voxel_type(self) -> u32 {
+        match self {
+            ActiveVoxelType::Dirt => crate::builder::VOXEL_TYPE_DIRT,
+            ActiveVoxelType::Sand => crate::builder::VOXEL_TYPE_SAND,
+            ActiveVoxelType::CherryWood => crate::builder::VOXEL_TYPE_CHERRY_WOOD,
+            ActiveVoxelType::OakWood => crate::builder::VOXEL_TYPE_OAK_WOOD,
+            ActiveVoxelType::Rock => crate::builder::VOXEL_TYPE_ROCK,
+        }
+    }
+
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            ActiveVoxelType::Dirt => "Dirt",
+            ActiveVoxelType::Sand => "Sand",
+            ActiveVoxelType::CherryWood => "Cherry wood",
+            ActiveVoxelType::OakWood => "Oak wood",
+            ActiveVoxelType::Rock => "Rock",
+        }
+    }
+
+    pub(super) fn color(self) -> Color32 {
+        match self {
+            ActiveVoxelType::Dirt => Color32::from_rgb(178, 124, 80),
+            ActiveVoxelType::Sand => Color32::from_rgb(229, 204, 126),
+            ActiveVoxelType::CherryWood => Color32::from_rgb(219, 128, 152),
+            ActiveVoxelType::OakWood => Color32::from_rgb(159, 110, 70),
+            ActiveVoxelType::Rock => Color32::from_rgb(168, 176, 190),
+        }
+    }
+}
 
 impl App {
     fn linear_to_db(linear: f32) -> f32 {
@@ -439,15 +489,16 @@ impl App {
             settings_panel_visible: false,
             is_fly_mode: true,
             item_panel_shovel_icon: None,
-            item_panel_copper_shovel_icon: None,
             item_panel_staff_icon: None,
             item_panel_hoe_icon: None,
             selected_item_panel_slot: 0,
+            active_voxel_type: ActiveVoxelType::Dirt,
             terrain_query_debug_text: "not hit".to_owned(),
             left_mouse_held: false,
+            right_mouse_held: false,
             shovel_dig_held: false,
             last_shovel_dig_time: None,
-            last_copper_shovel_place_time: None,
+            last_shovel_place_time: None,
             last_staff_regen_time: None,
             last_hoe_trim_time: None,
             backpack_dirt_count: 0,
@@ -830,38 +881,6 @@ impl App {
         );
         self.item_panel_shovel_icon = Some(shovel_texture);
 
-        let copper_shovel_path =
-            if std::path::Path::new(ITEM_PANEL_COPPER_SHOVEL_ICON_PATH).exists() {
-                ITEM_PANEL_COPPER_SHOVEL_ICON_PATH
-            } else {
-                log::warn!(
-                    "Item panel icon not found at {}. Falling back to {}",
-                    ITEM_PANEL_COPPER_SHOVEL_ICON_PATH,
-                    ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
-                );
-                ITEM_PANEL_COPPER_SHOVEL_ICON_FALLBACK_PATH
-            };
-
-        let copper_shovel_bytes = std::fs::read(copper_shovel_path)
-            .with_context(|| format!("Failed to read item panel icon from {copper_shovel_path}"))?;
-        let copper_shovel_rgba = image::load_from_memory(&copper_shovel_bytes)
-            .with_context(|| format!("Failed to decode item panel icon from {copper_shovel_path}"))?
-            .to_rgba8();
-        let copper_shovel_size = [
-            copper_shovel_rgba.width() as usize,
-            copper_shovel_rgba.height() as usize,
-        ];
-        let copper_shovel_pixels = copper_shovel_rgba.into_raw();
-        let copper_shovel_image =
-            ColorImage::from_rgba_unmultiplied(copper_shovel_size, &copper_shovel_pixels);
-
-        let copper_shovel_texture = self.egui_renderer.context().load_texture(
-            "item_panel_copper_shovel",
-            copper_shovel_image,
-            egui::TextureOptions::NEAREST,
-        );
-        self.item_panel_copper_shovel_icon = Some(copper_shovel_texture);
-
         let staff_bytes = std::fs::read(staff_path)
             .with_context(|| format!("Failed to read item panel icon from {staff_path}"))?;
         let staff_rgba = image::load_from_memory(&staff_bytes)
@@ -1013,45 +1032,55 @@ impl App {
                 if button == MouseButton::Left {
                     self.left_mouse_held = state == ElementState::Pressed;
                 }
+                if button == MouseButton::Right {
+                    self.right_mouse_held = state == ElementState::Pressed;
+                }
 
-                if !self.window_state.is_cursor_visible() && button == MouseButton::Left {
+                if !self.window_state.is_cursor_visible()
+                    && (button == MouseButton::Left || button == MouseButton::Right)
+                {
                     match state {
                         ElementState::Pressed => {
                             self.update_terrain_query_debug_text();
                             self.shovel_dig_held = true;
                             let now = Instant::now();
-                            if self.is_shovel_selected() {
+                            if self.is_shovel_selected() && button == MouseButton::Left {
                                 self.try_shovel_dig(now);
-                            } else if self.is_copper_shovel_selected() {
-                                self.try_copper_shovel_place(now);
-                            } else if self.is_staff_selected() {
+                            } else if self.is_shovel_selected() && button == MouseButton::Right {
+                                self.try_shovel_place(now);
+                            } else if self.is_staff_selected() && button == MouseButton::Left {
                                 self.try_staff_regenerate(now);
-                            } else if self.is_hoe_selected() {
+                            } else if self.is_hoe_selected() && button == MouseButton::Left {
                                 self.try_hoe_trim(now);
                             }
                         }
                         ElementState::Released => {
-                            self.shovel_dig_held = false;
-                            self.stop_terrain_edit_loop_sound();
+                            self.shovel_dig_held = self.left_mouse_held || self.right_mouse_held;
+                            if !self.shovel_dig_held {
+                                self.stop_terrain_edit_loop_sound();
+                            }
                         }
                     }
                 }
             }
 
             WindowEvent::MouseWheel { delta, .. } => {
-                if !self.window_state.is_cursor_visible() {
+                if !self.window_state.is_cursor_visible() && self.is_shovel_selected() {
                     let scroll_y: f64 = match delta {
                         MouseScrollDelta::LineDelta(_, y) => y as f64,
                         MouseScrollDelta::PixelDelta(pos) => pos.y,
                     };
                     if scroll_y.abs() > 0.0 {
                         let direction: isize = if scroll_y > 0.0 { -1 } else { 1 };
-                        let max_slot: isize = (ITEM_PANEL_SLOT_COUNT - 1) as isize;
-                        let new_slot = (self.selected_item_panel_slot as isize + direction)
-                            .rem_euclid(max_slot + 1)
-                            as usize;
-                        if new_slot != self.selected_item_panel_slot {
-                            self.selected_item_panel_slot = new_slot;
+                        let current_idx = ACTIVE_VOXEL_TYPES
+                            .iter()
+                            .position(|voxel| *voxel == self.active_voxel_type)
+                            .unwrap_or(0) as isize;
+                        let max_idx: isize = (ACTIVE_VOXEL_TYPES.len() - 1) as isize;
+                        let new_idx = (current_idx + direction).rem_euclid(max_idx + 1) as usize;
+                        let new_voxel = ACTIVE_VOXEL_TYPES[new_idx];
+                        if new_voxel != self.active_voxel_type {
+                            self.active_voxel_type = new_voxel;
                             self.play_item_panel_scroll_sound();
                         }
                     }
@@ -1083,13 +1112,13 @@ impl App {
                 if self.shovel_dig_held {
                     self.update_terrain_query_debug_text();
                     let now = Instant::now();
-                    if self.is_shovel_selected() {
+                    if self.is_shovel_selected() && self.left_mouse_held {
                         self.try_shovel_dig(now);
-                    } else if self.is_copper_shovel_selected() {
-                        self.try_copper_shovel_place(now);
-                    } else if self.is_staff_selected() {
+                    } else if self.is_shovel_selected() && self.right_mouse_held {
+                        self.try_shovel_place(now);
+                    } else if self.is_staff_selected() && self.left_mouse_held {
                         self.try_staff_regenerate(now);
-                    } else if self.is_hoe_selected() {
+                    } else if self.is_hoe_selected() && self.left_mouse_held {
                         self.try_hoe_trim(now);
                     } else {
                         self.stop_terrain_edit_loop_sound();
@@ -1120,7 +1149,6 @@ impl App {
 
                 let tree_desc_changed = false;
                 let item_panel_shovel_icon = self.item_panel_shovel_icon.clone();
-                let item_panel_copper_shovel_icon = self.item_panel_copper_shovel_icon.clone();
                 let item_panel_staff_icon = self.item_panel_staff_icon.clone();
                 let item_panel_hoe_icon = self.item_panel_hoe_icon.clone();
                 let selected_item_panel_slot = self.selected_item_panel_slot;
@@ -1130,6 +1158,8 @@ impl App {
                 let backpack_oak_wood_count = self.backpack_oak_wood_count;
                 let backpack_rock_count = self.backpack_rock_count;
                 let terrain_query_debug_text = self.terrain_query_debug_text.clone();
+                let active_voxel_label = self.active_voxel_type.label();
+                let active_voxel_color = self.active_voxel_type.color();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.global_style()).clone();
@@ -1246,7 +1276,6 @@ impl App {
                         draw_item_panel(
                             ctx,
                             item_panel_shovel_icon.as_ref(),
-                            item_panel_copper_shovel_icon.as_ref(),
                             item_panel_staff_icon.as_ref(),
                             item_panel_hoe_icon.as_ref(),
                             selected_item_panel_slot,
@@ -1261,6 +1290,7 @@ impl App {
                             backpack_rock_count,
                             terrain_query_debug_text.as_str(),
                         );
+                        draw_active_voxel_display(ctx, active_voxel_label, active_voxel_color);
 
                         if self.left_mouse_held {
                             let center = ctx.content_rect().center();

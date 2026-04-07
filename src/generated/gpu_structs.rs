@@ -210,10 +210,10 @@ pub struct ChunkModifyInfo {
     pub _pad0: [u8; 4],
     pub dim: [u32; 3],
     pub fill_voxel_type: u32,
+    pub target_voxel_type: u32,
     pub primitive_kind: u32,
     pub surface_only: u32,
     pub max_write_count: u32,
-    pub _pad1: [u8; 4],
 }
 
 /// Auto-generated from `U_ClearOccupancyInfo` (GLSL source of truth).
