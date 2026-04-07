@@ -113,12 +113,6 @@ impl SceneAccelBuilder {
         node_offset_for_chunk: u64,
         node_count_for_chunk: u64,
     ) -> Result<()> {
-        log::info!(
-            "[SCENE_TEX] chunk_idx={:?} node_offset={} leaf_offset={}",
-            chunk_idx,
-            node_offset_for_chunk,
-            node_count_for_chunk,
-        );
         update_buffers(
             &self.resources.scene_tex_update_info,
             chunk_idx,
@@ -126,10 +120,11 @@ impl SceneAccelBuilder {
             node_count_for_chunk as u32,
         )?;
 
-        // Submit without waiting — no downstream CPU dependency. Same-queue
-        // ordering guarantees this completes before the next frame's rendering.
         self.update_scene_tex_cmdbuf
             .submit(&self.vulkan_ctx.get_general_queue(), None);
+        self.vulkan_ctx
+            .device()
+            .wait_queue_idle(&self.vulkan_ctx.get_general_queue());
         return Ok(());
 
         fn update_buffers(
@@ -149,47 +144,5 @@ impl SceneAccelBuilder {
 
     pub fn get_resources(&self) -> &SceneAccelBuilderResources {
         &self.resources
-    }
-
-    /// DEBUG: Read back the entire scene_tex and log non-trivial entries.
-    #[allow(dead_code)]
-    pub fn debug_read_scene_tex(&self) {
-        let image = self.resources.scene_tex.get_image();
-        match image.fetch_data(
-            &self.vulkan_ctx.get_general_queue(),
-            self.vulkan_ctx.command_pool(),
-        ) {
-            Ok(data) => {
-                let desc = image.get_desc();
-                let w = desc.extent.width as usize;
-                let h = desc.extent.height as usize;
-                let d = desc.extent.depth as usize;
-                // R32G32_UINT = 8 bytes per texel
-                let bytes_per_texel = 8usize;
-                for z in 0..d {
-                    for y in 0..h {
-                        for x in 0..w {
-                            let idx = (z * h * w + y * w + x) * bytes_per_texel;
-                            if idx + 8 > data.len() {
-                                continue;
-                            }
-                            let r = u32::from_ne_bytes(data[idx..idx + 4].try_into().unwrap());
-                            let g = u32::from_ne_bytes(data[idx + 4..idx + 8].try_into().unwrap());
-                            // scene_tex stores (node_offset+1, leaf_offset+1), 0 means empty
-                            if r != 0 || g != 0 {
-                                log::info!(
-                                    "[SCENE_TEX_READBACK] chunk=({},{},{}) raw=({},{}) decoded_node={} decoded_leaf={}",
-                                    x, y, z, r, g,
-                                    r.wrapping_sub(1), g.wrapping_sub(1),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                log::error!("[SCENE_TEX_READBACK] failed: {}", e);
-            }
-        }
     }
 }
