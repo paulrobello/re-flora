@@ -1132,9 +1132,9 @@ impl App {
                 let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
-                        let mut style = (*ctx.style()).clone();
+                        let mut style = (*ctx.global_style()).clone();
                         apply_gui_style(&mut style);
-                        ctx.set_style(style);
+                        ctx.set_global_style(style);
 
                         let mut config_panel_open = self.config_panel_visible;
                         if config_panel_open {
