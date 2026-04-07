@@ -69,8 +69,8 @@ shadow_camera_info;
 
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
-#include "../include/core/hash.glsl"
 #include "../include/instance.glsl"
+#include "../include/wind_hash.glsl"
 #include "./billboard.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
@@ -87,22 +87,18 @@ void main() {
 
     float wind_gradient = compute_gradient(vox_local_pos, gradient_origin, max_length);
 
-    uint instance_seed = decode_instance_seed(in_instance_ty_seed);
-    vec3 instance_pos  = in_instance_pos * scaling_factor;
+    vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    // Cheap hash-based sway instead of expensive 3x FBM noise wind
-    uint sway_hash    = wellons_hash(instance_seed ^ 0xDEAD);
-    float sway_phase  = construct_float_01(sway_hash) * 6.2832;
-    float sway_amount = sin(pc.time * 2.0 + sway_phase) * 0.3;
-    vec3 wind_offset  = vec3(sway_amount, 0.0, sway_amount * 0.7) * wind_gradient * wind_gradient;
-    vec3 anchor_pos   = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
-    vec3 voxel_pos    = anchor_pos + vec3(0.5) * scaling_factor;
-    vec3 vert_pos     = get_vert_pos_with_billboard(shadow_camera_info.view_mat, voxel_pos,
-                                                    vert_offset_in_vox, scaling_factor);
+    vec3 wind_vec    = get_wind(instance_pos, pc.time);
+    vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
+    vec3 anchor_pos  = (vox_local_pos + wind_offset) * scaling_factor + instance_pos;
+    vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
+    vec3 vert_pos    = get_vert_pos_with_billboard(shadow_camera_info.view_mat, voxel_pos,
+                                                   vert_offset_in_vox, scaling_factor);
 
     gl_Position = shadow_camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
-    uint palette_seed = combine_color_seed(instance_seed);
+    uint palette_seed = combine_color_seed(decode_instance_seed(in_instance_ty_seed));
     gl_Position.z += float(in_instance_growth_start_tick & 1u) * 0.0;
     gl_Position.z += float(palette_seed & 1u) * 1e-8;
 }

@@ -192,9 +192,7 @@ impl App {
         (center, extent)
     }
 
-    /// CPU-only particle work: emitter updates, physics simulation, tick stepping.
-    /// No GPU commands are submitted — safe to call while the GPU is still rendering.
-    pub(super) fn update_particle_cpu(&mut self, dt: f32) {
+    pub(super) fn update_particle_simulation(&mut self, dt: f32) {
         if dt <= 0.0 {
             return;
         }
@@ -223,11 +221,6 @@ impl App {
         );
 
         self.particle_system.update(dt, self.particle_forces);
-    }
-
-    /// GPU terrain queries + particle upload. Must be called AFTER all prior render
-    /// fences have been waited on (previous frame's commands must be complete).
-    pub(super) fn update_particle_gpu(&mut self) {
         let tick_step = self.particle_system.last_tick_step();
         if tick_step.did_step {
             self.particle_animation_time_sec += tick_step.step_seconds;
@@ -242,119 +235,14 @@ impl App {
     }
 
     pub(super) fn plan_butterflies(&mut self, tick_step: ParticleTickStep) {
-        use crate::tracer::TerrainRayQuery;
+        use crate::tracer::{TerrainRayHitSample, TerrainRayQuery};
 
-        const MAX_PLACEMENT_FRAMES: u8 = 3;
+        const MAX_RETRIES: usize = 3;
+        const MAX_SPAWN_XZ_RETRIES: usize = 16;
         const STEP_LEN: f32 = crate::particles::emitters::WORM_STEP_LEN;
         const RAY_EPSILON: f32 = 0.02;
 
         let map_size = super::CHUNK_DIM.as_vec3();
-
-        // ── Phase 1: Batched placement ──────────────────────────────────
-        // Collect all butterflies needing placement: new spawns + deferred retries.
-        // Generate one candidate XZ per butterfly, batch into a single GPU query.
-
-        struct PlacementEntry {
-            handle: ParticleHandle,
-            emitter_idx: usize,
-            candidate: Vec3,
-            attempts_remaining: u8,
-        }
-
-        let mut placement_batch: Vec<PlacementEntry> = Vec::new();
-
-        // Drain deferred retries from last frame (generate new candidate positions)
-        let prev_retries = std::mem::take(&mut self.pending_placement_retries);
-        for (handle, emitter_idx, attempts_remaining) in prev_retries {
-            if !self.particle_system.is_alive_handle(handle) {
-                continue;
-            }
-            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
-                let candidate: Vec3 = em.random_spawn_position_candidate();
-                placement_batch.push(PlacementEntry {
-                    handle,
-                    emitter_idx,
-                    candidate,
-                    attempts_remaining,
-                });
-            }
-        }
-
-        // Drain new spawns from emitters
-        for emitter_idx in 0..self.butterfly_emitters.len() {
-            let pending_handles =
-                self.butterfly_emitters[emitter_idx].drain_pending_placement_handles();
-            for handle in pending_handles {
-                if !self.particle_system.is_alive_handle(handle) {
-                    continue;
-                }
-                // Use the spawn position as initial candidate, or generate a new one
-                let candidate = self.particle_system.position(handle).unwrap_or_else(|| {
-                    self.butterfly_emitters[emitter_idx].random_spawn_position_candidate()
-                });
-                placement_batch.push(PlacementEntry {
-                    handle,
-                    emitter_idx,
-                    candidate,
-                    attempts_remaining: MAX_PLACEMENT_FRAMES,
-                });
-            }
-        }
-
-        // Single GPU dispatch for all placement height queries
-        if !placement_batch.is_empty() {
-            let xz_positions: Vec<Vec2> = placement_batch
-                .iter()
-                .map(|e| Vec2::new(e.candidate.x, e.candidate.z))
-                .collect();
-
-            let samples = match self
-                .tracer
-                .query_terrain_heights_batch_with_validity(&xz_positions)
-            {
-                Ok(s) => s,
-                Err(err) => {
-                    log::error!("Failed batched terrain height query for placement: {}", err);
-                    // Re-queue everything for next frame rather than losing them
-                    for entry in placement_batch {
-                        if entry.attempts_remaining > 1 {
-                            self.pending_placement_retries.push((
-                                entry.handle,
-                                entry.emitter_idx,
-                                entry.attempts_remaining - 1,
-                            ));
-                        }
-                    }
-                    return;
-                }
-            };
-
-            for (entry, sample) in placement_batch.into_iter().zip(samples.into_iter()) {
-                if sample.is_valid {
-                    let _ = self
-                        .particle_system
-                        .set_position(entry.handle, entry.candidate);
-                } else if entry.attempts_remaining > 1 {
-                    // Defer to next frame with decremented counter
-                    self.pending_placement_retries.push((
-                        entry.handle,
-                        entry.emitter_idx,
-                        entry.attempts_remaining - 1,
-                    ));
-                } else {
-                    // Out of retries — use fallback position (emitter center Y)
-                    let fallback_y = self
-                        .butterfly_emitters
-                        .get(entry.emitter_idx)
-                        .map(|em| em.center.y)
-                        .unwrap_or(0.5);
-                    let fallback = Vec3::new(entry.candidate.x, fallback_y, entry.candidate.z);
-                    let _ = self.particle_system.set_position(entry.handle, fallback);
-                }
-            }
-        }
-
-        // ── Phase 2: Collect active butterflies for movement ────────────
 
         let mut all_handles: Vec<ParticleHandle> = Vec::new();
         let mut all_positions: Vec<Vec3> = Vec::new();
@@ -362,6 +250,83 @@ impl App {
         let mut all_emitter_indices: Vec<usize> = Vec::new();
 
         for emitter_idx in 0..self.butterfly_emitters.len() {
+            let pending_handles =
+                self.butterfly_emitters[emitter_idx].drain_pending_placement_handles();
+            for handle in pending_handles {
+                if !self.particle_system.is_alive_handle(handle) {
+                    continue;
+                }
+
+                let mut resolved_position = self.particle_system.position(handle);
+                let mut found_valid_xz = false;
+                let mut last_attempt_position = resolved_position;
+
+                if let Some(position) = resolved_position {
+                    let sample =
+                        match self
+                            .tracer
+                            .query_terrain_heights_batch_with_validity(&[Vec2::new(
+                                position.x, position.z,
+                            )]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+                    if sample[0].is_valid {
+                        found_valid_xz = true;
+                    }
+                }
+
+                if !found_valid_xz {
+                    for _ in 0..MAX_SPAWN_XZ_RETRIES {
+                        let candidate =
+                            self.butterfly_emitters[emitter_idx].random_spawn_position_candidate();
+                        let sample = match self.tracer.query_terrain_heights_batch_with_validity(&[
+                            Vec2::new(candidate.x, candidate.z),
+                        ]) {
+                            Ok(samples) => samples,
+                            Err(err) => {
+                                log::error!(
+                                    "Failed terrain height query for butterfly placement retry: {}",
+                                    err
+                                );
+                                return;
+                            }
+                        };
+
+                        if sample[0].is_valid {
+                            found_valid_xz = true;
+                            resolved_position = Some(candidate);
+                            break;
+                        }
+
+                        last_attempt_position = Some(candidate);
+                    }
+                }
+
+                if found_valid_xz {
+                    if let Some(position) = resolved_position {
+                        let _ = self.particle_system.set_position(handle, position);
+                    }
+                } else {
+                    let fallback = if let Some(last) = last_attempt_position {
+                        Vec3::new(
+                            last.x,
+                            self.butterfly_emitters[emitter_idx].center.y,
+                            last.z,
+                        )
+                    } else {
+                        self.butterfly_emitters[emitter_idx].random_spawn_position_candidate()
+                    };
+                    let _ = self.particle_system.set_position(handle, fallback);
+                }
+            }
+
             let (mut handles, mut positions, mut directions) = {
                 let emitter = &mut self.butterfly_emitters[emitter_idx];
                 let mut handles = Vec::new();
@@ -409,134 +374,129 @@ impl App {
             return;
         }
 
-        // ── Phase 3: Batched movement ray queries (single GPU dispatch) ─
-
         let n = all_handles.len();
         let mut successes = vec![false; n];
         let mut committed_dirs = all_directions.clone();
+        let mut pending_retry: Vec<(usize, Vec3, Vec3)> = Vec::new();
 
-        // Build handle→index map for resolving deferred retries from last frame
-        let handle_to_idx: std::collections::HashMap<ParticleHandle, usize> = all_handles
-            .iter()
-            .enumerate()
-            .map(|(i, h)| (*h, i))
-            .collect();
+        for attempt in 0..=MAX_RETRIES {
+            let is_initial = attempt == 0;
+            let pending_count = pending_retry.len();
 
-        struct MoveBatchEntry {
-            particle_idx: usize,
-            origin: Vec3,
-            direction: Vec3,
-        }
-
-        let mut batch: Vec<MoveBatchEntry> = Vec::with_capacity(n);
-        let mut retry_covered: std::collections::HashSet<usize> = std::collections::HashSet::new();
-
-        // Include deferred movement retries from last frame (resolve handle→current index)
-        let prev_move_retries = std::mem::take(&mut self.pending_movement_retries);
-        for (handle, _emitter_idx, origin, direction) in prev_move_retries {
-            if let Some(&idx) = handle_to_idx.get(&handle) {
-                batch.push(MoveBatchEntry {
-                    particle_idx: idx,
-                    origin,
-                    direction,
-                });
-                retry_covered.insert(idx);
+            if pending_count == 0 && !is_initial {
+                break;
             }
-            // If handle not found, particle was despawned — silently drop the retry
-        }
 
-        // Add initial movement queries for all particles not already covered by retries
-        for i in 0..n {
-            if !retry_covered.contains(&i) {
-                batch.push(MoveBatchEntry {
-                    particle_idx: i,
-                    origin: all_positions[i],
-                    direction: all_directions[i],
-                });
-            }
-        }
-
-        if !batch.is_empty() {
-            let rays: Vec<TerrainRayQuery> = batch
-                .iter()
-                .map(|e| TerrainRayQuery {
-                    origin: e.origin + Vec3::new(0.0, RAY_EPSILON, 0.0),
-                    direction: e.direction.normalize_or_zero(),
-                })
-                .collect();
-
-            let hits = match self.tracer.query_terrain_rays_batch_with_validity(&rays) {
-                Ok(h) => h,
-                Err(err) => {
-                    log::error!("Failed terrain ray query for butterflies: {}", err);
-                    return;
-                }
+            let batch: Vec<(usize, Vec3, Vec3)> = if is_initial {
+                all_positions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, pos)| (i, *pos, all_directions[i]))
+                    .collect()
+            } else {
+                std::mem::take(&mut pending_retry)
             };
 
-            for (entry, hit) in batch.into_iter().zip(hits.into_iter()) {
-                let idx = entry.particle_idx;
+            if batch.is_empty() {
+                continue;
+            }
+
+            let mut rays: Vec<TerrainRayQuery> = Vec::with_capacity(batch.len());
+            for &(_, origin, ref dir) in &batch {
+                rays.push(TerrainRayQuery {
+                    origin: origin + Vec3::new(0.0, RAY_EPSILON, 0.0),
+                    direction: dir.normalize_or_zero(),
+                });
+            }
+
+            let hits: Vec<TerrainRayHitSample> =
+                match self.tracer.query_terrain_rays_batch_with_validity(&rays) {
+                    Ok(h) => h,
+                    Err(err) => {
+                        log::error!("Failed terrain ray query for butterflies: {}", err);
+                        return;
+                    }
+                };
+
+            for ((idx, origin, dir), hit) in batch.into_iter().zip(hits.into_iter()) {
                 if successes[idx] {
                     continue;
                 }
 
-                let next_pos = entry.origin + entry.direction * STEP_LEN;
+                let next_pos = origin + dir * STEP_LEN;
 
                 let out_of_bounds = next_pos.x < 0.0
                     || next_pos.x > map_size.x
                     || next_pos.z < 0.0
                     || next_pos.z > map_size.z;
 
-                let blocked = if !out_of_bounds && hit.is_valid {
-                    let hit_dist = (hit.position - entry.origin).length();
+                if out_of_bounds {
+                    if attempt < MAX_RETRIES {
+                        let new_dir = {
+                            let emitter_idx = all_emitter_indices[idx];
+                            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
+                                let new_seed = (dir.x * 1000.0 + dir.z * 100.0 + idx as f32)
+                                    + (attempt as f32 * 17.3);
+                                let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
+                                crate::particles::emitters::generate_worm_direction(
+                                    &em.worm_noise,
+                                    &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
+                                    new_seed,
+                                    new_phase,
+                                )
+                            } else {
+                                dir
+                            }
+                        };
+                        pending_retry.push((idx, origin, new_dir));
+                    } else {
+                        if let Some(em) = self.butterfly_emitters.get_mut(all_emitter_indices[idx])
+                        {
+                            em.despawn_butterfly(all_handles[idx]);
+                        }
+                        let _ = self.particle_system.despawn(all_handles[idx]);
+                    }
+                    continue;
+                }
+
+                let blocked = if hit.is_valid {
+                    let hit_dist = (hit.position - origin).length();
                     hit_dist < STEP_LEN - RAY_EPSILON
                 } else {
                     false
                 };
 
-                if out_of_bounds || blocked {
-                    // Generate a new direction and defer to next frame
-                    let emitter_idx = all_emitter_indices[idx];
-                    let new_dir = if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
-                        let new_seed =
-                            (entry.direction.x * 1000.0 + entry.direction.z * 100.0 + idx as f32)
-                                + 17.3;
-                        let new_phase = entry.direction.y * TAU + idx as f32 + 3.7;
-                        crate::particles::emitters::generate_worm_direction(
-                            &em.worm_noise,
-                            &em.worm_noise_detail,
-                            em.worm_noise_detail_weight,
-                            new_seed,
-                            new_phase,
-                        )
+                if blocked {
+                    if attempt < MAX_RETRIES {
+                        let new_dir = {
+                            let emitter_idx = all_emitter_indices[idx];
+                            if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
+                                let new_seed = (dir.x * 1000.0 + dir.z * 100.0 + idx as f32)
+                                    + (attempt as f32 * 17.3);
+                                let new_phase = dir.y * TAU + idx as f32 + attempt as f32 * 3.7;
+                                crate::particles::emitters::generate_worm_direction(
+                                    &em.worm_noise,
+                                    &em.worm_noise_detail,
+                                    em.worm_noise_detail_weight,
+                                    new_seed,
+                                    new_phase,
+                                )
+                            } else {
+                                dir
+                            }
+                        };
+                        pending_retry.push((idx, origin, new_dir));
                     } else {
-                        entry.direction
-                    };
-                    self.pending_movement_retries.push((
-                        all_handles[idx],
-                        emitter_idx,
-                        entry.origin,
-                        new_dir,
-                    ));
+                        if let Some(em) = self.butterfly_emitters.get_mut(all_emitter_indices[idx])
+                        {
+                            em.despawn_butterfly(all_handles[idx]);
+                        }
+                        let _ = self.particle_system.despawn(all_handles[idx]);
+                    }
                 } else {
                     successes[idx] = true;
-                    committed_dirs[idx] = entry.direction;
-                }
-            }
-        }
-
-        // Despawn particles that failed and have no pending retry
-        for i in 0..n {
-            if !successes[i] {
-                let has_pending_retry = self
-                    .pending_movement_retries
-                    .iter()
-                    .any(|(h, _, _, _)| *h == all_handles[i]);
-                if !has_pending_retry {
-                    let emitter_idx = all_emitter_indices[i];
-                    if let Some(em) = self.butterfly_emitters.get_mut(emitter_idx) {
-                        em.despawn_butterfly(all_handles[i]);
-                    }
-                    let _ = self.particle_system.despawn(all_handles[i]);
+                    committed_dirs[idx] = dir;
                 }
             }
         }

@@ -26,7 +26,6 @@ const SIZE_OF_LEAF_ELEMENT: u64 = std::mem::size_of::<u32>() as u64;
 
 pub struct ContreeBuilder {
     vulkan_ctx: VulkanContext,
-    allocator: Allocator,
     resources: ContreeBuilderResources,
 
     #[allow(dead_code)]
@@ -203,7 +202,6 @@ impl ContreeBuilder {
 
         Self {
             vulkan_ctx,
-            allocator,
             resources,
             contree_buffer_setup_ppl,
             contree_leaf_write_ppl,
@@ -315,59 +313,6 @@ impl ContreeBuilder {
         &self.resources
     }
 
-    /// DEBUG: Read back the root node of the contree at the given offset.
-    #[allow(dead_code)]
-    pub fn debug_read_root_nodes(&self, node_offset: u64, count: u64) {
-        let bytes_to_read = count * SIZE_OF_NODE_ELEMENT;
-        let src_offset_bytes = node_offset * SIZE_OF_NODE_ELEMENT;
-
-        let staging = Buffer::new_sized(
-            self.vulkan_ctx.device().clone(),
-            self.allocator.clone(),
-            crate::vkn::BufferUsage::from_flags(vk::BufferUsageFlags::TRANSFER_DST),
-            gpu_allocator::MemoryLocation::GpuToCpu,
-            bytes_to_read,
-        );
-
-        crate::vkn::execute_one_time_command(
-            self.vulkan_ctx.device(),
-            self.vulkan_ctx.command_pool(),
-            &self.vulkan_ctx.get_general_queue(),
-            |cmdbuf| {
-                self.resources.contree_node_data.record_copy_to_buffer(
-                    cmdbuf,
-                    &staging,
-                    bytes_to_read,
-                    src_offset_bytes,
-                    0,
-                );
-            },
-        );
-
-        match staging.read_back() {
-            Ok(data) => {
-                for i in 0..count as usize {
-                    let base = i * 12;
-                    if base + 12 > data.len() {
-                        break;
-                    }
-                    let packed_0 = u32::from_ne_bytes(data[base..base + 4].try_into().unwrap());
-                    let child_lo = u32::from_ne_bytes(data[base + 4..base + 8].try_into().unwrap());
-                    let child_hi =
-                        u32::from_ne_bytes(data[base + 8..base + 12].try_into().unwrap());
-                    let is_leaf = packed_0 & 1;
-                    let ptr = packed_0 >> 1;
-                    let child_count = child_lo.count_ones() + child_hi.count_ones();
-                    log::info!(
-                        "[CONTREE-NODE] [{}] packed_0=0x{:08x} (is_leaf={}, ptr={}) child_mask_lo=0x{:08x} child_mask_hi=0x{:08x} children={}",
-                        node_offset as usize + i, packed_0, is_leaf, ptr, child_lo, child_hi, child_count,
-                    );
-                }
-            }
-            Err(e) => log::error!("[CONTREE-NODE] readback failed: {}", e),
-        }
-    }
-
     fn build_contree(
         &mut self,
         contree_dim: UVec3,
@@ -427,17 +372,6 @@ impl ContreeBuilder {
 
         let (confirmed_node_buffer_size_in_bytes, confirmed_leaf_buffer_size_in_bytes) =
             self.get_contree_size_info(&self.resources);
-
-        let node_count = confirmed_node_buffer_size_in_bytes / SIZE_OF_NODE_ELEMENT;
-        let leaf_count = confirmed_leaf_buffer_size_in_bytes / SIZE_OF_LEAF_ELEMENT;
-        log::debug!(
-            "[CONTREE] atlas_offset={:?} node_offset={} leaf_offset={} node_count={} leaf_count={}",
-            atlas_offset,
-            node_alloc_offset,
-            leaf_alloc_offset,
-            node_count,
-            leaf_count,
-        );
 
         self.confirm_allocation_of_chunk(
             confirmed_node_buffer_size_in_bytes,

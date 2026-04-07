@@ -68,7 +68,6 @@ void main() {
 
     ivec3 atlas_uvi = ivec3(region_info.offset + uvi);
 
-    // Read pre-computed heightmap for this (x,z) column
     uint heightmap_index = uint(uvi.x) * region_info.dim.z + uint(uvi.z);
     float surface_height = heightmap.data[heightmap_index].surface_height;
     float base_shape_2d  = heightmap.data[heightmap_index].base_shape;

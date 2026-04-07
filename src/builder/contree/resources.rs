@@ -140,9 +140,7 @@ impl ContreeBuilderResources {
         let node_data = Buffer::new_sized(
             device.clone(),
             allocator.clone(),
-            BufferUsage::from_flags(
-                vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_SRC,
-            ),
+            BufferUsage::from_flags(vk::BufferUsageFlags::STORAGE_BUFFER),
             gpu_allocator::MemoryLocation::GpuOnly,
             node_pool_size_in_bytes,
         );

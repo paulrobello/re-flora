@@ -14,17 +14,6 @@ impl App {
         if !self.window_state.is_minimized() {
             self.window_state.window().request_redraw();
         }
-        use std::sync::Mutex;
-        static LAST: Mutex<Option<std::time::Instant>> = Mutex::new(None);
-        let now = std::time::Instant::now();
-        let mut last = LAST.lock().unwrap();
-        if let Some(prev) = *last {
-            let gap_ms = now.duration_since(prev).as_secs_f32() * 1000.0;
-            if gap_ms > 100.0 {
-                log::info!("[EVENT] about_to_wait gap: {:.0}ms", gap_ms);
-            }
-        }
-        *last = Some(now);
     }
 
     pub(super) fn on_resize(&mut self) {
