@@ -498,7 +498,6 @@ fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCon
             center_b: round_cone.center_b().to_array(),
             radius_a: round_cone.radius_a(),
             radius_b: round_cone.radius_b(),
-            ..RoundCones::zeroed()
         };
         resources
             .round_cones
@@ -526,7 +525,6 @@ fn update_spheres(resources: &PlainBuilderResources, spheres: &[Sphere]) -> Resu
         let data = Spheres {
             center: sphere.center().to_array(),
             radius: sphere.radius(),
-            ..Spheres::zeroed()
         };
         resources
             .spheres
