@@ -13,7 +13,6 @@ pub struct PlainBuilderResources {
 
     pub region_info: Resource<Buffer>,
     pub region_indirect: Resource<Buffer>,
-    pub heightmap: Resource<Buffer>,
     pub chunk_modify_info: Resource<Buffer>,
     pub edit_stats: Resource<Buffer>,
     pub round_cones: Resource<Buffer>,
@@ -30,7 +29,6 @@ impl PlainBuilderResources {
         free_atlas_dim: UVec3,
         buffer_setup_sm: &ShaderModule,
         chunk_modify_sm: &ShaderModule,
-        heightmap_sm: &ShaderModule,
     ) -> Self {
         let tex_desc = ImageDesc {
             extent: Extent3D::new(plain_atlas_dim.x, plain_atlas_dim.y, plain_atlas_dim.z),
@@ -134,17 +132,6 @@ impl PlainBuilderResources {
             gpu_allocator::MemoryLocation::GpuOnly,
         );
 
-        let heightmap_layout = heightmap_sm.get_buffer_layout("B_Heightmap").unwrap();
-        let heightmap_entry_count = (plain_atlas_dim.x * plain_atlas_dim.z) as usize;
-        let heightmap = Buffer::from_buffer_layout_arraylike(
-            device.clone(),
-            allocator.clone(),
-            heightmap_layout.clone(),
-            BufferUsage::empty(),
-            gpu_allocator::MemoryLocation::CpuToGpu,
-            heightmap_entry_count as u64,
-        );
-
         Self {
             chunk_atlas: Resource::new(chunk_atlas),
             free_atlas: Resource::new(free_atlas),
@@ -156,7 +143,6 @@ impl PlainBuilderResources {
             trunk_bvh_nodes: Resource::new(trunk_bvh_nodes),
             region_info: Resource::new(region_info),
             region_indirect: Resource::new(region_indirect),
-            heightmap: Resource::new(heightmap),
         }
     }
 }

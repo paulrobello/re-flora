@@ -37,7 +37,6 @@ pub(crate) struct TreePlacementEdit {
 }
 
 #[derive(Clone, Copy, Debug)]
-#[allow(dead_code)]
 pub(crate) struct FencePostPlacementEdit {
     pub(crate) horizontal: Vec2,
     pub(crate) height: f32,

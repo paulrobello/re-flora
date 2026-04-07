@@ -66,7 +66,6 @@ pub struct PlainBuilder {
     buffer_setup_ppl: ComputePipeline,
     #[allow(dead_code)]
     chunk_init_ppl: ComputePipeline,
-    heightmap_ppl: ComputePipeline,
     chunk_modify_ppl: ComputePipeline,
 
     #[allow(dead_code)]
@@ -106,13 +105,6 @@ impl PlainBuilder {
             "main",
         )
         .unwrap();
-        let heightmap_sm = ShaderModule::from_glsl(
-            device,
-            shader_compiler,
-            "shader/builder/chunk_writer/chunk_heightmap.comp",
-            "main",
-        )
-        .unwrap();
 
         let resources = PlainBuilderResources::new(
             device,
@@ -121,14 +113,12 @@ impl PlainBuilder {
             free_atlas_dim,
             &buffer_setup_sm,
             &chunk_modify_sm,
-            &heightmap_sm,
         );
 
         let pool = DescriptorPool::new(device).unwrap();
 
         let buffer_setup_ppl = ComputePipeline::new(device, &buffer_setup_sm, &pool, &[&resources]);
         let chunk_init_ppl = ComputePipeline::new(device, &chunk_init_sm, &pool, &[&resources]);
-        let heightmap_ppl = ComputePipeline::new(device, &heightmap_sm, &pool, &[&resources]);
         let chunk_modify_ppl = ComputePipeline::new(device, &chunk_modify_sm, &pool, &[&resources]);
 
         init_atlas_images(&vulkan_ctx, &resources);
@@ -137,10 +127,8 @@ impl PlainBuilder {
             &vulkan_ctx,
             &resources.chunk_atlas,
             &resources.region_indirect,
-            &heightmap_ppl,
             &buffer_setup_ppl,
             &chunk_init_ppl,
-            plain_atlas_dim,
         );
 
         return Self {
@@ -148,7 +136,6 @@ impl PlainBuilder {
             resources,
             buffer_setup_ppl,
             chunk_init_ppl,
-            heightmap_ppl,
             chunk_modify_ppl,
             pool,
             build_cmdbuf,
@@ -181,10 +168,8 @@ impl PlainBuilder {
         vulkan_ctx: &VulkanContext,
         chunk_atlas: &Texture,
         region_indirect: &Buffer,
-        heightmap_ppl: &ComputePipeline,
         buffer_setup_ppl: &ComputePipeline,
         chunk_init_ppl: &ComputePipeline,
-        dispatch_dim: UVec3,
     ) -> CommandBuffer {
         let shader_access_memory_barrier = MemoryBarrier::new_shader_access();
         let indirect_access_memory_barrier = MemoryBarrier::new_indirect_access();
@@ -207,20 +192,6 @@ impl PlainBuilder {
             .get_image()
             .record_transition_barrier(&cmdbuf, 0, vk::ImageLayout::GENERAL);
 
-        // Pass 1: Compute 2D heightmap (one value per xz column)
-        heightmap_ppl.record(
-            &cmdbuf,
-            Extent3D {
-                width: dispatch_dim.x,
-                height: dispatch_dim.z,
-                depth: 1,
-            },
-            None,
-        );
-
-        shader_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
-
-        // Setup indirect dispatch params for pass 2
         buffer_setup_ppl.record(
             &cmdbuf,
             Extent3D {
@@ -234,7 +205,6 @@ impl PlainBuilder {
         shader_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
         indirect_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
 
-        // Pass 2: Classify voxels using heightmap (indirect dispatch)
         chunk_init_ppl.record_indirect(&cmdbuf, region_indirect, None);
 
         cmdbuf.end();
@@ -256,10 +226,8 @@ impl PlainBuilder {
             &self.vulkan_ctx,
             &self.resources.chunk_atlas,
             &self.resources.region_indirect,
-            &self.heightmap_ppl,
             &self.buffer_setup_ppl,
             &self.chunk_init_ppl,
-            atlas_dim,
         );
 
         self.build_cmdbuf
@@ -359,7 +327,6 @@ impl PlainBuilder {
         fill_voxel_type: u32,
     ) -> Result<()> {
         let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
-        clear_edit_stats(&self.resources)?;
         update_chunk_modify_info(
             &self.resources,
             offset,
@@ -387,14 +354,6 @@ impl PlainBuilder {
                     None,
                 );
             },
-        );
-        let stats = read_edit_stats(&self.resources)?;
-        log::info!(
-            "[TREE-STAMP] offset={:?} dim={:?} added={:?} removed={:?}",
-            offset,
-            dim,
-            stats.added_counts,
-            stats.removed_counts,
         );
         Ok(())
     }
@@ -510,6 +469,7 @@ fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCon
             center_b: round_cone.center_b().to_array(),
             radius_a: round_cone.radius_a(),
             radius_b: round_cone.radius_b(),
+            ..RoundCones::zeroed()
         };
         resources
             .round_cones
@@ -518,7 +478,6 @@ fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCon
     Ok(())
 }
 
-#[allow(clippy::needless_update)]
 fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Result<()> {
     for (i, cuboid) in cuboids.iter().enumerate() {
         let data = Cuboids {
@@ -538,6 +497,7 @@ fn update_spheres(resources: &PlainBuilderResources, spheres: &[Sphere]) -> Resu
         let data = Spheres {
             center: sphere.center().to_array(),
             radius: sphere.radius(),
+            ..Spheres::zeroed()
         };
         resources
             .spheres
