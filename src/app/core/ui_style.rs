@@ -31,6 +31,7 @@ pub(crate) const ITEM_PANEL_SLOT_COUNT: usize = 3;
 pub(crate) const SHOVEL_SLOT_INDEX: usize = 0;
 pub(crate) const STAFF_SLOT_INDEX: usize = 1;
 pub(crate) const HOE_SLOT_INDEX: usize = 2;
+pub(crate) const MAX_VOXEL_SLIDER_COUNT: u32 = 5_000_000;
 
 pub(crate) fn draw_item_panel(
     ctx: &egui::Context,
@@ -128,14 +129,8 @@ pub(crate) fn draw_backpack_summary(
     rock_count: u32,
     terrain_query_text: &str,
 ) {
-    let total_count = dirt_count
-        .saturating_add(sand_count)
-        .saturating_add(cherry_wood_count)
-        .saturating_add(oak_wood_count)
-        .saturating_add(rock_count);
-
     egui::Area::new("backpack_summary".into())
-        .anchor(egui::Align2::LEFT_BOTTOM, egui::Vec2::new(16.0, -16.0))
+        .anchor(egui::Align2::LEFT_TOP, egui::Vec2::new(16.0, 16.0))
         .show(ctx, |ui| {
             let panel_frame = egui::containers::Frame {
                 fill: PANEL_DARK,
@@ -153,36 +148,71 @@ pub(crate) fn draw_backpack_summary(
 
             panel_frame.show(ui, |ui| {
                 ui.label(
-                    egui::RichText::new("Status")
+                    egui::RichText::new("Voxel Inventory")
                         .color(GOLD_ACCENT)
                         .size(12.0)
                         .strong(),
                 );
                 ui.add_space(4.0);
-                ui.label(
-                    egui::RichText::new("Terrain query")
-                        .monospace()
-                        .color(GOLD_ACCENT),
-                );
-                ui.label(egui::RichText::new(terrain_query_text).monospace());
+                ui.label(egui::RichText::new(format!(
+                    "Terrain query: {terrain_query_text}"
+                )));
                 ui.separator();
+
+                draw_voxel_count_slider(ui, "Dirt", dirt_count);
+                draw_voxel_count_slider(ui, "Sand", sand_count);
+                draw_voxel_count_slider(ui, "Cherry wood", cherry_wood_count);
+                draw_voxel_count_slider(ui, "Oak wood", oak_wood_count);
+                draw_voxel_count_slider(ui, "Rock", rock_count);
+            });
+        });
+}
+
+fn draw_voxel_count_slider(ui: &mut egui::Ui, label: &str, count: u32) {
+    let mut value = count.min(MAX_VOXEL_SLIDER_COUNT);
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(label).monospace());
+        ui.add_enabled(
+            false,
+            egui::Slider::new(&mut value, 0..=MAX_VOXEL_SLIDER_COUNT).show_value(false),
+        );
+        ui.label(egui::RichText::new(format!("{count}")));
+    });
+}
+
+pub(crate) fn draw_active_voxel_display(
+    ctx: &egui::Context,
+    active_voxel_label: &str,
+    active_voxel_color: Color32,
+) {
+    egui::Area::new("active_voxel_display".into())
+        .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::new(-16.0, 16.0))
+        .show(ctx, |ui| {
+            let panel_frame = egui::containers::Frame {
+                fill: PANEL_DARK,
+                inner_margin: egui::Margin::symmetric(10, 8),
+                corner_radius: egui::CornerRadius::same(0),
+                shadow: egui::epaint::Shadow {
+                    offset: [4, 4],
+                    blur: 0,
+                    spread: 0,
+                    color: SHADOW_COLOR,
+                },
+                stroke: egui::Stroke::new(2.0, active_voxel_color),
+                ..Default::default()
+            };
+
+            panel_frame.show(ui, |ui| {
                 ui.label(
-                    egui::RichText::new("Backpack")
-                        .monospace()
-                        .color(GOLD_ACCENT),
+                    egui::RichText::new("Active Voxel")
+                        .color(GOLD_ACCENT)
+                        .strong(),
                 );
-                ui.label(egui::RichText::new(format!("Dirt: {dirt_count}")).monospace());
-                ui.label(egui::RichText::new(format!("Sand: {sand_count}")).monospace());
                 ui.label(
-                    egui::RichText::new(format!("Cherry wood: {cherry_wood_count}")).monospace(),
-                );
-                ui.label(egui::RichText::new(format!("Oak wood: {oak_wood_count}")).monospace());
-                ui.label(egui::RichText::new(format!("Rock: {rock_count}")).monospace());
-                ui.separator();
-                ui.label(
-                    egui::RichText::new(format!("Total: {total_count}"))
+                    egui::RichText::new(active_voxel_label)
+                        .color(active_voxel_color)
                         .monospace()
-                        .color(FLOWER_ACCENT),
+                        .strong(),
                 );
             });
         });

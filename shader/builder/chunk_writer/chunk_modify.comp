@@ -26,6 +26,7 @@ layout(set = 0, binding = 0) readonly uniform U_ChunkModifyInfo {
     uvec3 offset;
     uvec3 dim;
     uint fill_voxel_type;
+    uint target_voxel_type;
     uint primitive_kind;
     uint surface_only;
     uint max_write_count;
@@ -58,6 +59,7 @@ vec3 center_position_of_voxel(ivec3 voxel_pos) { return vec3(voxel_pos) + vec3(0
 const uint PRIMITIVE_KIND_ROUND_CONE = 0u;
 const uint PRIMITIVE_KIND_CUBOID     = 1u;
 const uint PRIMITIVE_KIND_SPHERE     = 2u;
+const uint VOXEL_TYPE_ANY            = 0xffffffffu;
 
 bool is_solid(uint voxel_type) { return voxel_type != VOXEL_TYPE_EMPTY; }
 
@@ -164,6 +166,10 @@ void main() {
                 }
 
                 uint old_voxel_type = load_voxel_type(world_voxel_pos);
+                if (chunk_modify_info.target_voxel_type != VOXEL_TYPE_ANY &&
+                    old_voxel_type != chunk_modify_info.target_voxel_type) {
+                    return;
+                }
                 if (old_voxel_type == chunk_modify_info.fill_voxel_type) {
                     return;
                 }

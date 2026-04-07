@@ -4,9 +4,7 @@ use crate::app::world_edits::{
     TreeAddOptions, TreePlacement, TreePlacementEdit, VoxelEdit, WorldEditPlan,
 };
 use crate::app::world_ops;
-use crate::builder::{
-    ChunkModifyStats, VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_DIRT, VOXEL_TYPE_OAK_WOOD,
-};
+use crate::builder::{ChunkModifyStats, VOXEL_TYPE_CHERRY_WOOD, VOXEL_TYPE_OAK_WOOD};
 use crate::geom::{build_bvh, Cuboid, RoundCone, Sphere, UAabb3};
 use crate::procedual_placer::{generate_positions, PlacerDesc};
 use crate::tree_gen::{Tree, TreeDesc};
@@ -683,6 +681,7 @@ impl App {
     pub(super) fn apply_surface_terrain_removal(
         &mut self,
         edit: TerrainRemovalEdit,
+        target_voxel_type: Option<u32>,
     ) -> Result<ChunkModifyStats> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
             let stats = match compiled.voxel_edit {
@@ -693,7 +692,11 @@ impl App {
                 } => self
                     .plain_builder
                     .chunk_modify_surface_spheres_with_voxel_type(
-                        &bvh_nodes, &spheres, voxel_type, None,
+                        &bvh_nodes,
+                        &spheres,
+                        voxel_type,
+                        target_voxel_type,
+                        None,
                     )?,
                 _ => unreachable!("terrain surface removal compiled into unexpected edit type"),
             };
@@ -717,10 +720,11 @@ impl App {
     pub(super) fn apply_surface_terrain_placement(
         &mut self,
         edit: TerrainRemovalEdit,
+        voxel_type: u32,
         max_write_count: u32,
     ) -> Result<ChunkModifyStats> {
         if let Some(compiled) =
-            TerrainSurfaceRemovalService::compile_with_voxel_type(edit, VOXEL_TYPE_DIRT)
+            TerrainSurfaceRemovalService::compile_with_voxel_type(edit, voxel_type)
         {
             let stats = match compiled.voxel_edit {
                 VoxelEdit::StampSurfaceSpheres {
@@ -733,6 +737,7 @@ impl App {
                         &bvh_nodes,
                         &spheres,
                         voxel_type,
+                        None,
                         Some(max_write_count),
                     )?,
                 _ => unreachable!("terrain surface placement compiled into unexpected edit type"),
