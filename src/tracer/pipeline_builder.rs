@@ -386,12 +386,16 @@ impl PipelineBuilder {
         output_tex: Texture,
         depth_tex: Texture,
     ) -> RenderPass {
+        // CLEAR instead of LOAD: on tile-based GPUs (Apple Silicon via MoltenVK),
+        // LOAD forces a full DRAM-to-tile read. For D32_SFLOAT+STORAGE in GENERAL
+        // layout, this triggers an expensive format decompression (~33ms). CLEAR
+        // initializes tile memory directly, avoiding the DRAM read entirely.
         RenderPass::with_attachments(
             vulkan_ctx.device().clone(),
             &[
                 AttachmentDescOuter {
                     texture: output_tex,
-                    load_op: vk::AttachmentLoadOp::LOAD,
+                    load_op: vk::AttachmentLoadOp::CLEAR,
                     store_op: vk::AttachmentStoreOp::STORE,
                     initial_layout: vk::ImageLayout::GENERAL,
                     final_layout: vk::ImageLayout::GENERAL,
@@ -399,7 +403,7 @@ impl PipelineBuilder {
                 },
                 AttachmentDescOuter {
                     texture: depth_tex,
-                    load_op: vk::AttachmentLoadOp::LOAD,
+                    load_op: vk::AttachmentLoadOp::CLEAR,
                     store_op: vk::AttachmentStoreOp::STORE,
                     initial_layout: vk::ImageLayout::GENERAL,
                     final_layout: vk::ImageLayout::GENERAL,

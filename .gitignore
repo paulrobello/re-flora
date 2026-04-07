@@ -2,3 +2,9 @@
 .aider*
 __pycache__/
 /resource_container_derive
+.gitnexus
+CLAUDE.local.md
+*.local
+*.local.*
+.cc2cc-session-id
+settings.local.json

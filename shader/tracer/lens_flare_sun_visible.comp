@@ -26,7 +26,7 @@ layout(set = 0, binding = 1) uniform U_CameraInfo {
 }
 camera_info;
 
-layout(set = 0, binding = 2, r32f) uniform readonly image2D gfx_depth_tex;
+layout(set = 0, binding = 2) uniform sampler2D gfx_depth_tex;
 layout(set = 0, binding = 3, r32f) uniform readonly image2D compute_depth_tex;
 layout(set = 0, binding = 4) uniform sampler2D sun_sprite_tex;
 layout(set = 0, binding = 5, r32ui) uniform uimage1D lens_flare_visible_count_tex;
@@ -86,7 +86,7 @@ float sample_sun_alpha(vec2 screen_uv) {
 
 void main() {
     ivec2 uvi = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 img_size = imageSize(gfx_depth_tex);
+    ivec2 img_size = textureSize(gfx_depth_tex, 0);
     if (any(greaterThanEqual(uvi, img_size))) {
         return;
     }
@@ -97,7 +97,7 @@ void main() {
         return;
     }
 
-    float gfx_depth_01 = imageLoad(gfx_depth_tex, uvi).r;
+    float gfx_depth_01 = texelFetch(gfx_depth_tex, uvi, 0).r;
     float compute_depth_01 = imageLoad(compute_depth_tex, uvi).r;
     bool hit_ocean = false;
     float ocean_depth_01 = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);

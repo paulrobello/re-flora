@@ -33,7 +33,7 @@ layout(set = 0, binding = 3) uniform U_GodRayInfo {
     vec3 color;
 }
 god_ray_info;
-layout(set = 0, binding = 4, r32f) uniform readonly image2D gfx_depth_tex;
+layout(set = 0, binding = 4) uniform sampler2D gfx_depth_tex;
 layout(set = 0, binding = 5, r32f) uniform readonly image2D compute_depth_tex;
 layout(set = 0, binding = 6) uniform sampler2D shadow_map_tex;
 layout(set = 0, binding = 7, r32f) uniform writeonly image2D god_ray_output_tex;
@@ -72,7 +72,7 @@ layout(set = 1, binding = 5, rgba8) readonly uniform image2DArray fast_weighted_
 #include "../include/ocean_depth.glsl"
 
 float get_depth_01(ivec2 uvi, vec2 screen_uv) {
-    float gfx_depth_01     = imageLoad(gfx_depth_tex, uvi).r;
+    float gfx_depth_01     = texelFetch(gfx_depth_tex, uvi, 0).r;
     float compute_depth_01 = imageLoad(compute_depth_tex, uvi).r;
     bool hit_ocean = false;
     float ocean_depth_01 = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
@@ -81,7 +81,7 @@ float get_depth_01(ivec2 uvi, vec2 screen_uv) {
 
 void main() {
     ivec2 uvi      = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 img_size = imageSize(gfx_depth_tex);
+    ivec2 img_size = textureSize(gfx_depth_tex, 0);
     if (any(greaterThanEqual(uvi, img_size))) {
         return;
     }
