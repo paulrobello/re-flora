@@ -1,4 +1,6 @@
-use super::ui_style::{HOE_SLOT_INDEX, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX};
+use super::ui_style::{
+    HOE_SLOT_INDEX, MAX_VOXEL_STORAGE_PER_TYPE, SHOVEL_SLOT_INDEX, STAFF_SLOT_INDEX,
+};
 use super::App;
 use crate::app::world_edits::TerrainRemovalEdit;
 use crate::tracer::TerrainRayQuery;
@@ -47,20 +49,34 @@ impl App {
     fn add_active_voxel_to_backpack(&mut self, amount: u32) {
         match self.active_voxel_type {
             super::ActiveVoxelType::Dirt => {
-                self.backpack_dirt_count = self.backpack_dirt_count.saturating_add(amount)
+                self.backpack_dirt_count = self
+                    .backpack_dirt_count
+                    .saturating_add(amount)
+                    .min(MAX_VOXEL_STORAGE_PER_TYPE)
             }
             super::ActiveVoxelType::Sand => {
-                self.backpack_sand_count = self.backpack_sand_count.saturating_add(amount)
+                self.backpack_sand_count = self
+                    .backpack_sand_count
+                    .saturating_add(amount)
+                    .min(MAX_VOXEL_STORAGE_PER_TYPE)
             }
             super::ActiveVoxelType::CherryWood => {
-                self.backpack_cherry_wood_count =
-                    self.backpack_cherry_wood_count.saturating_add(amount)
+                self.backpack_cherry_wood_count = self
+                    .backpack_cherry_wood_count
+                    .saturating_add(amount)
+                    .min(MAX_VOXEL_STORAGE_PER_TYPE)
             }
             super::ActiveVoxelType::OakWood => {
-                self.backpack_oak_wood_count = self.backpack_oak_wood_count.saturating_add(amount)
+                self.backpack_oak_wood_count = self
+                    .backpack_oak_wood_count
+                    .saturating_add(amount)
+                    .min(MAX_VOXEL_STORAGE_PER_TYPE)
             }
             super::ActiveVoxelType::Rock => {
-                self.backpack_rock_count = self.backpack_rock_count.saturating_add(amount)
+                self.backpack_rock_count = self
+                    .backpack_rock_count
+                    .saturating_add(amount)
+                    .min(MAX_VOXEL_STORAGE_PER_TYPE)
             }
         }
     }

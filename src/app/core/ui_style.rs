@@ -31,7 +31,7 @@ pub(crate) const ITEM_PANEL_SLOT_COUNT: usize = 3;
 pub(crate) const SHOVEL_SLOT_INDEX: usize = 0;
 pub(crate) const STAFF_SLOT_INDEX: usize = 1;
 pub(crate) const HOE_SLOT_INDEX: usize = 2;
-pub(crate) const MAX_VOXEL_SLIDER_COUNT: u32 = 5_000_000;
+pub(crate) const MAX_VOXEL_STORAGE_PER_TYPE: u32 = 200_000;
 
 pub(crate) fn draw_item_panel(
     ctx: &egui::Context,
@@ -130,7 +130,7 @@ pub(crate) fn draw_backpack_summary(
     terrain_query_text: &str,
 ) {
     egui::Area::new("backpack_summary".into())
-        .anchor(egui::Align2::LEFT_TOP, egui::Vec2::new(16.0, 16.0))
+        .anchor(egui::Align2::RIGHT_TOP, egui::Vec2::new(-16.0, 80.0))
         .show(ctx, |ui| {
             let panel_frame = egui::containers::Frame {
                 fill: PANEL_DARK,
@@ -159,24 +159,62 @@ pub(crate) fn draw_backpack_summary(
                 )));
                 ui.separator();
 
-                draw_voxel_count_slider(ui, "Dirt", dirt_count);
-                draw_voxel_count_slider(ui, "Sand", sand_count);
-                draw_voxel_count_slider(ui, "Cherry wood", cherry_wood_count);
-                draw_voxel_count_slider(ui, "Oak wood", oak_wood_count);
-                draw_voxel_count_slider(ui, "Rock", rock_count);
+                draw_voxel_count_progress(ui, "Dirt", dirt_count, Color32::from_rgb(178, 124, 80));
+                draw_voxel_count_progress(ui, "Sand", sand_count, Color32::from_rgb(229, 204, 126));
+                draw_voxel_count_progress(
+                    ui,
+                    "Cherry wood",
+                    cherry_wood_count,
+                    Color32::from_rgb(219, 128, 152),
+                );
+                draw_voxel_count_progress(
+                    ui,
+                    "Oak wood",
+                    oak_wood_count,
+                    Color32::from_rgb(159, 110, 70),
+                );
+                draw_voxel_count_progress(ui, "Rock", rock_count, Color32::from_rgb(168, 176, 190));
             });
         });
 }
 
-fn draw_voxel_count_slider(ui: &mut egui::Ui, label: &str, count: u32) {
-    let mut value = count.min(MAX_VOXEL_SLIDER_COUNT);
+fn draw_voxel_count_progress(ui: &mut egui::Ui, label: &str, count: u32, fill: Color32) {
+    let clamped = count.min(MAX_VOXEL_STORAGE_PER_TYPE);
+    let ratio = clamped as f32 / MAX_VOXEL_STORAGE_PER_TYPE as f32;
     ui.horizontal(|ui| {
-        ui.label(egui::RichText::new(label).monospace());
-        ui.add_enabled(
-            false,
-            egui::Slider::new(&mut value, 0..=MAX_VOXEL_SLIDER_COUNT).show_value(false),
+        ui.add_sized(
+            egui::vec2(86.0, 16.0),
+            egui::Label::new(egui::RichText::new(label).monospace()),
         );
-        ui.label(egui::RichText::new(format!("{count}")));
+
+        let (bar_rect, _) = ui.allocate_exact_size(egui::vec2(210.0, 16.0), egui::Sense::hover());
+        let painter = ui.painter_at(bar_rect);
+
+        painter.rect_filled(bar_rect, egui::CornerRadius::same(0), PANEL_LIGHT);
+
+        let fill_width = (bar_rect.width() * ratio).floor();
+        if fill_width > 0.0 {
+            let fill_rect = egui::Rect::from_min_max(
+                bar_rect.min,
+                egui::pos2(bar_rect.min.x + fill_width, bar_rect.max.y),
+            );
+            painter.rect_filled(fill_rect, egui::CornerRadius::same(0), fill);
+        }
+
+        painter.rect_stroke(
+            bar_rect,
+            egui::CornerRadius::same(0),
+            egui::Stroke::new(1.0, SAGE_ACCENT),
+            egui::StrokeKind::Inside,
+        );
+
+        painter.text(
+            bar_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            format!("{count}"),
+            egui::TextStyle::Monospace.resolve(ui.style()),
+            TEXT_COLOR,
+        );
     });
 }
 
