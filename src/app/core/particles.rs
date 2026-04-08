@@ -33,24 +33,52 @@ impl ParticleEmitter for TreeLeafEmitter {
 }
 
 impl App {
-    pub(super) fn spawn_terrain_harvest_particles(&mut self, center: Vec3, voxel_count: u32) {
+    fn terrain_harvest_color_for_voxel(&self, voxel_type: u32) -> Vec4 {
+        let color32 = match voxel_type {
+            crate::builder::VOXEL_TYPE_DIRT => self.gui_adjustables.voxel_dirt_color.value,
+            crate::builder::VOXEL_TYPE_CHERRY_WOOD => {
+                self.gui_adjustables.voxel_cherry_wood_color.value
+            }
+            crate::builder::VOXEL_TYPE_OAK_WOOD => self.gui_adjustables.voxel_oak_wood_color.value,
+            crate::builder::VOXEL_TYPE_SAND => egui::Color32::from_rgb(229, 204, 126),
+            crate::builder::VOXEL_TYPE_ROCK => egui::Color32::from_rgb(168, 176, 190),
+            _ => egui::Color32::from_rgb(210, 190, 140),
+        };
+
+        Vec4::new(
+            color32.r() as f32 / 255.0,
+            color32.g() as f32 / 255.0,
+            color32.b() as f32 / 255.0,
+            1.0,
+        )
+    }
+
+    pub(super) fn spawn_terrain_harvest_particles(
+        &mut self,
+        center: Vec3,
+        voxel_count: u32,
+        voxel_type: u32,
+    ) {
         if voxel_count == 0 {
             return;
         }
 
         let spawn_count = voxel_count.clamp(1, 24);
         let base_pos = center + Vec3::new(0.0, 0.03, 0.0);
+        let base_color = self.terrain_harvest_color_for_voxel(voxel_type);
 
         for i in 0..spawn_count {
             let t = i as f32 / spawn_count as f32;
             let angle = t * TAU;
             let swirl = Vec3::new(angle.cos(), 0.0, angle.sin());
             let velocity = Vec3::new(swirl.x * 0.18, 0.25 + t * 0.22, swirl.z * 0.18);
+            let brightness = 0.9 + 0.2 * ((t * TAU * 2.0).sin() * 0.5 + 0.5);
+            let rgb = base_color.truncate() * brightness;
 
             let spawn = ParticleSpawn {
                 position: base_pos,
                 velocity,
-                color: Vec4::new(0.95, 0.80, 0.45, 1.0),
+                color: Vec4::new(rgb.x.min(1.0), rgb.y.min(1.0), rgb.z.min(1.0), 1.0),
                 size: 0.010,
                 lifetime: 0.75,
                 wind_factor: 0.0,
