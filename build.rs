@@ -1124,6 +1124,34 @@ fn main() {
     }
 
     dump_env();
+
+    // Add rpath for libphonon.dylib so the binary works when run directly
+    // (not just via `cargo run` which sets DYLD_LIBRARY_PATH).
+    // audionimbus-sys downloads libphonon into its OUT_DIR/lib during build.
+    let out_dir = env::var("OUT_DIR").unwrap_or_default();
+    if !out_dir.is_empty() {
+        // Walk up from our OUT_DIR to find the audionimbus-sys build output
+        let build_dir = Path::new(&out_dir)
+            .ancestors()
+            .nth(2) // OUT_DIR is target/<profile>/build/<pkg>/out → go up to build/
+            .unwrap_or(Path::new("."));
+        for entry in fs::read_dir(build_dir).into_iter().flatten() {
+            if let Ok(entry) = entry {
+                let name = entry.file_name();
+                if name.to_string_lossy().starts_with("audionimbus-sys-") {
+                    let lib_dir = entry.path().join("out").join("lib");
+                    if lib_dir.join("libphonon.dylib").exists() {
+                        println!(
+                            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+                            lib_dir.display()
+                        );
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     generate_gui_adjustables();
     generate_gpu_structs();
 }
