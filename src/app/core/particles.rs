@@ -13,7 +13,7 @@ use std::f32::consts::TAU;
 // bird-specific audio and control logic has been removed
 
 const TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT: u32 = 24;
-const TERRAIN_HARVEST_PARTICLE_SIZE: f32 = 0.010;
+const TERRAIN_HARVEST_PARTICLE_SIZE: f32 = 1.0 / 256.0;
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
