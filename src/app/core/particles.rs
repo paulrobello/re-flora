@@ -1,4 +1,5 @@
 use super::App;
+use crate::builder::ChunkModifyStats;
 use crate::geom::UAabb3;
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
@@ -10,6 +11,9 @@ use glam::{Vec2, Vec3, Vec4};
 use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
+
+const TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT: u32 = 24;
+const TERRAIN_HARVEST_PARTICLE_SIZE: f32 = 0.010;
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
@@ -56,22 +60,47 @@ impl App {
     pub(super) fn spawn_terrain_harvest_particles(
         &mut self,
         center: Vec3,
-        voxel_count: u32,
-        voxel_type: u32,
+        stats: &ChunkModifyStats,
     ) {
-        if voxel_count == 0 {
+        let mut removed_total = 0u32;
+        for count in stats.removed_counts {
+            removed_total = removed_total.saturating_add(count);
+        }
+        if removed_total == 0 {
             return;
         }
 
-        let spawn_count = voxel_count.clamp(1, 24);
+        let spawn_count = removed_total.clamp(1, TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT);
         let base_pos = center + Vec3::new(0.0, 0.03, 0.0);
-        let base_color = self.terrain_harvest_color_for_voxel(voxel_type);
+
+        let mut removed_types = Vec::new();
+        let mut cumulative = 0u32;
+        for (voxel_type, count) in stats.removed_counts.iter().enumerate() {
+            if *count == 0 {
+                continue;
+            }
+            cumulative = cumulative.saturating_add(*count);
+            removed_types.push((voxel_type as u32, cumulative));
+        }
+        if removed_types.is_empty() {
+            return;
+        }
 
         for i in 0..spawn_count {
             let t = i as f32 / spawn_count as f32;
             let angle = t * TAU;
             let swirl = Vec3::new(angle.cos(), 0.0, angle.sin());
             let velocity = Vec3::new(swirl.x * 0.18, 0.25 + t * 0.22, swirl.z * 0.18);
+            let sample = (((i as f32 + 0.5) / spawn_count as f32) * removed_total as f32)
+                .clamp(0.0, removed_total as f32 - 0.001) as u32;
+            let mut sampled_voxel_type = removed_types[removed_types.len() - 1].0;
+            for (voxel_type, threshold) in &removed_types {
+                if sample < *threshold {
+                    sampled_voxel_type = *voxel_type;
+                    break;
+                }
+            }
+            let base_color = self.terrain_harvest_color_for_voxel(sampled_voxel_type);
             let brightness = 0.9 + 0.2 * ((t * TAU * 2.0).sin() * 0.5 + 0.5);
             let rgb = base_color.truncate() * brightness;
 
@@ -79,7 +108,7 @@ impl App {
                 position: base_pos,
                 velocity,
                 color: Vec4::new(rgb.x.min(1.0), rgb.y.min(1.0), rgb.z.min(1.0), 1.0),
-                size: 0.010,
+                size: TERRAIN_HARVEST_PARTICLE_SIZE,
                 lifetime: 1.35,
                 wind_factor: 0.0,
                 gravity_factor: 0.0,
