@@ -210,7 +210,7 @@ impl WorldBuildBackend for App {
 const VOXEL_DIM_PER_CHUNK: UVec3 = UVec3::new(256, 256, 256);
 const CHUNK_DIM: UVec3 = UVec3::new(5, 2, 5);
 const FREE_ATLAS_DIM: UVec3 = UVec3::new(512, 512, 512);
-const MAX_FRAMES_IN_FLIGHT: usize = 1;
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const SHOVEL_REMOVE_RADIUS: f32 = 0.08;
 const SHOVEL_DIG_INTERVAL: Duration = Duration::from_millis(80);
 const SHOVEL_RAY_QUERY_DISTANCE: f32 = 2.0;
@@ -278,7 +278,7 @@ impl App {
             vulkan_ctx.clone(),
             window_state.window_extent(),
             SwapchainDesc {
-                present_mode: vk::PresentModeKHR::MAILBOX,
+                present_mode: vk::PresentModeKHR::IMMEDIATE,
                 ..Default::default()
             },
         );
@@ -1651,6 +1651,9 @@ impl App {
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
+
+                // Request next redraw immediately (bypass display link latency)
+                self.window_state.window().request_redraw();
             }
             _ => (),
         }

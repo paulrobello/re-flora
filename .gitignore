@@ -11,3 +11,4 @@ AGENTS.md
 *.local.*
 .cc2cc-session-id
 settings.local.json
+*.spv

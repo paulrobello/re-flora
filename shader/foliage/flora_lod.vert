@@ -95,7 +95,6 @@ flora_growth_info;
 #include "../include/instance.glsl"
 #include "../include/sunlight.glsl"
 #include "../include/vsm.glsl"
-#include "../include/wind_hash.glsl"
 #include "./billboard.glsl"
 #include "./color_variation.glsl"
 #include "./grass_band_color.glsl"
@@ -112,21 +111,11 @@ const float grass_height_stddev_voxels = 1.0;
 const uint  FLORA_UPDATE_BUCKET_COUNT_DEFAULT = 4u;
 const float FLORA_FULL_UPDATE_SECONDS_DEFAULT = 0.15f;
 
-float sample_standard_normal(uint seed) {
-    float sum  = 0.0;
-    uint state = seed ^ 0xA511E9B3u;
-    for (uint i = 0u; i < 12u; ++i) {
-        state = wellons_hash(state + i * 0x9E3779B9u);
-        sum += construct_float_01(state);
-    }
-    return sum - 6.0;
-}
-
+// LOD1: single-hash height approximation (cheap replacement for 12-iteration Box-Muller)
 uint sample_grass_height(uint seed) {
-    float sampled_height =
-        grass_height_mean_voxels + sample_standard_normal(seed) * grass_height_stddev_voxels;
-    sampled_height =
-        clamp(sampled_height, float(grass_min_height_voxels), float(grass_max_height_voxels));
+    uint h = wellons_hash(seed ^ 0xA511E9B3u);
+    float t = construct_float_01(h);
+    float sampled_height = mix(float(grass_min_height_voxels), float(grass_max_height_voxels), t);
     return uint(round(sampled_height));
 }
 
@@ -142,7 +131,7 @@ float grass_growth_factor(uint growth_start_tick) {
 float get_shadow_weight(ivec3 vox_local_pos) {
     vec3 vox_dir_normalized            = normalize(vec3(vox_local_pos));
     float shadow_negative_side_dropoff = max(0.0, dot(-vox_dir_normalized, sun_info.sun_dir));
-    shadow_negative_side_dropoff       = pow(shadow_negative_side_dropoff, 2.0);
+    shadow_negative_side_dropoff       = shadow_negative_side_dropoff * shadow_negative_side_dropoff;
     float shadow_weight                = 1.0 - shadow_negative_side_dropoff;
 
     shadow_weight = max(0.7, shadow_weight);
@@ -213,9 +202,11 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    float wind_time = flora_bucketed_time(pc.time, instance_seed);
-    vec3 wind_vec    = get_wind(instance_pos, wind_time);
-    vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
+    // LOD1: cheap hash-based sway instead of expensive FBM noise wind
+    uint sway_hash = wellons_hash(instance_seed ^ 0xDEAD);
+    float sway_phase = construct_float_01(sway_hash) * 6.2832;
+    float sway_amount = sin(pc.time * 2.0 + sway_phase) * 0.3;
+    vec3 wind_offset = vec3(sway_amount, 0.0, sway_amount * 0.7) * wind_gradient * wind_gradient;
     vec3 anchor_pos  = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
     vec3 vert_pos = get_vert_pos_with_billboard(
@@ -230,32 +221,39 @@ void main() {
         vert_pos  = anchor_pos;
     }
 
-    float shadow_weight =
-        get_shadow_weight_vsm(shadow_camera_info.view_proj_mat, vec4(voxel_pos, 1.0));
-    shadow_weight *= get_shadow_weight(vox_local_pos);
+    // LOD1: skip VSM texture sampling, use analytical shadow only
+    float shadow_weight = get_shadow_weight(vox_local_pos);
 
     gl_Position = camera_info.view_proj_mat * vec4(vert_pos, 1.0);
 
+    // LOD1: approximate srgb_to_linear with x*x (gamma 2.0) instead of pow(x,2.4)
+    // Avoids extremely expensive per-vertex pow() calls on Metal/MoltenVK
     vec3 base_color_linear;
     if (is_grass) {
-        vec3 grass_bottom_color_linear;
-        vec3 grass_tip_color_linear;
-        sample_grass_band_gradient(vec2(float(in_instance_pos.x), float(in_instance_pos.z)),
-                                   grass_bottom_color_linear, grass_tip_color_linear);
+        uint color_hash = wellons_hash(in_instance_pos.x ^ (in_instance_pos.z * 0x45D9F3Bu));
+        float interp_t = construct_float_01(color_hash);
+        vec3 bottom_srgb = mix(gui_input.grass_bottom_dark, gui_input.grass_bottom_light, interp_t);
+        vec3 tip_srgb    = mix(gui_input.grass_tip_dark, gui_input.grass_tip_light, interp_t);
+        vec3 grass_bottom_color_linear = bottom_srgb * bottom_srgb;
+        vec3 grass_tip_color_linear    = tip_srgb * tip_srgb;
         base_color_linear = mix(grass_bottom_color_linear, grass_tip_color_linear, color_gradient);
     } else {
         uint palette_seed        = combine_color_seed(instance_seed);
-        vec3 bottom_color_linear = srgb_to_linear(pc.bottom_color);
-        vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed, pc.tip_color);
-        vec3 interpolated_color  = mix(bottom_color_linear, tip_color_linear, color_gradient);
-        vec3 instance_color_variation =
-            signed_unit_noise(float(instance_seed)) * gui_input.flora_instance_hsv_offset_max;
-        vec3 voxel_color_variation =
-            signed_unit_noise(vec4(vec3(vox_local_pos), float(instance_seed))) *
-            gui_input.flora_voxel_hsv_offset_max;
-        vec3 total_color_variation = instance_color_variation + voxel_color_variation;
-        base_color_linear          = apply_hsv_offset(interpolated_color, total_color_variation);
+        vec3 bottom_color_linear = pc.bottom_color * pc.bottom_color;
+        vec3 tip_color_linear    = sample_tip_palette(instance_ty, palette_seed,
+                                                       pc.tip_color * pc.tip_color);
+        base_color_linear        = mix(bottom_color_linear, tip_color_linear, color_gradient);
     }
+
+    // Apply per-instance HSV color variation from GUI sliders
+    vec3 inst_hsv_offset = signed_unit_noise(float(instance_seed))
+                         * gui_input.flora_instance_hsv_offset_max;
+    base_color_linear = apply_hsv_offset(base_color_linear, inst_hsv_offset);
+
+    // Apply per-voxel HSV color variation from GUI sliders
+    vec3 vox_hsv_offset = signed_unit_noise(vec4(vox_local_pos, instance_seed))
+                        * gui_input.flora_voxel_hsv_offset_max;
+    base_color_linear = apply_hsv_offset(base_color_linear, vox_hsv_offset);
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
