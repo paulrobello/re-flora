@@ -80,7 +80,7 @@ impl App {
                 velocity,
                 color: Vec4::new(rgb.x.min(1.0), rgb.y.min(1.0), rgb.z.min(1.0), 1.0),
                 size: 0.010,
-                lifetime: 0.75,
+                lifetime: 1.35,
                 wind_factor: 0.0,
                 gravity_factor: 0.0,
                 drift_direction: Vec3::new(swirl.z, 0.2, -swirl.x),
@@ -93,8 +93,47 @@ impl App {
                 texture_variant: 0,
                 render_kind: ParticleRenderKind::Leaf,
             };
-            let _ = self.particle_system.spawn(spawn);
+            if let Some(handle) = self.particle_system.spawn(spawn) {
+                self.terrain_harvest_particle_handles.push(handle);
+            }
         }
+    }
+
+    fn update_terrain_harvest_particle_collection(&mut self, dt: f32) {
+        if dt <= 0.0 || self.terrain_harvest_particle_handles.is_empty() {
+            return;
+        }
+
+        let camera_pos = self.tracer.camera_position();
+        let camera_front = self.tracer.camera_front().normalize_or_zero();
+        let collection_target = camera_pos + camera_front * 0.16 + Vec3::new(0.0, -0.04, 0.0);
+
+        self.terrain_harvest_particle_handles.retain(|handle| {
+            if !self.particle_system.is_alive_handle(*handle) {
+                return false;
+            }
+
+            let Some(position) = self.particle_system.position(*handle) else {
+                return false;
+            };
+
+            let to_target = collection_target - position;
+            let distance = to_target.length();
+            if distance <= 0.08 {
+                let _ = self.particle_system.despawn(*handle);
+                return false;
+            }
+
+            let direction = to_target.normalize_or_zero();
+            let current_velocity = self.particle_system.velocity(*handle).unwrap_or(Vec3::ZERO);
+            let desired_speed = (0.7 + (1.8 - distance).max(0.0) * 1.15).clamp(0.7, 2.4);
+            let desired_velocity = direction * desired_speed;
+            let blend = (7.0 * dt).clamp(0.0, 1.0);
+            let next_velocity = current_velocity.lerp(desired_velocity, blend);
+            let _ = self.particle_system.set_velocity(*handle, next_velocity);
+
+            true
+        });
     }
 
     pub(super) fn butterfly_count_from_per_chunk(butterflies_per_chunk: f32) -> u32 {
@@ -283,6 +322,8 @@ impl App {
             dt,
             wind_time,
         );
+
+        self.update_terrain_harvest_particle_collection(dt);
 
         self.particle_system.update(dt, self.particle_forces);
         let tick_step = self.particle_system.last_tick_step();
