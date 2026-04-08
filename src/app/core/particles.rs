@@ -121,6 +121,7 @@ impl App {
                 sink_speed: 0.0,
                 texture_variant: 0,
                 render_kind: ParticleRenderKind::Leaf,
+                despawn_on_lifetime: false,
             };
             if let Some(handle) = self.particle_system.spawn(spawn) {
                 self.terrain_harvest_particle_handles.push(handle);
