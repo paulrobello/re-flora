@@ -9,14 +9,6 @@ Items are ordered by priority and intended implementation sequence.
 
 ## 2) High-Priority Features
 
-- **Terrain Editing UI refresh**
-  - Move voxel-type display sliders to the top-right panel.
-  - Replace display-only sliders with progress bars.
-  - Set per-voxel storage cap to `0.5x` current maximum.
-
-- **Flora construction system**
-  - Implement a build/placement workflow for planting flora.
-
 - **Port trading loop**
   - Add a docked ship that enables resource exchange.
   - Support buy/sell interactions for player inventory.
