@@ -2,7 +2,7 @@ use super::App;
 use crate::geom::UAabb3;
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
-    ParticleSystem, ParticleTickStep,
+    ParticleRenderKind, ParticleSpawn, ParticleSystem, ParticleTickStep,
 };
 use crate::util::ClusterResult;
 use egui::Color32;
@@ -33,6 +33,42 @@ impl ParticleEmitter for TreeLeafEmitter {
 }
 
 impl App {
+    pub(super) fn spawn_terrain_harvest_particles(&mut self, center: Vec3, voxel_count: u32) {
+        if voxel_count == 0 {
+            return;
+        }
+
+        let spawn_count = voxel_count.clamp(1, 24);
+        let base_pos = center + Vec3::new(0.0, 0.03, 0.0);
+
+        for i in 0..spawn_count {
+            let t = i as f32 / spawn_count as f32;
+            let angle = t * TAU;
+            let swirl = Vec3::new(angle.cos(), 0.0, angle.sin());
+            let velocity = Vec3::new(swirl.x * 0.18, 0.25 + t * 0.22, swirl.z * 0.18);
+
+            let spawn = ParticleSpawn {
+                position: base_pos,
+                velocity,
+                color: Vec4::new(0.95, 0.80, 0.45, 1.0),
+                size: 0.010,
+                lifetime: 0.75,
+                wind_factor: 0.0,
+                gravity_factor: 0.0,
+                drift_direction: Vec3::new(swirl.z, 0.2, -swirl.x),
+                drift_strength: 0.08,
+                drift_frequency: 1.7,
+                speed_noise_offset: i as f32,
+                motion_mode: crate::particles::MotionMode::Free,
+                sink_on_lifetime: false,
+                sink_speed: 0.0,
+                texture_variant: 0,
+                render_kind: ParticleRenderKind::Leaf,
+            };
+            let _ = self.particle_system.spawn(spawn);
+        }
+    }
+
     pub(super) fn butterfly_count_from_per_chunk(butterflies_per_chunk: f32) -> u32 {
         let total_chunks = super::CHUNK_DIM.x.saturating_mul(super::CHUNK_DIM.z) as f32;
         (total_chunks * butterflies_per_chunk)
