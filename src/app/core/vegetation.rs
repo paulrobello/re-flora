@@ -839,6 +839,29 @@ impl App {
 
         let compiled = TreePlacementService::compile(tree_desc, tree_pos, self.prev_bound);
 
+        log::info!(
+            "[TREE] tree_pos={:?} rebuild_bound=({:?}..{:?}) leaves={}",
+            compiled.tree_pos,
+            compiled.rebuild_bound.min(),
+            compiled.rebuild_bound.max(),
+            compiled.quantized_leaf_positions.len(),
+        );
+        if let VoxelEdit::StampRoundCones {
+            ref round_cones,
+            ref bvh_nodes,
+            voxel_type,
+        } = compiled.trunk_voxel_edit
+        {
+            log::info!(
+                "[TREE] trunk: {} round_cones, {} bvh_nodes, voxel_type={}, aabb=({:?}..{:?})",
+                round_cones.len(),
+                bvh_nodes.len(),
+                voxel_type,
+                bvh_nodes.first().map(|n| n.aabb.min_uvec3()),
+                bvh_nodes.first().map(|n| n.aabb.max_uvec3()),
+            );
+        }
+
         self.execute_edit_plan(WorldEditPlan::with_voxel(compiled.trunk_voxel_edit))?;
         self.tracer.add_tree_leaves(
             &mut self.surface_builder.resources,

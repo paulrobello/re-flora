@@ -207,6 +207,7 @@ impl PlainBuilder {
             .get_image()
             .record_transition_barrier(&cmdbuf, 0, vk::ImageLayout::GENERAL);
 
+        // Pass 1: Compute 2D heightmap (one value per xz column)
         heightmap_ppl.record(
             &cmdbuf,
             Extent3D {
@@ -219,6 +220,7 @@ impl PlainBuilder {
 
         shader_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
 
+        // Setup indirect dispatch params for pass 2
         buffer_setup_ppl.record(
             &cmdbuf,
             Extent3D {
@@ -232,6 +234,7 @@ impl PlainBuilder {
         shader_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
         indirect_access_pipeline_barrier.record_insert(vulkan_ctx.device(), &cmdbuf);
 
+        // Pass 2: Classify voxels using heightmap (indirect dispatch)
         chunk_init_ppl.record_indirect(&cmdbuf, region_indirect, None);
 
         cmdbuf.end();
@@ -356,6 +359,7 @@ impl PlainBuilder {
         fill_voxel_type: u32,
     ) -> Result<()> {
         let (offset, dim) = calculate_offset_and_dim(bvh_nodes);
+        clear_edit_stats(&self.resources)?;
         update_chunk_modify_info(
             &self.resources,
             offset,
@@ -383,6 +387,14 @@ impl PlainBuilder {
                     None,
                 );
             },
+        );
+        let stats = read_edit_stats(&self.resources)?;
+        log::info!(
+            "[TREE-STAMP] offset={:?} dim={:?} added={:?} removed={:?}",
+            offset,
+            dim,
+            stats.added_counts,
+            stats.removed_counts,
         );
         Ok(())
     }
@@ -506,6 +518,7 @@ fn update_round_cones(resources: &PlainBuilderResources, round_cones: &[RoundCon
     Ok(())
 }
 
+#[allow(clippy::needless_update)]
 fn update_cuboids(resources: &PlainBuilderResources, cuboids: &[Cuboid]) -> Result<()> {
     for (i, cuboid) in cuboids.iter().enumerate() {
         let data = Cuboids {
