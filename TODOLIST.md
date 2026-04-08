@@ -8,6 +8,10 @@
 
 - Terrain editing tool, put the sliders display per voxel type to top right, and change the slider to be progress bars, since it's display only. make the max lim for each voxel type (the storage), to be 0.5x
 
+- A build system to plant floras
+
+- A ship in port as for resource exchange function, player can sell and buy stuffs there
+
 - For terrain editing, add a particle effect that generates same colored particles from the editing position, flying to the player camera, indicating the voxels are being collected from the terrain to the player's backpack.
 
 - Little Pond, with SSR reflection so it can reflect on both the terrain and the flora
