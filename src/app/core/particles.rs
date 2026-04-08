@@ -136,6 +136,11 @@ impl App {
         let camera_pos = self.tracer.camera_position();
         let camera_front = self.tracer.camera_front().normalize_or_zero();
         let collection_target = camera_pos + camera_front * 0.16 + Vec3::new(0.0, -0.04, 0.0);
+        let flyback_speed = self
+            .gui_adjustables
+            .terrain_harvest_flyback_speed
+            .value
+            .max(0.05);
 
         self.terrain_harvest_particle_handles.retain(|handle| {
             if !self.particle_system.is_alive_handle(*handle) {
@@ -155,9 +160,10 @@ impl App {
 
             let direction = to_target.normalize_or_zero();
             let current_velocity = self.particle_system.velocity(*handle).unwrap_or(Vec3::ZERO);
-            let desired_speed = (0.7 + (1.8 - distance).max(0.0) * 1.15).clamp(0.7, 2.4);
+            let desired_speed = (flyback_speed * (0.85 + (1.5 - distance).max(0.0) * 0.35))
+                .clamp(flyback_speed * 0.85, flyback_speed * 1.2);
             let desired_velocity = direction * desired_speed;
-            let blend = (7.0 * dt).clamp(0.0, 1.0);
+            let blend = (3.0 * dt).clamp(0.0, 1.0);
             let next_velocity = current_velocity.lerp(desired_velocity, blend);
             let _ = self.particle_system.set_velocity(*handle, next_velocity);
 

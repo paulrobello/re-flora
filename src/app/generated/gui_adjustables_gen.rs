@@ -445,6 +445,12 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
         label: "Full Update Time (s)",
     },
     GeneratedGuiParamDescriptor {
+        section: "Terrain Harvest Particles",
+        id: "terrain_harvest_flyback_speed",
+        kind: "float",
+        label: "Flyback Speed",
+    },
+    GeneratedGuiParamDescriptor {
         section: "Butterflies",
         id: "butterflies_enabled",
         kind: "bool",
@@ -626,6 +632,7 @@ pub struct GuiAdjustables {
     pub leaves_bottom_color: crate::gui_adjustables::ColorParam,
     pub leaves_tip_color: crate::gui_adjustables::ColorParam,
     pub particle_full_update_seconds: crate::gui_adjustables::FloatParam,
+    pub terrain_harvest_flyback_speed: crate::gui_adjustables::FloatParam,
     pub butterflies_enabled: crate::gui_adjustables::BoolParam,
     pub butterflies_per_chunk: crate::gui_adjustables::FloatParam,
     pub butterfly_height_offset_min: crate::gui_adjustables::FloatParam,
@@ -727,6 +734,7 @@ impl GuiAdjustables {
         let mut leaves_bottom_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut leaves_tip_color_field: Option<crate::gui_adjustables::ColorParam> = None;
         let mut particle_full_update_seconds_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut terrain_harvest_flyback_speed_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterflies_enabled_field: Option<crate::gui_adjustables::BoolParam> = None;
         let mut butterflies_per_chunk_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut butterfly_height_offset_min_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -1207,6 +1215,13 @@ impl GuiAdjustables {
                             particle_full_update_seconds_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
                         }
                     }
+                    "terrain_harvest_flyback_speed" => {
+                        if let (GuiParamKind::Float, GuiParamValue::Float { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0.0);
+                            let max = max.unwrap_or(1.0);
+                            terrain_harvest_flyback_speed_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
                     "butterflies_enabled" => {
                         if let (GuiParamKind::Bool, GuiParamValue::Bool { value }) = (&param.kind, &param.value) {
                             butterflies_enabled_field = Some(crate::gui_adjustables::BoolParam::new(*value));
@@ -1401,6 +1416,7 @@ impl GuiAdjustables {
             leaves_bottom_color: leaves_bottom_color_field.expect("Missing parameter: leaves_bottom_color"),
             leaves_tip_color: leaves_tip_color_field.expect("Missing parameter: leaves_tip_color"),
             particle_full_update_seconds: particle_full_update_seconds_field.expect("Missing parameter: particle_full_update_seconds"),
+            terrain_harvest_flyback_speed: terrain_harvest_flyback_speed_field.expect("Missing parameter: terrain_harvest_flyback_speed"),
             butterflies_enabled: butterflies_enabled_field.expect("Missing parameter: butterflies_enabled"),
             butterflies_per_chunk: butterflies_per_chunk_field.expect("Missing parameter: butterflies_per_chunk"),
             butterfly_height_offset_min: butterfly_height_offset_min_field.expect("Missing parameter: butterfly_height_offset_min"),
@@ -1474,6 +1490,7 @@ pub fn get_float_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str
         "leaves_inner_radius" => Some(&adjustables.leaves_inner_radius),
         "leaves_outer_radius" => Some(&adjustables.leaves_outer_radius),
         "particle_full_update_seconds" => Some(&adjustables.particle_full_update_seconds),
+        "terrain_harvest_flyback_speed" => Some(&adjustables.terrain_harvest_flyback_speed),
         "butterflies_per_chunk" => Some(&adjustables.butterflies_per_chunk),
         "butterfly_height_offset_min" => Some(&adjustables.butterfly_height_offset_min),
         "butterfly_height_offset_max" => Some(&adjustables.butterfly_height_offset_max),
@@ -1597,6 +1614,7 @@ pub fn get_float_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, 
         "leaves_inner_radius" => Some(&mut adjustables.leaves_inner_radius),
         "leaves_outer_radius" => Some(&mut adjustables.leaves_outer_radius),
         "particle_full_update_seconds" => Some(&mut adjustables.particle_full_update_seconds),
+        "terrain_harvest_flyback_speed" => Some(&mut adjustables.terrain_harvest_flyback_speed),
         "butterflies_per_chunk" => Some(&mut adjustables.butterflies_per_chunk),
         "butterfly_height_offset_min" => Some(&mut adjustables.butterfly_height_offset_min),
         "butterfly_height_offset_max" => Some(&mut adjustables.butterfly_height_offset_max),

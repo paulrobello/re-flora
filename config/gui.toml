@@ -778,6 +778,20 @@ min = 0.05
 max = 5
 
 [[section]]
+name = "Terrain Harvest Particles"
+
+[[section.param]]
+id = "terrain_harvest_flyback_speed"
+kind = "float"
+label = "Flyback Speed"
+type = "Float"
+
+[section.param.data]
+value = 0.42
+min = 0.05
+max = 2
+
+[[section]]
 name = "Butterflies"
 
 [[section.param]]
