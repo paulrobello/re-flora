@@ -1,10 +1,15 @@
 /target
+.claude/
 .aider*
 __pycache__/
 /resource_container_derive
 .gitnexus
+CLAUDE.md
 CLAUDE.local.md
+AGENTS.md
 *.local
 *.local.*
 .cc2cc-session-id
 settings.local.json
+Makefile
+Makefile.*

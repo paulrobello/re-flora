@@ -95,7 +95,7 @@ flora_growth_info;
 #include "../include/instance.glsl"
 #include "../include/sunlight.glsl"
 #include "../include/vsm.glsl"
-#include "../include/wind.glsl"
+#include "../include/wind_hash.glsl"
 #include "./billboard.glsl"
 #include "./color_variation.glsl"
 #include "./grass_band_color.glsl"

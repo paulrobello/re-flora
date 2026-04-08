@@ -18,7 +18,6 @@ use crate::vkn::ShaderModule;
 use crate::vkn::VulkanContext;
 use anyhow::Result;
 use ash::vk;
-use bytemuck::Zeroable;
 use glam::UVec3;
 use std::collections::HashMap;
 
@@ -348,7 +347,6 @@ impl ContreeBuilder {
                 max_level,
                 node_write_offset,
                 leaf_write_offset,
-                ..ContreeBuildInfo::zeroed()
             })
         }
     }
