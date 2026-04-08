@@ -46,6 +46,14 @@ impl App {
         }
     }
 
+    fn is_active_voxel_storage_full(&self) -> bool {
+        self.active_voxel_count() >= MAX_VOXEL_STORAGE_PER_TYPE
+    }
+
+    fn active_voxel_storage_remaining(&self) -> u32 {
+        MAX_VOXEL_STORAGE_PER_TYPE.saturating_sub(self.active_voxel_count())
+    }
+
     fn add_active_voxel_to_backpack(&mut self, amount: u32) {
         match self.active_voxel_type {
             super::ActiveVoxelType::Dirt => {
@@ -229,6 +237,17 @@ impl App {
             return;
         }
 
+        if self.is_active_voxel_storage_full() {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
+        let remaining_capacity = self.active_voxel_storage_remaining();
+        if remaining_capacity == 0 {
+            self.stop_terrain_edit_loop_sound();
+            return;
+        }
+
         match self.query_camera_ray_terrain_intersection(super::SHOVEL_RAY_QUERY_DISTANCE) {
             Ok(Some(center)) => {
                 self.start_terrain_edit_loop_sound(center);
@@ -246,6 +265,7 @@ impl App {
                             radius: super::SHOVEL_REMOVE_RADIUS,
                         },
                         Some(self.active_voxel_type_id()),
+                        Some(remaining_capacity),
                     )
                     .map(|stats| {
                         self.add_active_voxel_to_backpack(
