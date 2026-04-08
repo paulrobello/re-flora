@@ -6,8 +6,9 @@
 
 ### Features
 
-- Let our terrain be grounded, sand interacts with the ocean. currently, ocean is below y=0, maybe we use y=0.2 as the basis.
-  For generated terrain, ensure the minimum height of the terrain is 2 voxels, that is, 2.0 / 256.0
+- Terrain editing tool, put the sliders display per voxel type to top right, and change the slider to be progress bars, since it's display only. make the max lim for each voxel type (the storage), to be 0.5x
+
+- For terrain editing, add a particle effect that generates same colored particles from the editing position, flying to the player camera, indicating the voxels are being collected from the terrain to the player's backpack.
 
 - Little Pond, with SSR reflection so it can reflect on both the terrain and the flora
 
