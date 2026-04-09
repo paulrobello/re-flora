@@ -178,6 +178,12 @@ pub struct App {
     particle_snapshots: Vec<ParticleSnapshot>,
     particle_forces: ParticleForces,
 
+    render_start_time: Option<Instant>,
+    screenshot_path: Option<String>,
+    screenshot_delay: f32,
+    screenshot_taken: bool,
+    auto_exit_delay: Option<f32>,
+
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
 
@@ -191,6 +197,46 @@ impl Drop for App {
     fn drop(&mut self) {
         // Ensure GPU work is done before resources begin destructing
         self.vulkan_ctx.device().wait_idle();
+    }
+}
+
+impl App {
+    fn save_screenshot(&self, path: &str) {
+        let output_path = std::path::Path::new(path);
+        if let Some(parent) = output_path.parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                log::error!(
+                    "[SCREENSHOT] Parent directory does not exist: {}",
+                    parent.display()
+                );
+                return;
+            }
+        }
+
+        self.vulkan_ctx.device().wait_idle();
+
+        let image = self.tracer.get_screen_output_tex().get_image();
+        let extent = image.get_desc().extent;
+        let width = extent.width;
+        let height = extent.height;
+
+        match image.fetch_data(
+            &self.vulkan_ctx.get_general_queue(),
+            self.vulkan_ctx.command_pool(),
+        ) {
+            Ok(rgba_data) => match image::RgbaImage::from_raw(width, height, rgba_data) {
+                Some(image_data) => match image_data.save(path) {
+                    Ok(()) => log::info!("[SCREENSHOT] Saved {}x{} to {}", width, height, path),
+                    Err(err) => {
+                        log::error!("[SCREENSHOT] Failed to write {}: {}", path, err)
+                    }
+                },
+                None => {
+                    log::error!("[SCREENSHOT] Invalid image dimensions or pixel buffer size")
+                }
+            },
+            Err(err) => log::error!("[SCREENSHOT] GPU readback failed: {}", err),
+        }
     }
 }
 
@@ -528,6 +574,12 @@ impl App {
             particle_snapshots,
             particle_forces,
 
+            render_start_time: None,
+            screenshot_path: options.screenshot_path.clone(),
+            screenshot_delay: options.screenshot_delay,
+            screenshot_taken: false,
+            auto_exit_delay: options.auto_exit_delay,
+
             spatial_sound_manager,
             tree_audio_manager,
         };
@@ -816,6 +868,8 @@ impl App {
         ) {
             log::error!("Failed to regenerate leaves: {}", err);
         }
+
+        self.render_start_time = Some(Instant::now());
     }
 
     fn configure_gui_font(&mut self) -> Result<()> {
@@ -1687,6 +1741,32 @@ impl App {
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
+
+                if let Some(render_start_time) = self.render_start_time {
+                    let elapsed = render_start_time.elapsed().as_secs_f32();
+
+                    if !self.screenshot_taken {
+                        if let Some(path) = &self.screenshot_path {
+                            if elapsed >= self.screenshot_delay {
+                                self.screenshot_taken = true;
+                                log::info!(
+                                    "[SCREENSHOT] Capturing after {:.2}s to {}",
+                                    elapsed,
+                                    path
+                                );
+                                self.save_screenshot(path);
+                            }
+                        }
+                    }
+
+                    if let Some(auto_exit_delay) = self.auto_exit_delay {
+                        if elapsed >= auto_exit_delay {
+                            log::info!("[AUTO-EXIT] Exiting after {:.2}s", elapsed);
+                            self.on_terminate(event_loop);
+                            return;
+                        }
+                    }
+                }
             }
             _ => (),
         }
