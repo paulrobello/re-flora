@@ -301,9 +301,9 @@ impl App {
         (20.0 * gain.log10()).clamp(MIN_DB, MAX_DB)
     }
 
-    pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
+    pub fn new(_event_loop: &ActiveEventLoop, options: &crate::AppOptions) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
-        let window_state = Self::create_window_state(_event_loop);
+        let window_state = Self::create_window_state(_event_loop, options);
         let vulkan_ctx = Self::create_vulkan_context(&window_state);
 
         let shader_compiler = ShaderCompiler::new().unwrap();

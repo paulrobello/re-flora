@@ -22,6 +22,70 @@ use app::AppController;
 use env_logger::Env;
 use winit::event_loop::EventLoop;
 
+/// Application launch options parsed from CLI arguments.
+#[derive(Clone, Debug)]
+pub struct AppOptions {
+    /// Run in windowed mode instead of borderless fullscreen.
+    pub windowed: bool,
+    /// Disable shadow rendering pass.
+    pub no_shadows: bool,
+    /// Disable denoiser passes.
+    pub no_denoise: bool,
+    /// Disable god ray pass.
+    pub no_god_rays: bool,
+    /// Disable lens flare passes.
+    pub no_lens_flare: bool,
+    /// Disable main tracer (black screen, for isolating other passes).
+    pub no_tracer: bool,
+    /// Disable particle simulation (butterflies, leaves).
+    pub no_particles: bool,
+    /// Disable flora/leaves graphics passes (grass, tree leaves).
+    pub no_flora: bool,
+    /// Path to save a screenshot after rendering starts. None = no screenshot.
+    pub screenshot_path: Option<String>,
+    /// Delay in seconds after rendering starts before taking the screenshot.
+    pub screenshot_delay: f32,
+    /// Auto-exit N seconds after rendering starts. None = don't auto-exit.
+    pub auto_exit_delay: Option<f32>,
+    /// Enable per-frame performance timing output to console.
+    pub perf: bool,
+}
+
+impl AppOptions {
+    fn from_args() -> Self {
+        let args: Vec<String> = std::env::args().collect();
+
+        let parse_f32_after = |flag: &str| -> Option<f32> {
+            args.iter()
+                .position(|a| a == flag)
+                .and_then(|i| args.get(i + 1))
+                .and_then(|v| v.parse::<f32>().ok())
+        };
+
+        let parse_string_after = |flag: &str| -> Option<String> {
+            args.iter()
+                .position(|a| a == flag)
+                .and_then(|i| args.get(i + 1))
+                .cloned()
+        };
+
+        Self {
+            windowed: args.iter().any(|a| a == "--windowed" || a == "-w"),
+            no_shadows: args.iter().any(|a| a == "--no-shadows"),
+            no_denoise: args.iter().any(|a| a == "--no-denoise"),
+            no_god_rays: args.iter().any(|a| a == "--no-god-rays"),
+            no_lens_flare: args.iter().any(|a| a == "--no-lens-flare"),
+            no_tracer: args.iter().any(|a| a == "--no-tracer"),
+            no_particles: args.iter().any(|a| a == "--no-particles"),
+            no_flora: args.iter().any(|a| a == "--no-flora"),
+            screenshot_path: parse_string_after("--screenshot"),
+            screenshot_delay: parse_f32_after("--screenshot-delay").unwrap_or(5.0),
+            auto_exit_delay: parse_f32_after("--auto-exit"),
+            perf: args.iter().any(|a| a == "--perf"),
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn backtrace_on() {
     use std::env;
@@ -72,7 +136,8 @@ pub fn main() {
 
     init_env_logger();
 
-    let mut app = AppController::default();
+    let options = AppOptions::from_args();
+    let mut app = AppController::new(options);
     let event_loop = EventLoop::builder().build().unwrap();
     let result = event_loop.run_app(&mut app);
 
