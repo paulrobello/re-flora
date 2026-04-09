@@ -786,8 +786,10 @@ impl Tracer {
         );
         b2.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        self.record_god_ray_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_god_rays {
+            self.record_god_ray_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
         if render_flags.enable_denoiser {
             self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
