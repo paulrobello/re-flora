@@ -70,7 +70,7 @@ impl AppOptions {
         };
 
         Self {
-            windowed: args.iter().any(|a| a == "--windowed" || a == "-w"),
+            windowed: args.iter().any(|a| a == "--windowed"),
             no_shadows: args.iter().any(|a| a == "--no-shadows"),
             no_denoise: args.iter().any(|a| a == "--no-denoise"),
             no_god_rays: args.iter().any(|a| a == "--no-god-rays"),
