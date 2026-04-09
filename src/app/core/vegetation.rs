@@ -687,6 +687,7 @@ impl App {
         &mut self,
         edit: TerrainRemovalEdit,
         target_voxel_type: Option<u32>,
+        max_write_count: Option<u32>,
     ) -> Result<ChunkModifyStats> {
         if let Some(compiled) = TerrainSurfaceRemovalService::compile(edit) {
             let stats = match compiled.voxel_edit {
@@ -701,7 +702,7 @@ impl App {
                         &spheres,
                         voxel_type,
                         target_voxel_type,
-                        None,
+                        max_write_count,
                     )?,
                 _ => unreachable!("terrain surface removal compiled into unexpected edit type"),
             };

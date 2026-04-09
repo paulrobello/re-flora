@@ -190,6 +190,8 @@ impl FallenLeafEmitter {
             sink_speed: self.rng.random_range(0.08..=0.18),
             texture_variant: 0,
             render_kind: ParticleRenderKind::Leaf,
+            despawn_on_lifetime: true,
+            despawn_below_ground: true,
         };
         let _ = system.spawn(spawn);
     }
@@ -435,6 +437,8 @@ impl ButterflyEmitter {
             sink_speed: 0.0,
             texture_variant,
             render_kind: self.render_kind,
+            despawn_on_lifetime: true,
+            despawn_below_ground: true,
         };
 
         match system.spawn(spawn) {

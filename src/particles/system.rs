@@ -70,6 +70,10 @@ pub struct ParticleSpawn {
     pub texture_variant: u32,
     /// Render classification used by the particle texture LUT.
     pub render_kind: ParticleRenderKind,
+    /// If false, particle lifetime does not trigger automatic despawn.
+    pub despawn_on_lifetime: bool,
+    /// If false, particle can go below y=0 without automatic despawn.
+    pub despawn_below_ground: bool,
 }
 
 impl Default for ParticleSpawn {
@@ -91,6 +95,8 @@ impl Default for ParticleSpawn {
             sink_speed: 0.1,
             texture_variant: 0,
             render_kind: ParticleRenderKind::Leaf,
+            despawn_on_lifetime: true,
+            despawn_below_ground: true,
         }
     }
 }
@@ -181,6 +187,8 @@ pub struct ParticleSystem {
     animation_elapsed: Vec<f32>,
     animation_frame_offsets: Vec<u32>,
     render_kinds: Vec<ParticleRenderKind>,
+    despawn_on_lifetime: Vec<bool>,
+    despawn_below_ground: Vec<bool>,
     update_buckets: Vec<u32>,
     pending_sim_dt: Vec<f32>,
     update_bucket_phase: u32,
@@ -230,6 +238,8 @@ impl ParticleSystem {
             animation_elapsed: vec![0.0; max_particles],
             animation_frame_offsets: vec![0; max_particles],
             render_kinds: vec![ParticleRenderKind::Leaf; max_particles],
+            despawn_on_lifetime: vec![true; max_particles],
+            despawn_below_ground: vec![true; max_particles],
             update_buckets: vec![0; max_particles],
             pending_sim_dt: vec![0.0; max_particles],
             update_bucket_phase: 0,
@@ -321,6 +331,8 @@ impl ParticleSystem {
         self.animation_elapsed[slot] = 0.0;
         self.animation_frame_offsets[slot] = 0;
         self.render_kinds[slot] = spawn.render_kind;
+        self.despawn_on_lifetime[slot] = spawn.despawn_on_lifetime;
+        self.despawn_below_ground[slot] = spawn.despawn_below_ground;
         self.update_buckets[slot] = self.assign_update_bucket(slot, spawn.speed_noise_offset);
         self.pending_sim_dt[slot] = 0.0;
 
@@ -547,9 +559,10 @@ impl ParticleSystem {
 
             // Sink-enabled particles only despawn once they go below the ground plane.
             let should_despawn = if self.is_sinking[slot] {
-                self.positions[slot].y < 0.0
+                self.despawn_below_ground[slot] && self.positions[slot].y < 0.0
             } else {
-                self.ages[slot] >= self.lifetimes[slot] || self.positions[slot].y < 0.0
+                (self.despawn_on_lifetime[slot] && self.ages[slot] >= self.lifetimes[slot])
+                    || (self.despawn_below_ground[slot] && self.positions[slot].y < 0.0)
             };
             if should_despawn {
                 self.kill_dead_particle(alive_cursor, slot);

@@ -1,8 +1,9 @@
 use super::App;
+use crate::builder::ChunkModifyStats;
 use crate::geom::UAabb3;
 use crate::particles::{
     ButterflyEmitter, ButterflyEmitterDesc, FallenLeafEmitter, ParticleEmitter, ParticleHandle,
-    ParticleSystem, ParticleTickStep,
+    ParticleRenderKind, ParticleSpawn, ParticleSystem, ParticleTickStep,
 };
 use crate::util::ClusterResult;
 use egui::Color32;
@@ -10,6 +11,9 @@ use glam::{Vec2, Vec3, Vec4};
 use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
+
+const TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT: u32 = 24;
+const TERRAIN_HARVEST_PARTICLE_SIZE: f32 = 1.0 / 256.0;
 
 pub(super) struct TreeLeafEmitter {
     tree_id: u32,
@@ -33,6 +37,142 @@ impl ParticleEmitter for TreeLeafEmitter {
 }
 
 impl App {
+    fn terrain_harvest_color_for_voxel(&self, voxel_type: u32) -> Vec4 {
+        let color32 = match voxel_type {
+            crate::builder::VOXEL_TYPE_DIRT => self.gui_adjustables.voxel_dirt_color.value,
+            crate::builder::VOXEL_TYPE_CHERRY_WOOD => {
+                self.gui_adjustables.voxel_cherry_wood_color.value
+            }
+            crate::builder::VOXEL_TYPE_OAK_WOOD => self.gui_adjustables.voxel_oak_wood_color.value,
+            crate::builder::VOXEL_TYPE_SAND => egui::Color32::from_rgb(229, 204, 126),
+            crate::builder::VOXEL_TYPE_ROCK => egui::Color32::from_rgb(168, 176, 190),
+            _ => egui::Color32::from_rgb(210, 190, 140),
+        };
+
+        Vec4::new(
+            color32.r() as f32 / 255.0,
+            color32.g() as f32 / 255.0,
+            color32.b() as f32 / 255.0,
+            1.0,
+        )
+    }
+
+    pub(super) fn spawn_terrain_harvest_particles(
+        &mut self,
+        center: Vec3,
+        stats: &ChunkModifyStats,
+    ) {
+        let mut removed_total = 0u32;
+        for count in stats.removed_counts {
+            removed_total = removed_total.saturating_add(count);
+        }
+        if removed_total == 0 {
+            return;
+        }
+
+        let spawn_count = removed_total.clamp(1, TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT);
+        let base_pos = center + Vec3::new(0.0, 0.03, 0.0);
+
+        let mut removed_types = Vec::new();
+        let mut cumulative = 0u32;
+        for (voxel_type, count) in stats.removed_counts.iter().enumerate() {
+            if *count == 0 {
+                continue;
+            }
+            cumulative = cumulative.saturating_add(*count);
+            removed_types.push((voxel_type as u32, cumulative));
+        }
+        if removed_types.is_empty() {
+            return;
+        }
+
+        for i in 0..spawn_count {
+            let t = i as f32 / spawn_count as f32;
+            let angle = t * TAU;
+            let swirl = Vec3::new(angle.cos(), 0.0, angle.sin());
+            let velocity = Vec3::new(swirl.x * 0.18, 0.25 + t * 0.22, swirl.z * 0.18);
+            let sample = (((i as f32 + 0.5) / spawn_count as f32) * removed_total as f32)
+                .clamp(0.0, removed_total as f32 - 0.001) as u32;
+            let mut sampled_voxel_type = removed_types[removed_types.len() - 1].0;
+            for (voxel_type, threshold) in &removed_types {
+                if sample < *threshold {
+                    sampled_voxel_type = *voxel_type;
+                    break;
+                }
+            }
+            let base_color = self.terrain_harvest_color_for_voxel(sampled_voxel_type);
+            let brightness = 0.9 + 0.2 * ((t * TAU * 2.0).sin() * 0.5 + 0.5);
+            let rgb = base_color.truncate() * brightness;
+
+            let spawn = ParticleSpawn {
+                position: base_pos,
+                velocity,
+                color: Vec4::new(rgb.x.min(1.0), rgb.y.min(1.0), rgb.z.min(1.0), 1.0),
+                size: TERRAIN_HARVEST_PARTICLE_SIZE,
+                lifetime: 1.35,
+                wind_factor: 0.0,
+                gravity_factor: 0.0,
+                drift_direction: Vec3::new(swirl.z, 0.2, -swirl.x),
+                drift_strength: 0.08,
+                drift_frequency: 1.7,
+                speed_noise_offset: i as f32,
+                motion_mode: crate::particles::MotionMode::Free,
+                sink_on_lifetime: false,
+                sink_speed: 0.0,
+                texture_variant: 0,
+                render_kind: ParticleRenderKind::Leaf,
+                despawn_on_lifetime: false,
+                despawn_below_ground: false,
+            };
+            if let Some(handle) = self.particle_system.spawn(spawn) {
+                self.terrain_harvest_particle_handles.push(handle);
+            }
+        }
+    }
+
+    fn update_terrain_harvest_particle_collection(&mut self, dt: f32) {
+        if dt <= 0.0 || self.terrain_harvest_particle_handles.is_empty() {
+            return;
+        }
+
+        let camera_pos = self.tracer.camera_position();
+        let camera_front = self.tracer.camera_front().normalize_or_zero();
+        let collection_target = camera_pos + camera_front * 0.16 + Vec3::new(0.0, -0.04, 0.0);
+        let flyback_speed = self
+            .gui_adjustables
+            .terrain_harvest_flyback_speed
+            .value
+            .max(0.05);
+
+        self.terrain_harvest_particle_handles.retain(|handle| {
+            if !self.particle_system.is_alive_handle(*handle) {
+                return false;
+            }
+
+            let Some(position) = self.particle_system.position(*handle) else {
+                return false;
+            };
+
+            let to_target = collection_target - position;
+            let distance = to_target.length();
+            if distance <= 0.08 {
+                let _ = self.particle_system.despawn(*handle);
+                return false;
+            }
+
+            let direction = to_target.normalize_or_zero();
+            let current_velocity = self.particle_system.velocity(*handle).unwrap_or(Vec3::ZERO);
+            let desired_speed = (flyback_speed * (0.85 + (1.5 - distance).max(0.0) * 0.35))
+                .clamp(flyback_speed * 0.85, flyback_speed * 1.2);
+            let desired_velocity = direction * desired_speed;
+            let blend = (3.0 * dt).clamp(0.0, 1.0);
+            let next_velocity = current_velocity.lerp(desired_velocity, blend);
+            let _ = self.particle_system.set_velocity(*handle, next_velocity);
+
+            true
+        });
+    }
+
     pub(super) fn butterfly_count_from_per_chunk(butterflies_per_chunk: f32) -> u32 {
         let total_chunks = super::CHUNK_DIM.x.saturating_mul(super::CHUNK_DIM.z) as f32;
         (total_chunks * butterflies_per_chunk)
@@ -219,6 +359,8 @@ impl App {
             dt,
             wind_time,
         );
+
+        self.update_terrain_harvest_particle_collection(dt);
 
         self.particle_system.update(dt, self.particle_forces);
         let tick_step = self.particle_system.last_tick_step();

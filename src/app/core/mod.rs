@@ -23,8 +23,8 @@ use crate::builder::{ContreeBuilder, PlainBuilder, SceneAccelBuilder, SurfaceBui
 use crate::flora::species;
 use crate::geom::UAabb3;
 use crate::particles::{
-    ButterflyEmitter, ButterflyEmitterDesc, LeafEmitterDesc, ParticleForces, ParticleSnapshot,
-    ParticleSystem, PARTICLE_CAPACITY,
+    ButterflyEmitter, ButterflyEmitterDesc, LeafEmitterDesc, ParticleForces, ParticleHandle,
+    ParticleSnapshot, ParticleSystem, PARTICLE_CAPACITY,
 };
 use crate::tracer::{Tracer, TracerDesc};
 use crate::tree_gen::TreeDesc;
@@ -174,6 +174,7 @@ pub struct App {
     butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_animation_time_sec: f32,
     particle_snapshots: Vec<ParticleSnapshot>,
+    terrain_harvest_particle_handles: Vec<ParticleHandle>,
     particle_forces: ParticleForces,
 
     // note: always keep the context to end, as it has to be destroyed last
@@ -442,6 +443,7 @@ impl App {
         let butterfly_emitters = Vec::new();
         let butterfly_emitter_desc = Self::butterfly_desc_from_gui_adjustables(&gui_adjustables);
         let particle_snapshots = Vec::with_capacity(PARTICLE_CAPACITY);
+        let terrain_harvest_particle_handles = Vec::with_capacity(256);
         let particle_forces = ParticleForces {
             linear_damping: 0.08,
             ..ParticleForces::default()
@@ -523,6 +525,7 @@ impl App {
             butterfly_emitter_desc,
             particle_animation_time_sec: 0.0,
             particle_snapshots,
+            terrain_harvest_particle_handles,
             particle_forces,
 
             spatial_sound_manager,

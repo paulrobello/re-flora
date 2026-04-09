@@ -130,7 +130,7 @@ uint sample_grass_height(uint seed) {
     return uint(round(sampled_height));
 }
 
-float grass_growth_factor(uint growth_start_tick) {
+float flora_growth_factor(uint growth_start_tick) {
     if (flora_growth_info.full_growth_ticks <= flora_growth_info.sprout_delay_ticks) {
         return 1.0;
     }
@@ -207,12 +207,20 @@ void main() {
     uint grass_height_voxels =
         is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
+    float growth_factor         = flora_growth_factor(in_instance_growth_start_tick);
     bool should_trim_voxel      = false;
 
     if (is_grass) {
-        float growth_factor         = grass_growth_factor(in_instance_growth_start_tick);
         float grown_height_voxels_f = floor(grass_height_voxels_f * growth_factor + 0.001);
         should_trim_voxel           = float(vox_local_pos.y) >= grown_height_voxels_f;
+    } else {
+        if (growth_factor <= 0.0) {
+            should_trim_voxel = true;
+        } else {
+            float grown_length = float(max_length) * growth_factor;
+            float voxel_length = length(vec3(vox_local_pos - gradient_origin));
+            should_trim_voxel  = voxel_length > grown_length;
+        }
     }
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
