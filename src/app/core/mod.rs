@@ -1401,7 +1401,9 @@ impl App {
                     );
                 }
 
-                self.update_particle_simulation(frame_delta_time);
+                if self.render_flags.enable_particles {
+                    self.update_particle_simulation(frame_delta_time);
+                }
 
                 let device = self.vulkan_ctx.device();
                 let sync = &self.frames_in_flight[self.current_frame];
