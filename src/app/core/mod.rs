@@ -118,6 +118,7 @@ pub struct App {
     render_flags: RenderFlags,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
+    perf_logging: bool,
 
     tracer: Tracer,
 
@@ -508,6 +509,7 @@ impl App {
 
             accumulated_mouse_delta: Vec2::ZERO,
             smoothed_mouse_delta: Vec2::ZERO,
+            perf_logging: options.perf,
 
             swapchain,
             frames_in_flight,
@@ -1151,6 +1153,8 @@ impl App {
                     return;
                 }
 
+                let frame_start = Instant::now();
+
                 // resize the window if needed
                 if self.is_resize_pending {
                     self.on_resize();
@@ -1158,7 +1162,7 @@ impl App {
 
                 self.window_state.maintain_cursor_grab();
 
-                self.time_info.update();
+                self.time_info.update(self.perf_logging);
 
                 if self.loading_state.is_some() {
                     self.process_loading_step();
@@ -1217,6 +1221,7 @@ impl App {
                 let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 let active_voxel_label = self.active_voxel_type.label();
                 let active_voxel_color = self.active_voxel_type.color();
+                let egui_start = Instant::now();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.global_style()).clone();
@@ -1402,6 +1407,7 @@ impl App {
                                 });
                             });
                     });
+                let egui_ms = egui_start.elapsed().as_secs_f32() * 1000.0;
                 self.sync_cursor_with_panels();
 
                 if let Err(err) =
@@ -1459,6 +1465,7 @@ impl App {
                     self.update_particle_simulation(frame_delta_time);
                 }
 
+                let gpu_record_start = Instant::now();
                 let device = self.vulkan_ctx.device();
                 let sync = &self.frames_in_flight[self.current_frame];
                 let cmdbuf = &sync.command_buffer;
@@ -1718,6 +1725,7 @@ impl App {
                 };
 
                 let present_result = self.swapchain.present(&signal_semaphores, image_idx);
+                let gpu_ms = gpu_record_start.elapsed().as_secs_f32() * 1000.0;
 
                 match present_result {
                     Ok(is_suboptimal) if is_suboptimal => {
@@ -1741,6 +1749,17 @@ impl App {
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
+
+                if self.perf_logging && self.time_info.total_frame_count() % 30 == 0 {
+                    let total_ms = frame_start.elapsed().as_secs_f32() * 1000.0;
+                    log::info!(
+                        "[PERF] frame {} total {:.2}ms egui {:.2}ms gpu+present {:.2}ms",
+                        self.time_info.total_frame_count(),
+                        total_ms,
+                        egui_ms,
+                        gpu_ms
+                    );
+                }
 
                 if let Some(render_start_time) = self.render_start_time {
                     let elapsed = render_start_time.elapsed().as_secs_f32();
