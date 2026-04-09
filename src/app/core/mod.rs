@@ -31,6 +31,7 @@ use crate::tree_gen::TreeDesc;
 use crate::util::TimeInfo;
 use crate::util::{get_sun_dir, ShaderCompiler, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
+use crate::RenderFlags;
 use crate::{
     egui_renderer::EguiRenderer,
     vkn::{Swapchain, VulkanContext},
@@ -114,6 +115,7 @@ pub struct App {
     image_render_finished_semaphores: Vec<Semaphore>,
     images_in_flight: Vec<vk::Fence>,
     time_info: TimeInfo,
+    render_flags: RenderFlags,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
 
@@ -476,6 +478,7 @@ impl App {
 
             is_resize_pending: false,
             time_info: TimeInfo::default(),
+            render_flags: RenderFlags::from(options),
 
             gui_config,
             gui_adjustables,
@@ -1611,6 +1614,7 @@ impl App {
                         &flora_colors,
                         leaf_bottom,
                         leaf_tip,
+                        &self.render_flags,
                     )
                     .unwrap();
 

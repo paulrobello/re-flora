@@ -86,6 +86,31 @@ impl AppOptions {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct RenderFlags {
+    pub enable_shadows: bool,
+    pub enable_denoiser: bool,
+    pub enable_god_rays: bool,
+    pub enable_lens_flare: bool,
+    pub enable_tracer: bool,
+    pub enable_flora: bool,
+    pub enable_particles: bool,
+}
+
+impl From<&AppOptions> for RenderFlags {
+    fn from(options: &AppOptions) -> Self {
+        Self {
+            enable_shadows: !options.no_shadows,
+            enable_denoiser: !options.no_denoise,
+            enable_god_rays: !options.no_god_rays,
+            enable_lens_flare: !options.no_lens_flare,
+            enable_tracer: !options.no_tracer,
+            enable_flora: !options.no_flora,
+            enable_particles: !options.no_particles,
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn backtrace_on() {
     use std::env;

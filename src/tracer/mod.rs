@@ -702,6 +702,7 @@ impl Tracer {
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
         leaf_tip_color: Vec3,
+        render_flags: &crate::RenderFlags,
     ) -> Result<()> {
         let shader_access_memory_barrier = MemoryBarrier::new_shader_access();
         let compute_to_compute_barrier = PipelineBarrier::new(
@@ -715,15 +716,17 @@ impl Tracer {
             vec![shader_access_memory_barrier],
         );
 
-        self.record_clear_render_targets(cmdbuf);
+        self.record_clear_render_targets(cmdbuf, render_flags);
 
-        self.record_leaves_shadow_lod_pass(
-            cmdbuf,
-            surface_resources,
-            leaf_bottom_color,
-            leaf_tip_color,
-            time,
-        );
+        if render_flags.enable_shadows {
+            self.record_leaves_shadow_lod_pass(
+                cmdbuf,
+                surface_resources,
+                leaf_bottom_color,
+                leaf_tip_color,
+                time,
+            );
+        }
         let frag_to_compute_barrier = PipelineBarrier::new(
             vk::PipelineStageFlags::FRAGMENT_SHADER,
             vk::PipelineStageFlags::COMPUTE_SHADER,
@@ -731,10 +734,12 @@ impl Tracer {
         );
         frag_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        self.record_tracer_shadow_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_vsm_filtering_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_shadows {
+            self.record_tracer_shadow_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_vsm_filtering_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
 
         let b1 = PipelineBarrier::new(
             vk::PipelineStageFlags::COMPUTE_SHADER,
@@ -849,7 +854,11 @@ impl Tracer {
         }
     }
 
-    fn record_clear_render_targets(&self, cmdbuf: &CommandBuffer) {
+    fn record_clear_render_targets(
+        &self,
+        cmdbuf: &CommandBuffer,
+        _render_flags: &crate::RenderFlags,
+    ) {
         self.resources
             .extent_dependent_resources
             .gfx_output_tex
