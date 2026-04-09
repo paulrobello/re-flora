@@ -1,60 +1,58 @@
 # Re: Flora
 
-> A meditative voxel-based gardening game. Cultivate your own island ecosystem.
+> Cultivate your own island ecosystem — a meditative voxel gardening game.
 
 ![Re: Flora](./demo/img/splash.png)
 
-## What is this?
+Re: Flora is a cozy voxel game prototype about shaping terrain, planting flora, and building a calm island atmosphere. Built with Vulkan ray tracing in Rust.
 
-Re: Flora is a cozy voxel game prototype focused on terrain shaping, planting flora, and building a calm island atmosphere.
+## Getting Started
 
-## Quick Start
+**Prerequisites:**
 
-1. Install Rust (latest stable): <https://rustup.rs/>
-2. Install Vulkan SDK/tools:
-   - Linux: `libvulkan-dev` + `vulkan-tools` (or distro equivalent)
-   - Windows: <https://vulkan.lunarg.com/sdk/home#vulkansdk>
-3. Build and run:
+- [Rust](https://rustup.rs/) (latest stable)
+- Vulkan-capable GPU with up-to-date drivers (RTX not required)
+- Vulkan development packages:
+  - Linux: `libvulkan-dev` + `vulkan-tools` (or distro equivalent)
+  - Windows: [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#vulkansdk)
+
+**Build and run:**
 
 ```bash
 cargo run --release
 ```
 
-The first build may take a while due to shader compilation.
+The first build takes a while — shaders compile from source.
 
-## Requirements
+## Controls
 
-- Rust (latest stable)
-- Vulkan SDK or development packages
-- Vulkan-capable GPU with up-to-date drivers (non-RTX GPUs are supported)
-
-## Configuration
-
-- Runtime settings live in `config/gui.toml`
-- Many values can also be tuned live in-game via the Tab menu
+Press **Tab** in-game to open the settings menu, where most values can be tuned live. Runtime defaults are stored in [`config/gui.toml`](./config/gui.toml).
 
 ## Tech Stack
 
-| Domain    | Library / Tool                                       |
-| --------- | ---------------------------------------------------- |
-| Rendering | Vulkan (`ash`) with ray tracing extensions           |
-| UI        | `egui`                                               |
-| Audio     | `petalsonic`                                         |
-| Terrain   | Procedural generation via `fastnoise-lite` + `noise` |
+| Domain    | Crate                                      |
+| --------- | ------------------------------------------ |
+| Rendering | `ash` (Vulkan) with ray tracing extensions |
+| Windowing | `winit`                                    |
+| UI        | `egui`                                     |
+| Audio     | `petalsonic`                               |
+| Terrain   | `fastnoise-lite` + `noise`                 |
 
-## Docs
+## Documentation
 
-- References and technical reading: `docs/references.md`
-- Inspirations and art direction links: `docs/inspirations.md`
+- [Technical references](./docs/references.md)
+- [Inspirations and art direction](./docs/inspirations.md)
+- [Roadmap](./ROADMAP.md)
+- [Contributing](./CONTRIBUTING.md)
 
-## Special Thanks
+## Acknowledgements
 
-- [adrien-ben/egui-ash-renderer](https://github.com/adrien-ben/egui-ash-renderer) for `ash` + `egui` integration
-- TheMaister, Khronos Group, and graphics education authors for Vulkan and rendering guidance
+- [egui-ash-renderer](https://github.com/adrien-ben/egui-ash-renderer) — `ash` + `egui` integration
+- TheMaister, Khronos Group, and the broader graphics programming community for Vulkan guidance
 
 ## License
 
-This project uses a dual license:
+Dual-licensed:
 
-- Source code: [GNU General Public License v3.0](./LICENSE)
-- Non-code assets (art, audio, images, config, etc.): [CC BY-NC-SA 4.0](./LICENSE-ASSETS)
+- **Code:** [GPL-3.0](./LICENSE)
+- **Assets** (art, audio, images, config): [CC BY-NC-SA 4.0](./LICENSE-ASSETS)
