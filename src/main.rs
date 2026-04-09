@@ -49,6 +49,8 @@ pub struct AppOptions {
     pub auto_exit_delay: Option<f32>,
     /// Enable per-frame performance timing output to console.
     pub perf: bool,
+    /// Print CLI help and exit successfully.
+    pub help: bool,
 }
 
 impl AppOptions {
@@ -82,8 +84,15 @@ impl AppOptions {
             screenshot_delay: parse_f32_after("--screenshot-delay").unwrap_or(5.0),
             auto_exit_delay: parse_f32_after("--auto-exit"),
             perf: args.iter().any(|a| a == "--perf"),
+            help: args.iter().any(|a| a == "--help"),
         }
     }
+}
+
+fn print_help() {
+    println!(
+        "Usage:\n  re-flora [options]\n\nOptions:\n  --windowed                  Run in windowed mode (default: borderless fullscreen)\n  --no-shadows                Disable shadow rendering passes\n  --no-denoise                Disable denoiser passes\n  --no-god-rays               Disable god ray pass\n  --no-lens-flare             Disable lens flare passes\n  --no-tracer                 Disable main tracer pass\n  --no-particles              Disable particle simulation and rendering\n  --no-flora                  Disable flora and leaves rendering\n  --screenshot <path>         Save one screenshot after rendering starts\n  --screenshot-delay <sec>    Delay before screenshot capture (default: 5.0)\n  --auto-exit <sec>           Exit automatically after rendering starts\n  --perf                      Enable per-frame performance logging\n  --help                      Show this help and exit\n\nExamples:\n  re-flora --windowed\n  re-flora --no-shadows --no-denoise\n  re-flora --screenshot out.png --screenshot-delay 3\n  re-flora --auto-exit 10 --perf"
+    );
 }
 
 #[derive(Clone, Debug)]
@@ -162,6 +171,11 @@ pub fn main() {
     init_env_logger();
 
     let options = AppOptions::from_args();
+    if options.help {
+        print_help();
+        return;
+    }
+
     let mut app = AppController::new(options);
     let event_loop = EventLoop::builder().build().unwrap();
     let result = event_loop.run_app(&mut app);
