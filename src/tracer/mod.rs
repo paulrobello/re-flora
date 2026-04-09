@@ -796,12 +796,14 @@ impl Tracer {
         }
 
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_sun_visible_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
-        self.record_lens_flare_downsample_pass(cmdbuf);
-        compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        if render_flags.enable_lens_flare {
+            self.record_lens_flare_sun_visible_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+            self.record_lens_flare_downsample_pass(cmdbuf);
+            compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
         self.record_composition_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_post_processing_pass(cmdbuf);
@@ -868,7 +870,7 @@ impl Tracer {
     fn record_clear_render_targets(
         &self,
         cmdbuf: &CommandBuffer,
-        _render_flags: &crate::RenderFlags,
+        render_flags: &crate::RenderFlags,
     ) {
         self.resources
             .extent_dependent_resources
@@ -898,16 +900,18 @@ impl Tracer {
             ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
         );
 
-        self.resources
-            .extent_dependent_resources
-            .lens_flare_visible_count_tex
-            .get_image()
-            .record_clear(
-                cmdbuf,
-                Some(vk::ImageLayout::GENERAL),
-                0,
-                ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
-            );
+        if render_flags.enable_lens_flare {
+            self.resources
+                .extent_dependent_resources
+                .lens_flare_visible_count_tex
+                .get_image()
+                .record_clear(
+                    cmdbuf,
+                    Some(vk::ImageLayout::GENERAL),
+                    0,
+                    ClearValue::Color(ColorClearValue::UInt([0, 0, 0, 0])),
+                );
+        }
     }
 
     /// Draw all flora species (LOD0+LOD1), leaves (LOD0+LOD1), and particles
