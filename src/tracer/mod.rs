@@ -770,7 +770,12 @@ impl Tracer {
         frag_to_vert_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        record_denoiser_resources_transition_barrier(&self.resources.denoiser_resources, cmdbuf);
+        if render_flags.enable_denoiser {
+            record_denoiser_resources_transition_barrier(
+                &self.resources.denoiser_resources,
+                cmdbuf,
+            );
+        }
 
         self.record_tracer_pass(cmdbuf);
 
@@ -784,7 +789,9 @@ impl Tracer {
         self.record_god_ray_pass(cmdbuf);
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
 
-        self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        if render_flags.enable_denoiser {
+            self.record_denoiser_pass(cmdbuf, self.a_trous_iteration_count)?;
+        }
 
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_lens_flare_sun_visible_pass(cmdbuf);
@@ -799,7 +806,9 @@ impl Tracer {
         compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         self.record_player_collider_pass(cmdbuf);
 
-        copy_current_to_prev(&self.resources, cmdbuf);
+        if render_flags.enable_denoiser {
+            copy_current_to_prev(&self.resources, cmdbuf);
+        }
 
         return Ok(());
 
