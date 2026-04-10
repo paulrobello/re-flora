@@ -89,6 +89,9 @@ layout(set = 0, binding = 6) uniform U_FloraGrowthInfo {
 }
 flora_growth_info;
 
+layout(set = 0, binding = 7) uniform U_WindVolumeInfo { vec3 world_chunk_extent; }
+wind_volume_info;
+
 #include "../include/core/color.glsl"
 #include "../include/core/hash.glsl"
 #include "../include/flora_registry.glsl"

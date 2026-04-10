@@ -230,6 +230,7 @@ pub struct TracerResources {
     pub camera_info_prev_frame: Resource<Buffer>,
     pub shadow_camera_info: Resource<Buffer>,
     pub flora_growth_info: Resource<Buffer>,
+    pub wind_volume_info: Resource<Buffer>,
     pub env_info: Resource<Buffer>,
     pub starlight_info: Resource<Buffer>,
     pub voxel_colors: Resource<Buffer>,
@@ -357,6 +358,26 @@ impl TracerResources {
             BufferUsage::empty(),
             gpu_allocator::MemoryLocation::CpuToGpu,
         );
+
+        let wind_volume_info_layout = flora_vert_sm.get_buffer_layout("U_WindVolumeInfo").unwrap();
+        let wind_volume_info = Buffer::from_buffer_layout(
+            device.clone(),
+            allocator.clone(),
+            wind_volume_info_layout.clone(),
+            BufferUsage::empty(),
+            gpu_allocator::MemoryLocation::CpuToGpu,
+        );
+        let chunk_extent = chunk_bound.get_extent();
+        wind_volume_info
+            .fill_uniform(&WindVolumeInfoGpu {
+                world_chunk_extent: [
+                    chunk_extent.width as f32,
+                    chunk_extent.height as f32,
+                    chunk_extent.depth as f32,
+                ],
+                _pad0: 0.0,
+            })
+            .unwrap();
 
         let env_info_layout = tracer_sm.get_buffer_layout("U_EnvInfo").unwrap();
         let env_info = Buffer::from_buffer_layout(
@@ -554,6 +575,7 @@ impl TracerResources {
             camera_info_prev_frame: Resource::new(camera_info_prev_frame),
             shadow_camera_info: Resource::new(shadow_camera_info),
             flora_growth_info: Resource::new(flora_growth_info),
+            wind_volume_info: Resource::new(wind_volume_info),
             env_info: Resource::new(env_info),
             starlight_info: Resource::new(starlight_info),
             voxel_colors: Resource::new(voxel_colors),
@@ -938,4 +960,11 @@ impl TracerResources {
         };
         Texture::new(device, allocator, &tex_desc, &sam_desc)
     }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct WindVolumeInfoGpu {
+    world_chunk_extent: [f32; 3],
+    _pad0: f32,
 }

@@ -60,7 +60,6 @@ const MAX_TERRAIN_QUERIES: usize = 1_000;
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct WindVolumePushConstants {
     time: f32,
-    world_chunk_extent: [f32; 3],
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -1302,15 +1301,7 @@ impl Tracer {
             .get_image()
             .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
 
-        let chunk_extent = self.chunk_bound.get_extent();
-        let push_constants = WindVolumePushConstants {
-            time,
-            world_chunk_extent: [
-                chunk_extent.width as f32,
-                chunk_extent.height as f32,
-                chunk_extent.depth as f32,
-            ],
-        };
+        let push_constants = WindVolumePushConstants { time };
 
         self.compute_pipelines.wind_volume_ppl.record(
             cmdbuf,
