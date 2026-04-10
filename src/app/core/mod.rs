@@ -31,6 +31,7 @@ use crate::tree_gen::TreeDesc;
 use crate::util::TimeInfo;
 use crate::util::{get_sun_dir, ShaderCompiler, BENCH};
 use crate::vkn::{Allocator, CommandBuffer, Fence, Semaphore, SwapchainDesc};
+use crate::RenderFlags;
 use crate::{
     egui_renderer::EguiRenderer,
     vkn::{Swapchain, VulkanContext},
@@ -114,8 +115,10 @@ pub struct App {
     image_render_finished_semaphores: Vec<Semaphore>,
     images_in_flight: Vec<vk::Fence>,
     time_info: TimeInfo,
+    render_flags: RenderFlags,
     accumulated_mouse_delta: Vec2,
     smoothed_mouse_delta: Vec2,
+    perf_logging: bool,
 
     tracer: Tracer,
 
@@ -177,6 +180,12 @@ pub struct App {
     terrain_harvest_particle_handles: Vec<ParticleHandle>,
     particle_forces: ParticleForces,
 
+    render_start_time: Option<Instant>,
+    screenshot_path: Option<String>,
+    screenshot_delay: f32,
+    screenshot_taken: bool,
+    auto_exit_delay: Option<f32>,
+
     // note: always keep the context to end, as it has to be destroyed last
     vulkan_ctx: VulkanContext,
 
@@ -190,6 +199,46 @@ impl Drop for App {
     fn drop(&mut self) {
         // Ensure GPU work is done before resources begin destructing
         self.vulkan_ctx.device().wait_idle();
+    }
+}
+
+impl App {
+    fn save_screenshot(&self, path: &str) {
+        let output_path = std::path::Path::new(path);
+        if let Some(parent) = output_path.parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                log::error!(
+                    "[SCREENSHOT] Parent directory does not exist: {}",
+                    parent.display()
+                );
+                return;
+            }
+        }
+
+        self.vulkan_ctx.device().wait_idle();
+
+        let image = self.tracer.get_screen_output_tex().get_image();
+        let extent = image.get_desc().extent;
+        let width = extent.width;
+        let height = extent.height;
+
+        match image.fetch_data(
+            &self.vulkan_ctx.get_general_queue(),
+            self.vulkan_ctx.command_pool(),
+        ) {
+            Ok(rgba_data) => match image::RgbaImage::from_raw(width, height, rgba_data) {
+                Some(image_data) => match image_data.save(path) {
+                    Ok(()) => log::info!("[SCREENSHOT] Saved {}x{} to {}", width, height, path),
+                    Err(err) => {
+                        log::error!("[SCREENSHOT] Failed to write {}: {}", path, err)
+                    }
+                },
+                None => {
+                    log::error!("[SCREENSHOT] Invalid image dimensions or pixel buffer size")
+                }
+            },
+            Err(err) => log::error!("[SCREENSHOT] GPU readback failed: {}", err),
+        }
     }
 }
 
@@ -302,9 +351,9 @@ impl App {
         (20.0 * gain.log10()).clamp(MIN_DB, MAX_DB)
     }
 
-    pub fn new(_event_loop: &ActiveEventLoop) -> Result<Self> {
+    pub fn new(_event_loop: &ActiveEventLoop, options: &crate::AppOptions) -> Result<Self> {
         let chunk_bound = UAabb3::new(UVec3::ZERO, CHUNK_DIM);
-        let window_state = Self::create_window_state(_event_loop);
+        let window_state = Self::create_window_state(_event_loop, options);
         let vulkan_ctx = Self::create_vulkan_context(&window_state);
 
         let shader_compiler = ShaderCompiler::new().unwrap();
@@ -462,6 +511,7 @@ impl App {
 
             accumulated_mouse_delta: Vec2::ZERO,
             smoothed_mouse_delta: Vec2::ZERO,
+            perf_logging: options.perf,
 
             swapchain,
             frames_in_flight,
@@ -478,6 +528,7 @@ impl App {
 
             is_resize_pending: false,
             time_info: TimeInfo::default(),
+            render_flags: RenderFlags::from(options),
 
             gui_config,
             gui_adjustables,
@@ -527,6 +578,12 @@ impl App {
             particle_snapshots,
             terrain_harvest_particle_handles,
             particle_forces,
+
+            render_start_time: None,
+            screenshot_path: options.screenshot_path.clone(),
+            screenshot_delay: options.screenshot_delay,
+            screenshot_taken: false,
+            auto_exit_delay: options.auto_exit_delay,
 
             spatial_sound_manager,
             tree_audio_manager,
@@ -816,6 +873,8 @@ impl App {
         ) {
             log::error!("Failed to regenerate leaves: {}", err);
         }
+
+        self.render_start_time = Some(Instant::now());
     }
 
     fn configure_gui_font(&mut self) -> Result<()> {
@@ -1097,6 +1156,8 @@ impl App {
                     return;
                 }
 
+                let frame_start = Instant::now();
+
                 // resize the window if needed
                 if self.is_resize_pending {
                     self.on_resize();
@@ -1104,7 +1165,7 @@ impl App {
 
                 self.window_state.maintain_cursor_grab();
 
-                self.time_info.update();
+                self.time_info.update(self.perf_logging);
 
                 if self.loading_state.is_some() {
                     self.process_loading_step();
@@ -1163,6 +1224,7 @@ impl App {
                 let terrain_query_debug_text = self.terrain_query_debug_text.clone();
                 let active_voxel_label = self.active_voxel_type.label();
                 let active_voxel_color = self.active_voxel_type.color();
+                let egui_start = Instant::now();
                 self.egui_renderer
                     .update(&self.window_state.window(), |ctx| {
                         let mut style = (*ctx.global_style()).clone();
@@ -1348,6 +1410,7 @@ impl App {
                                 });
                             });
                     });
+                let egui_ms = egui_start.elapsed().as_secs_f32() * 1000.0;
                 self.sync_cursor_with_panels();
 
                 if let Err(err) =
@@ -1401,8 +1464,11 @@ impl App {
                     );
                 }
 
-                self.update_particle_simulation(frame_delta_time);
+                if self.render_flags.enable_particles {
+                    self.update_particle_simulation(frame_delta_time);
+                }
 
+                let gpu_record_start = Instant::now();
                 let device = self.vulkan_ctx.device();
                 let sync = &self.frames_in_flight[self.current_frame];
                 let cmdbuf = &sync.command_buffer;
@@ -1614,6 +1680,7 @@ impl App {
                         &flora_colors,
                         leaf_bottom,
                         leaf_tip,
+                        &self.render_flags,
                     )
                     .unwrap();
 
@@ -1661,6 +1728,7 @@ impl App {
                 };
 
                 let present_result = self.swapchain.present(&signal_semaphores, image_idx);
+                let gpu_ms = gpu_record_start.elapsed().as_secs_f32() * 1000.0;
 
                 match present_result {
                     Ok(is_suboptimal) if is_suboptimal => {
@@ -1684,6 +1752,43 @@ impl App {
 
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
+
+                if self.perf_logging && self.time_info.total_frame_count() % 30 == 0 {
+                    let total_ms = frame_start.elapsed().as_secs_f32() * 1000.0;
+                    log::info!(
+                        "[PERF] frame {} total {:.2}ms egui {:.2}ms gpu+present {:.2}ms",
+                        self.time_info.total_frame_count(),
+                        total_ms,
+                        egui_ms,
+                        gpu_ms
+                    );
+                }
+
+                if let Some(render_start_time) = self.render_start_time {
+                    let elapsed = render_start_time.elapsed().as_secs_f32();
+
+                    if !self.screenshot_taken {
+                        if let Some(path) = &self.screenshot_path {
+                            if elapsed >= self.screenshot_delay {
+                                self.screenshot_taken = true;
+                                log::info!(
+                                    "[SCREENSHOT] Capturing after {:.2}s to {}",
+                                    elapsed,
+                                    path
+                                );
+                                self.save_screenshot(path);
+                            }
+                        }
+                    }
+
+                    if let Some(auto_exit_delay) = self.auto_exit_delay {
+                        if elapsed >= auto_exit_delay {
+                            log::info!("[AUTO-EXIT] Exiting after {:.2}s", elapsed);
+                            self.on_terminate(event_loop);
+                            return;
+                        }
+                    }
+                }
             }
             _ => (),
         }

@@ -22,6 +22,104 @@ use app::AppController;
 use env_logger::Env;
 use winit::event_loop::EventLoop;
 
+/// Application launch options parsed from CLI arguments.
+#[derive(Clone, Debug)]
+pub struct AppOptions {
+    /// Run in windowed mode instead of borderless fullscreen.
+    pub windowed: bool,
+    /// Disable shadow rendering pass.
+    pub no_shadows: bool,
+    /// Disable denoiser passes.
+    pub no_denoise: bool,
+    /// Disable god ray pass.
+    pub no_god_rays: bool,
+    /// Disable lens flare passes.
+    pub no_lens_flare: bool,
+    /// Disable main tracer (black screen, for isolating other passes).
+    pub no_tracer: bool,
+    /// Disable particle simulation (butterflies, leaves).
+    pub no_particles: bool,
+    /// Disable flora/leaves graphics passes (grass, tree leaves).
+    pub no_flora: bool,
+    /// Path to save a screenshot after rendering starts. None = no screenshot.
+    pub screenshot_path: Option<String>,
+    /// Delay in seconds after rendering starts before taking the screenshot.
+    pub screenshot_delay: f32,
+    /// Auto-exit N seconds after rendering starts. None = don't auto-exit.
+    pub auto_exit_delay: Option<f32>,
+    /// Enable per-frame performance timing output to console.
+    pub perf: bool,
+    /// Print CLI help and exit successfully.
+    pub help: bool,
+}
+
+impl AppOptions {
+    fn from_args() -> Self {
+        let args: Vec<String> = std::env::args().collect();
+
+        let parse_f32_after = |flag: &str| -> Option<f32> {
+            args.iter()
+                .position(|a| a == flag)
+                .and_then(|i| args.get(i + 1))
+                .and_then(|v| v.parse::<f32>().ok())
+        };
+
+        let parse_string_after = |flag: &str| -> Option<String> {
+            args.iter()
+                .position(|a| a == flag)
+                .and_then(|i| args.get(i + 1))
+                .cloned()
+        };
+
+        Self {
+            windowed: args.iter().any(|a| a == "--windowed"),
+            no_shadows: args.iter().any(|a| a == "--no-shadows"),
+            no_denoise: args.iter().any(|a| a == "--no-denoise"),
+            no_god_rays: args.iter().any(|a| a == "--no-god-rays"),
+            no_lens_flare: args.iter().any(|a| a == "--no-lens-flare"),
+            no_tracer: args.iter().any(|a| a == "--no-tracer"),
+            no_particles: args.iter().any(|a| a == "--no-particles"),
+            no_flora: args.iter().any(|a| a == "--no-flora"),
+            screenshot_path: parse_string_after("--screenshot"),
+            screenshot_delay: parse_f32_after("--screenshot-delay").unwrap_or(5.0),
+            auto_exit_delay: parse_f32_after("--auto-exit"),
+            perf: args.iter().any(|a| a == "--perf"),
+            help: args.iter().any(|a| a == "--help"),
+        }
+    }
+}
+
+fn print_help() {
+    println!(
+        "Usage:\n  re-flora [options]\n\nOptions:\n  --windowed                  Run in windowed mode (default: borderless fullscreen)\n  --no-shadows                Disable shadow rendering passes\n  --no-denoise                Disable denoiser passes\n  --no-god-rays               Disable god ray pass\n  --no-lens-flare             Disable lens flare passes\n  --no-tracer                 Disable main tracer pass\n  --no-particles              Disable particle simulation and rendering\n  --no-flora                  Disable flora and leaves rendering\n  --screenshot <path>         Save one screenshot after rendering starts\n  --screenshot-delay <sec>    Delay before screenshot capture (default: 5.0)\n  --auto-exit <sec>           Exit automatically after rendering starts\n  --perf                      Enable per-frame performance logging\n  --help                      Show this help and exit\n\nExamples:\n  re-flora --windowed\n  re-flora --no-shadows --no-denoise\n  re-flora --screenshot out.png --screenshot-delay 3\n  re-flora --auto-exit 10 --perf"
+    );
+}
+
+#[derive(Clone, Debug)]
+pub struct RenderFlags {
+    pub enable_shadows: bool,
+    pub enable_denoiser: bool,
+    pub enable_god_rays: bool,
+    pub enable_lens_flare: bool,
+    pub enable_tracer: bool,
+    pub enable_flora: bool,
+    pub enable_particles: bool,
+}
+
+impl From<&AppOptions> for RenderFlags {
+    fn from(options: &AppOptions) -> Self {
+        Self {
+            enable_shadows: !options.no_shadows,
+            enable_denoiser: !options.no_denoise,
+            enable_god_rays: !options.no_god_rays,
+            enable_lens_flare: !options.no_lens_flare,
+            enable_tracer: !options.no_tracer,
+            enable_flora: !options.no_flora,
+            enable_particles: !options.no_particles,
+        }
+    }
+}
+
 #[allow(dead_code)]
 fn backtrace_on() {
     use std::env;
@@ -72,7 +170,13 @@ pub fn main() {
 
     init_env_logger();
 
-    let mut app = AppController::default();
+    let options = AppOptions::from_args();
+    if options.help {
+        print_help();
+        return;
+    }
+
+    let mut app = AppController::new(options);
     let event_loop = EventLoop::builder().build().unwrap();
     let result = event_loop.run_app(&mut app);
 

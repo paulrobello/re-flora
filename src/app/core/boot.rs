@@ -39,7 +39,10 @@ impl App {
         Ok(())
     }
 
-    pub(super) fn create_window_state(event_loop: &ActiveEventLoop) -> WindowState {
+    pub(super) fn create_window_state(
+        event_loop: &ActiveEventLoop,
+        options: &crate::AppOptions,
+    ) -> WindowState {
         const WINDOW_TITLE_DEBUG: &str = "Re: Flora - debug build";
         const WINDOW_TITLE_RELEASE: &str = "Re: Flora - release build";
         let using_mode = if cfg!(debug_assertions) {
@@ -47,9 +50,14 @@ impl App {
         } else {
             WINDOW_TITLE_RELEASE
         };
+        let window_mode = if options.windowed {
+            WindowMode::Windowed(false)
+        } else {
+            WindowMode::BorderlessFullscreen
+        };
         let window_descriptor = WindowStateDesc {
             title: using_mode.to_owned(),
-            window_mode: WindowMode::BorderlessFullscreen,
+            window_mode,
             cursor_locked: true,
             cursor_visible: false,
             ..Default::default()
