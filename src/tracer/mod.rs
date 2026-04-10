@@ -56,6 +56,12 @@ use std::collections::HashMap;
 
 const MAX_TERRAIN_QUERIES: usize = 1_000;
 
+#[repr(C)]
+#[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct WindVolumePushConstants {
+    time: f32,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainHeightSample {
     pub height: f32,
@@ -177,6 +183,7 @@ impl Tracer {
             &shader_modules.player_collider_sm,
             &shader_modules.terrain_query_sm,
             &shader_modules.flora_vert_sm,
+            chunk_bound,
             render_extent,
             screen_extent,
             Extent2D::new(1024, 1024),
@@ -371,6 +378,7 @@ impl Tracer {
 
         // pipelines that only need tracer resources
         let tracer_resources = &[&self.resources as &dyn ResourceContainer];
+        update_compute_fn(&self.compute_pipelines.wind_volume_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.vsm_creation_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.vsm_blur_h_ppl, tracer_resources);
         update_compute_fn(&self.compute_pipelines.vsm_blur_v_ppl, tracer_resources);
@@ -743,6 +751,10 @@ impl Tracer {
             compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
             self.record_vsm_filtering_pass(cmdbuf);
             compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
+        if render_flags.enable_flora {
+            self.record_wind_volume_pass(cmdbuf, time);
         }
 
         if has_graphics_pass {
@@ -1280,6 +1292,21 @@ impl Tracer {
             cmdbuf,
             self.resources.shadow_map_tex.get_image().get_desc().extent,
             None,
+        );
+    }
+
+    fn record_wind_volume_pass(&self, cmdbuf: &CommandBuffer, time: f32) {
+        self.resources
+            .wind_volume_tex
+            .get_image()
+            .record_transition_barrier(cmdbuf, 0, vk::ImageLayout::GENERAL);
+
+        let push_constants = WindVolumePushConstants { time };
+
+        self.compute_pipelines.wind_volume_ppl.record(
+            cmdbuf,
+            self.resources.wind_volume_tex.get_image().get_desc().extent,
+            Some(bytemuck::bytes_of(&push_constants)),
         );
     }
 
