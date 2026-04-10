@@ -150,10 +150,15 @@ impl WindowState {
         // after it has been created
         window.set_visible(true);
 
+        #[cfg(target_os = "macos")]
+        let state = Self {
+            window: Arc::new(window),
+            desc: desc.clone(),
+        };
+        #[cfg(not(target_os = "macos"))]
         let mut state = Self {
             window: Arc::new(window),
             desc: desc.clone(),
-            #[cfg(not(target_os = "macos"))]
             cursor_grab_pending: false,
         };
         // Apply initial cursor state
