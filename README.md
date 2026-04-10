@@ -26,7 +26,16 @@ The first build takes a while — shaders compile from source.
 
 ## Controls
 
-Press **Tab** in-game to open the settings menu, where most values can be tuned live. Runtime defaults are stored in [`config/gui.toml`](./config/gui.toml).
+Basic controls:
+
+- **WASD** to move.
+- **Space** to jump.
+- **Shift** to sprint.
+- **G** to stay grounded.
+- **E** to toggle the config panel.
+- **Q** to quit.
+
+Most values can be tuned live from the config panel. Runtime defaults are stored in [`config/gui.toml`](./config/gui.toml).
 
 ## Tech Stack
 
