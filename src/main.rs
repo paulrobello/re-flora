@@ -41,6 +41,8 @@ pub struct AppOptions {
     pub no_particles: bool,
     /// Disable flora/leaves graphics passes (grass, tree leaves).
     pub no_flora: bool,
+    /// Disable vsync (use IMMEDIATE present mode for uncapped FPS).
+    pub no_vsync: bool,
     /// Path to save a screenshot after rendering starts. None = no screenshot.
     pub screenshot_path: Option<String>,
     /// Delay in seconds after rendering starts before taking the screenshot.
@@ -80,6 +82,7 @@ impl AppOptions {
             no_tracer: args.iter().any(|a| a == "--no-tracer"),
             no_particles: args.iter().any(|a| a == "--no-particles"),
             no_flora: args.iter().any(|a| a == "--no-flora"),
+            no_vsync: args.iter().any(|a| a == "--no-vsync"),
             screenshot_path: parse_string_after("--screenshot"),
             screenshot_delay: parse_f32_after("--screenshot-delay").unwrap_or(5.0),
             auto_exit_delay: parse_f32_after("--auto-exit"),
@@ -91,7 +94,7 @@ impl AppOptions {
 
 fn print_help() {
     println!(
-        "Usage:\n  re-flora [options]\n\nOptions:\n  --windowed                  Run in windowed mode (default: borderless fullscreen)\n  --no-shadows                Disable shadow rendering passes\n  --no-denoise                Disable denoiser passes\n  --no-god-rays               Disable god ray pass\n  --no-lens-flare             Disable lens flare passes\n  --no-tracer                 Disable main tracer pass\n  --no-particles              Disable particle simulation and rendering\n  --no-flora                  Disable flora and leaves rendering\n  --screenshot <path>         Save one screenshot after rendering starts\n  --screenshot-delay <sec>    Delay before screenshot capture (default: 5.0)\n  --auto-exit <sec>           Exit automatically after rendering starts\n  --perf                      Enable per-frame performance logging\n  --help                      Show this help and exit\n\nExamples:\n  re-flora --windowed\n  re-flora --no-shadows --no-denoise\n  re-flora --screenshot out.png --screenshot-delay 3\n  re-flora --auto-exit 10 --perf"
+        "Usage:\n  re-flora [options]\n\nOptions:\n  --windowed                  Run in windowed mode (default: borderless fullscreen)\n  --no-shadows                Disable shadow rendering passes\n  --no-denoise                Disable denoiser passes\n  --no-god-rays               Disable god ray pass\n  --no-lens-flare             Disable lens flare passes\n  --no-tracer                 Disable main tracer pass\n  --no-particles              Disable particle simulation and rendering\n  --no-flora                  Disable flora and leaves rendering\n  --no-vsync                  Disable vsync (IMMEDIATE present mode, uncapped FPS)\n  --screenshot <path>         Save one screenshot after rendering starts\n  --screenshot-delay <sec>    Delay before screenshot capture (default: 5.0)\n  --auto-exit <sec>           Exit automatically after rendering starts\n  --perf                      Enable per-frame performance logging\n  --help                      Show this help and exit\n\nExamples:\n  re-flora --windowed\n  re-flora --no-shadows --no-denoise\n  re-flora --screenshot out.png --screenshot-delay 3\n  re-flora --auto-exit 10 --perf"
     );
 }
 

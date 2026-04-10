@@ -374,11 +374,16 @@ impl App {
         };
         let allocator = Allocator::new(device, Arc::new(Mutex::new(gpu_allocator)));
 
+        let present_mode = if options.no_vsync {
+            vk::PresentModeKHR::IMMEDIATE
+        } else {
+            vk::PresentModeKHR::MAILBOX
+        };
         let swapchain = Swapchain::new(
             vulkan_ctx.clone(),
             window_state.window_extent(),
             SwapchainDesc {
-                present_mode: vk::PresentModeKHR::MAILBOX,
+                present_mode,
                 ..Default::default()
             },
         );
