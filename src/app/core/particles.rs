@@ -12,7 +12,9 @@ use std::f32::consts::TAU;
 
 // bird-specific audio and control logic has been removed
 
+#[allow(dead_code)]
 const TERRAIN_HARVEST_MAX_PARTICLES_PER_EDIT: u32 = 24;
+#[allow(dead_code)]
 const TERRAIN_HARVEST_PARTICLE_SIZE: f32 = 1.0 / 256.0;
 
 pub(super) struct TreeLeafEmitter {
@@ -37,6 +39,7 @@ impl ParticleEmitter for TreeLeafEmitter {
 }
 
 impl App {
+    #[allow(dead_code)]
     fn terrain_harvest_color_for_voxel(&self, voxel_type: u32) -> Vec4 {
         let color32 = match voxel_type {
             crate::builder::VOXEL_TYPE_DIRT => self.gui_adjustables.voxel_dirt_color.value,
@@ -57,6 +60,7 @@ impl App {
         )
     }
 
+    #[allow(dead_code)]
     pub(super) fn spawn_terrain_harvest_particles(
         &mut self,
         center: Vec3,
@@ -130,6 +134,7 @@ impl App {
         }
     }
 
+    #[allow(dead_code)]
     fn update_terrain_harvest_particle_collection(&mut self, dt: f32) {
         if dt <= 0.0 || self.terrain_harvest_particle_handles.is_empty() {
             return;
@@ -359,8 +364,6 @@ impl App {
             dt,
             wind_time,
         );
-
-        self.update_terrain_harvest_particle_collection(dt);
 
         self.particle_system.update(dt, self.particle_forces);
         let tick_step = self.particle_system.last_tick_step();

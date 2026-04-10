@@ -177,6 +177,7 @@ pub struct App {
     butterfly_emitter_desc: ButterflyEmitterDesc,
     particle_animation_time_sec: f32,
     particle_snapshots: Vec<ParticleSnapshot>,
+    #[allow(dead_code)]
     terrain_harvest_particle_handles: Vec<ParticleHandle>,
     particle_forces: ParticleForces,
 
