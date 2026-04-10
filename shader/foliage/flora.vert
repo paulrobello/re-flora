@@ -105,7 +105,7 @@ flora_growth_info;
 const float scaling_factor             = 1.0 / 256.0;
 const uint grass_min_height_voxels     = 3u;
 const uint grass_max_height_voxels     = 8u;
-const float grass_height_mean_voxels   = 6.0;
+const float grass_height_mean_voxels   = 5.0;
 const float grass_height_stddev_voxels = 1.0;
 
 // gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
