@@ -25,6 +25,8 @@ If the change is a significant visual or aesthetic shift, propose it in an issue
 
 Coding agents are welcome. Many existing features in this project were developed with their help.
 
+- Project-specific coding-agent guidelines such as `AGENTS.md` are not currently tracked here. Contributors can use their own setup to keep more freedom in their workflow.
+- If you think a coding-agent guideline is project-wide rather than personal preference, open an issue or submit a PR so it can be discussed.
 - You are still responsible for manually verifying gameplay behavior before opening a PR.
 
 ## Performance changes
