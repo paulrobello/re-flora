@@ -62,3 +62,10 @@ Goals matter - even for a small cozy game that could keep evolving forever. They
 
 - **Semaphore and Fences checks**
   - Check if semaphores and fences are setup properly across each frame, for the highest possible performance
+
+## 5) Low-Priority Tooling
+
+- **Formatter enforcement**
+  - Add PR formatting checks so formatting is enforced even when contributors forget to run local tools.
+  - Pin formatter versions in CI for reproducible results.
+  - Consider a single repo-managed formatting entrypoint so Rust and shader formatting are easier to run consistently.
