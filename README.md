@@ -31,7 +31,7 @@ Basic controls:
 - **WASD** to move.
 - **Space** to jump.
 - **Shift** to sprint.
-- **G** to stay grounded.
+- **G** to toggle walk/fly mode.
 - **E** to toggle the config panel.
 - **Q** to quit.
 
