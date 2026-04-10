@@ -92,6 +92,8 @@ flora_growth_info;
 layout(set = 0, binding = 7) uniform U_WindVolumeInfo { vec3 world_chunk_extent; }
 wind_volume_info;
 
+layout(set = 0, binding = 8) uniform sampler3D wind_volume_tex;
+
 #include "../include/core/color.glsl"
 #include "../include/core/hash.glsl"
 #include "../include/depth_offset.glsl"
@@ -228,8 +230,15 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    float wind_time  = flora_bucketed_time(pc.time, instance_seed);
-    vec3 wind_vec    = get_wind(instance_pos, wind_time);
+    float wind_time = flora_bucketed_time(pc.time, instance_seed);
+    vec3 wind_vec;
+    if (is_grass) {
+        vec3 wind_uv = clamp(instance_pos / wind_volume_info.world_chunk_extent, vec3(0.0), vec3(1.0));
+        vec2 wind_planar = texture(wind_volume_tex, wind_uv).xy;
+        wind_vec = vec3(wind_planar.x, 0.0, wind_planar.y);
+    } else {
+        wind_vec = get_wind(instance_pos, wind_time);
+    }
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos  = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
