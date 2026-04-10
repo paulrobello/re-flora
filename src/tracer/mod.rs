@@ -177,6 +177,7 @@ impl Tracer {
             &shader_modules.player_collider_sm,
             &shader_modules.terrain_query_sm,
             &shader_modules.flora_vert_sm,
+            chunk_bound,
             render_extent,
             screen_extent,
             Extent2D::new(1024, 1024),

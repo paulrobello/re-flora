@@ -610,6 +610,10 @@ const SHADER_FILES: &[(&str, shaderc::ShaderKind)] = &[
         shaderc::ShaderKind::Compute,
     ),
     (
+        "shader/tracer/wind_volume.comp",
+        shaderc::ShaderKind::Compute,
+    ),
+    (
         "shader/denoiser/temporal.comp",
         shaderc::ShaderKind::Compute,
     ),

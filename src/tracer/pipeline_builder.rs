@@ -136,6 +136,14 @@ impl PipelineBuilder {
         )
         .unwrap();
 
+        let wind_volume_sm = ShaderModule::from_glsl(
+            vulkan_ctx.device(),
+            shader_compiler,
+            "shader/tracer/wind_volume.comp",
+            "main",
+        )
+        .unwrap();
+
         let flora_vert_sm = ShaderModule::from_glsl(
             vulkan_ctx.device(),
             shader_compiler,
@@ -206,6 +214,7 @@ impl PipelineBuilder {
             post_processing_sm,
             player_collider_sm,
             terrain_query_sm,
+            wind_volume_sm,
             flora_vert_sm,
             flora_frag_sm,
             flora_lod_vert_sm,
@@ -253,6 +262,9 @@ impl PipelineBuilder {
             pool,
             &[resources, contree_builder_resources, scene_accel_resources],
         );
+
+        let wind_volume_ppl =
+            ComputePipeline::new(device, &shader_modules.wind_volume_sm, pool, &[resources]);
 
         let vsm_creation_ppl =
             ComputePipeline::new(device, &shader_modules.vsm_creation_sm, pool, &[resources]);
@@ -305,6 +317,7 @@ impl PipelineBuilder {
             composition_ppl,
             player_collider_ppl,
             terrain_query_ppl,
+            wind_volume_ppl,
             post_processing_ppl,
         }
     }
@@ -470,6 +483,7 @@ pub struct ShaderModules {
     pub post_processing_sm: ShaderModule,
     pub player_collider_sm: ShaderModule,
     pub terrain_query_sm: ShaderModule,
+    pub wind_volume_sm: ShaderModule,
     pub flora_vert_sm: ShaderModule,
     pub flora_frag_sm: ShaderModule,
     pub flora_lod_vert_sm: ShaderModule,
@@ -494,6 +508,7 @@ pub struct ComputePipelines {
     pub composition_ppl: ComputePipeline,
     pub player_collider_ppl: ComputePipeline,
     pub terrain_query_ppl: ComputePipeline,
+    pub wind_volume_ppl: ComputePipeline,
     pub post_processing_ppl: ComputePipeline,
 }
 

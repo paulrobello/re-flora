@@ -1,5 +1,6 @@
 use crate::{
     flora::species,
+    geom::UAabb3,
     particles::{BUTTERFLY_ATLAS_ROW_FOR_VIEW, PARTICLE_CAPACITY, PARTICLE_SPRITE_FRAME_DIM},
     resource::Resource,
     tracer::{
@@ -9,17 +10,19 @@ use crate::{
     },
     util::get_project_root,
     vkn::{
-        Allocator, Buffer, BufferUsage, Device, Extent2D, Extent3D, ImageDesc, ShaderModule,
-        Texture, TextureRegion, VulkanContext,
+        Allocator, Buffer, BufferUsage, Device, Extent2D, Extent3D, ImageDesc, SamplerDesc,
+        ShaderModule, Texture, TextureRegion, VulkanContext,
     },
 };
 use ash::vk;
 use bytemuck::{Pod, Zeroable};
-use glam::IVec3;
+use glam::{IVec3, UVec3};
 use resource_container_derive::ResourceContainer;
 use std::path::Path;
 
 type MeshGenerator = fn(bool) -> anyhow::Result<(Vec<Vertex>, Vec<u32>)>;
+
+pub const WIND_VOLUME_TEXELS_PER_CHUNK: UVec3 = UVec3::splat(10);
 
 #[derive(ResourceContainer)]
 pub struct FloraMeshResources {
@@ -247,6 +250,7 @@ pub struct TracerResources {
     pub shadow_map_tex: Resource<Texture>,
     pub shadow_map_tex_for_vsm_ping: Resource<Texture>,
     pub shadow_map_tex_for_vsm_pong: Resource<Texture>,
+    pub wind_volume_tex: Resource<Texture>,
 
     pub sun_sprite_tex: Resource<Texture>,
     pub particle_lod_tex_lut: Resource<Texture>,
@@ -277,6 +281,7 @@ impl TracerResources {
         player_collider_sm: &ShaderModule,
         terrain_query_sm: &ShaderModule,
         flora_vert_sm: &ShaderModule,
+        chunk_bound: UAabb3,
         rendering_extent: Extent2D,
         screen_extent: Extent2D,
         shadow_map_extent: Extent2D,
@@ -465,6 +470,8 @@ impl TracerResources {
             allocator.clone(),
             shadow_map_extent.into(),
         );
+        let wind_volume_tex =
+            Self::create_wind_volume_tex(device.clone(), allocator.clone(), chunk_bound);
 
         let sun_sprite_tex = Self::create_sun_sprite_tex(vulkan_ctx, allocator.clone());
         let particle_lod_tex_lut = Self::create_particle_lod_tex_lut(vulkan_ctx, allocator.clone());
@@ -565,6 +572,7 @@ impl TracerResources {
             shadow_map_tex: Resource::new(shadow_map_tex),
             shadow_map_tex_for_vsm_ping: Resource::new(shadow_map_tex_for_vsm_ping),
             shadow_map_tex_for_vsm_pong: Resource::new(shadow_map_tex_for_vsm_pong),
+            wind_volume_tex: Resource::new(wind_volume_tex),
             sun_sprite_tex: Resource::new(sun_sprite_tex),
             particle_lod_tex_lut: Resource::new(particle_lod_tex_lut),
             scalar_bn: Resource::new(scalar_bn),
@@ -902,6 +910,32 @@ impl TracerResources {
             ..Default::default()
         };
         let sam_desc = Default::default();
+        Texture::new(device, allocator, &tex_desc, &sam_desc)
+    }
+
+    fn create_wind_volume_tex(
+        device: Device,
+        allocator: Allocator,
+        chunk_bound: UAabb3,
+    ) -> Texture {
+        let chunk_extent = chunk_bound.get_extent();
+        let tex_desc = ImageDesc {
+            extent: Extent3D::new(
+                chunk_extent.width * WIND_VOLUME_TEXELS_PER_CHUNK.x,
+                chunk_extent.height * WIND_VOLUME_TEXELS_PER_CHUNK.y,
+                chunk_extent.depth * WIND_VOLUME_TEXELS_PER_CHUNK.z,
+            ),
+            format: vk::Format::R16G16_SFLOAT,
+            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::SAMPLED,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            aspect: vk::ImageAspectFlags::COLOR,
+            ..Default::default()
+        };
+        let sam_desc = SamplerDesc {
+            mag_filter: vk::Filter::LINEAR,
+            min_filter: vk::Filter::LINEAR,
+            ..Default::default()
+        };
         Texture::new(device, allocator, &tex_desc, &sam_desc)
     }
 }
