@@ -1,6 +1,8 @@
 #ifndef OCEAN_DEPTH_GLSL
 #define OCEAN_DEPTH_GLSL
 
+#include "./ray.glsl"
+
 const float OCEAN_DEPTH_DRAG_MULT   = 0.1;
 const float OCEAN_DEPTH_WATER_DEPTH = 0.5;
 const int OCEAN_DEPTH_ITER_RAYMARCH = 12;
