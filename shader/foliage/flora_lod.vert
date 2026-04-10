@@ -246,8 +246,9 @@ void main() {
                                                 scaling_factor);
 
     if (should_trim_voxel) {
-        voxel_pos = anchor_pos;
-        vert_pos  = anchor_pos;
+        gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        vert_color  = vec3(0.0);
+        return;
     }
 
     float shadow_weight =
