@@ -176,6 +176,14 @@ pub struct PushConstantSpatial {
     pub _pad0: [u8; 12],
 }
 
+/// Auto-generated from `PushConstantWindVolume` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct PushConstantWindVolume {
+    pub time: f32,
+    pub _pad0: [u8; 12],
+}
+
 /// Auto-generated from `U_CameraInfo` (GLSL source of truth).
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -475,4 +483,12 @@ pub struct VoxelColors {
     pub _pad1: [u8; 4],
     pub oak_wood_color: [f32; 3],
     pub hash_color_variance: f32,
+}
+
+/// Auto-generated from `U_WindVolumeInfo` (GLSL source of truth).
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct WindVolumeInfo {
+    pub world_chunk_extent: [f32; 3],
+    pub _pad0: [u8; 4],
 }
