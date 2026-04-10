@@ -1753,7 +1753,7 @@ impl App {
                 self.tracer
                     .update_camera(frame_delta_time, self.is_fly_mode);
 
-                if self.perf_logging && self.time_info.total_frame_count() % 30 == 0 {
+                if self.perf_logging && self.time_info.total_frame_count().is_multiple_of(30) {
                     let total_ms = frame_start.elapsed().as_secs_f32() * 1000.0;
                     log::info!(
                         "[PERF] frame {} total {:.2}ms egui {:.2}ms gpu+present {:.2}ms",
@@ -1785,7 +1785,6 @@ impl App {
                         if elapsed >= auto_exit_delay {
                             log::info!("[AUTO-EXIT] Exiting after {:.2}s", elapsed);
                             self.on_terminate(event_loop);
-                            return;
                         }
                     }
                 }

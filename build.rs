@@ -1105,6 +1105,11 @@ fn generate_gpu_structs() {
         code.push_str(&emit_struct(layout));
     }
 
+    // Strip trailing blank line so rustfmt --check passes on the generated file.
+    while code.ends_with("\n\n") {
+        code.pop();
+    }
+
     fs::write(&out_path, &code).expect("write gpu_structs.rs");
     log!(
         "gpu_structs codegen: wrote {} structs to {}",
@@ -1126,15 +1131,13 @@ fn add_platform_runtime_rpath() {
             .ancestors()
             .nth(2) // OUT_DIR is target/<profile>/build/<pkg>/out → go up to build/
             .unwrap_or(Path::new("."));
-        for entry in fs::read_dir(build_dir).into_iter().flatten() {
-            if let Ok(entry) = entry {
-                let name = entry.file_name();
-                if name.to_string_lossy().starts_with("audionimbus-sys-") {
-                    let lib_dir = entry.path().join("out").join("lib");
-                    if lib_dir.join("libphonon.dylib").exists() {
-                        println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
-                        break;
-                    }
+        for entry in fs::read_dir(build_dir).into_iter().flatten().flatten() {
+            let name = entry.file_name();
+            if name.to_string_lossy().starts_with("audionimbus-sys-") {
+                let lib_dir = entry.path().join("out").join("lib");
+                if lib_dir.join("libphonon.dylib").exists() {
+                    println!("cargo:rustc-link-arg=-Wl,-rpath,{}", lib_dir.display());
+                    break;
                 }
             }
         }

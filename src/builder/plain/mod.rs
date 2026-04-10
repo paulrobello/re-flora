@@ -438,6 +438,7 @@ fn calculate_offset_and_dim(bvh_nodes: &[BvhNode]) -> (UVec3, UVec3) {
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_chunk_modify_info(
     resources: &PlainBuilderResources,
     offset: UVec3,
