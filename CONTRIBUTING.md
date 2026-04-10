@@ -47,8 +47,8 @@ Confirm the following:
 
 - The build succeeds.
 - The game launches.
+- The Vulkan validation layer does not report complaints during runtime.
 - The changed behavior was tested directly.
-- There are no obvious regressions in nearby systems.
 
 ## Review expectations
 
