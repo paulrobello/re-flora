@@ -2,8 +2,8 @@
 
 #extension GL_GOOGLE_include_directive : require
 
-#include "../../include/core/hash.glsl"
 #include "../../include/core/gradient_noise.glsl"
+#include "../../include/core/hash.glsl"
 #include "../../include/flora_registry.glsl"
 
 #define GROUP_SIZE 8
@@ -49,7 +49,8 @@ float hash(vec2 p) {
     return fract((p3.x + p3.y) * p3.z);
 }
 
-void add_flora_instance(ivec3 stem_world_pos, ivec3 base_world_pos, uint species_idx, uint growth_start_tick) {
+void add_flora_instance(ivec3 stem_world_pos, ivec3 base_world_pos, uint species_idx,
+                        uint growth_start_tick) {
     uint write_idx = atomicAdd(occupancy_to_instances_result.flora_instance_len[species_idx], 1u);
     Instance instance;
     set_instance_pos(instance, uvec3(stem_world_pos));
@@ -63,8 +64,7 @@ void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
                                  out bool o_allow_grass) {
     float rng_placement = hash(vec2(world_pos.x, world_pos.z));
 
-    float density_noise =
-        cnoise_seeded(vec2(float(world_pos.x), float(world_pos.z)) * 5.0, 42u);
+    float density_noise = cnoise_seeded(vec2(float(world_pos.x), float(world_pos.z)) * 5.0, 42u);
 
     float placement_threshold = (density_noise + 1.0) * 0.5;
     placement_threshold       = clamp(0.08 + placement_threshold * 0.22, 0.0, 1.0);
@@ -132,7 +132,7 @@ void main() {
         return;
     }
 
-    uvec3 stem_local_u = uvec3(stem_local);
+    uvec3 stem_local_u   = uvec3(stem_local);
     uint occupancy_value = imageLoad(occupancy_data, ivec3(stem_local_u)).r;
     if (occupancy_value == 0u) {
         return;

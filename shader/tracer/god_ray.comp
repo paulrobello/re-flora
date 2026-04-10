@@ -68,14 +68,14 @@ layout(set = 1, binding = 4, rgba8) readonly uniform image2DArray fast_unit_vec3
 layout(set = 1, binding = 5, rgba8) readonly uniform image2DArray fast_weighted_cosine_bn;
 #include "../include/noise_tex.glsl"
 
-#include "../include/ray.glsl"
 #include "../include/ocean_depth.glsl"
+#include "../include/ray.glsl"
 
 float get_depth_01(ivec2 uvi, vec2 screen_uv) {
     float gfx_depth_01     = texelFetch(gfx_depth_tex, uvi, 0).r;
     float compute_depth_01 = imageLoad(compute_depth_tex, uvi).r;
-    bool hit_ocean = false;
-    float ocean_depth_01 = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
+    bool hit_ocean         = false;
+    float ocean_depth_01   = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
     return min(min(gfx_depth_01, compute_depth_01), ocean_depth_01);
 }
 

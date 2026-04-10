@@ -6,9 +6,9 @@
 // ray traversal loop. Split into two uint32 fields instead.
 
 struct ContreeNode {
-    uint packed_0;     // [0]=is_leaf, [1..31]=child_ptr
-    uint child_mask_lo;  // bits [0..31] of the 64-child bitmask
-    uint child_mask_hi;  // bits [32..63] of the 64-child bitmask
+    uint packed_0;      // [0]=is_leaf, [1..31]=child_ptr
+    uint child_mask_lo; // bits [0..31] of the 64-child bitmask
+    uint child_mask_hi; // bits [32..63] of the 64-child bitmask
 };
 
 // Helpers for child_mask access
@@ -25,8 +25,8 @@ uint child_mask_bitcount_below(ContreeNode node, uint idx) {
     if (idx < 32u) {
         return bitCount(node.child_mask_lo & ((1u << idx) - 1u));
     } else {
-        return bitCount(node.child_mask_lo)
-             + bitCount(node.child_mask_hi & ((1u << (idx - 32u)) - 1u));
+        return bitCount(node.child_mask_lo) +
+               bitCount(node.child_mask_hi & ((1u << (idx - 32u)) - 1u));
     }
 }
 

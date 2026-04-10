@@ -109,7 +109,7 @@ const float grass_height_mean_voxels   = 6.0;
 const float grass_height_stddev_voxels = 1.0;
 
 // gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
-const uint  FLORA_UPDATE_BUCKET_COUNT_DEFAULT = 4u;
+const uint FLORA_UPDATE_BUCKET_COUNT_DEFAULT  = 4u;
 const float FLORA_FULL_UPDATE_SECONDS_DEFAULT = 0.15f;
 
 float sample_standard_normal(uint seed) {
@@ -169,7 +169,7 @@ float flora_bucketed_time(float raw_time, uint instance_seed) {
         return raw_time;
     }
 
-    float step       = full_cycle / float(bucket_count);
+    float step = full_cycle / float(bucket_count);
 
     // global scheduler tick index
     float s = floor(raw_time / step);
@@ -182,7 +182,7 @@ float flora_bucketed_time(float raw_time, uint instance_seed) {
         last_step_index = 0.0;
     } else {
         // last scheduler tick where this bucket was active: n = bucket_id + k * bucket_count
-        float k = floor((s - float(bucket_id)) / float(bucket_count));
+        float k         = floor((s - float(bucket_id)) / float(bucket_count));
         last_step_index = float(bucket_id) + k * float(bucket_count);
     }
 
@@ -207,8 +207,8 @@ void main() {
     uint grass_height_voxels =
         is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
-    float growth_factor = flora_growth_factor(in_instance_growth_start_tick);
-    bool should_trim_voxel = false;
+    float growth_factor         = flora_growth_factor(in_instance_growth_start_tick);
+    bool should_trim_voxel      = false;
 
     if (is_grass) {
         float grown_height_voxels_f = floor(grass_height_voxels_f * growth_factor + 0.001);
@@ -225,17 +225,13 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    float wind_time = flora_bucketed_time(pc.time, instance_seed);
+    float wind_time  = flora_bucketed_time(pc.time, instance_seed);
     vec3 wind_vec    = get_wind(instance_pos, wind_time);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos  = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;
-    vec3 vert_pos = get_vert_pos_with_billboard(
-        camera_info.view_mat,
-        voxel_pos,
-        vert_offset_in_vox,
-        scaling_factor
-    );
+    vec3 vert_pos = get_vert_pos_with_billboard(camera_info.view_mat, voxel_pos, vert_offset_in_vox,
+                                                scaling_factor);
 
     if (should_trim_voxel) {
         voxel_pos = anchor_pos;
@@ -271,5 +267,5 @@ void main() {
 
     float sun_luminance = sun_luminance_from_dir(sun_info.sun_dir, sun_info.sun_luminance);
     vec3 sun_light      = sun_info.sun_color * sun_luminance;
-    vert_color          = base_color_linear * (sun_light * shadow_weight + shading_info.ambient_light);
+    vert_color = base_color_linear * (sun_light * shadow_weight + shading_info.ambient_light);
 }

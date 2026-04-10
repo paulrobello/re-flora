@@ -10,9 +10,7 @@ float sample_grass_band_noise(vec2 world_xz) {
     return noise * 0.5f + 0.5f;
 }
 
-float sample_grass_interpolation_t(float noise_01) {
-    return clamp(noise_01, 0.0f, 1.0f);
-}
+float sample_grass_interpolation_t(float noise_01) { return clamp(noise_01, 0.0f, 1.0f); }
 
 void sample_grass_band_gradient(vec2 world_xz, out vec3 bottom_color_linear,
                                 out vec3 tip_color_linear) {

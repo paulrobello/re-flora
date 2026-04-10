@@ -5,9 +5,7 @@
 // lacks native 64-bit integer support, causing massive performance regression.
 // All operations now use uint32 pair (child_mask_lo, child_mask_hi).
 
-uint bit_count_dual(uint lo, uint hi) {
-    return bitCount(lo) + bitCount(hi);
-}
+uint bit_count_dual(uint lo, uint hi) { return bitCount(lo) + bitCount(hi); }
 
 // Count set bits in dual mask below the given index
 uint bit_count_dual_var(uint lo, uint hi, uint width) {

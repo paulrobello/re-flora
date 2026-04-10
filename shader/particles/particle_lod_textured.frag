@@ -21,7 +21,7 @@ void main() {
 
     // output premultiplied alpha: rgb already multiplied by masked_alpha.
     // this matches the blend state (src_color = ONE, dst_color = ONE_MINUS_SRC_ALPHA).
-    vec3 rgb           = vert_color.rgb * texel.rgb * masked_alpha;
-    out_color          = vec4(rgb, masked_alpha);
-    gl_FragDepth       = mix(1.0, gl_FragCoord.z, alpha_mask);
+    vec3 rgb     = vert_color.rgb * texel.rgb * masked_alpha;
+    out_color    = vec4(rgb, masked_alpha);
+    gl_FragDepth = mix(1.0, gl_FragCoord.z, alpha_mask);
 }

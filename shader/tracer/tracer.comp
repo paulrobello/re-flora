@@ -171,8 +171,8 @@ vec3 sample_sun_disk(ivec3 seed, float sun_size, vec3 sun_dir) {
 /// If the ray hits the scene, no light, otherwise sunlight
 vec3 get_shadow_ray_color(Ray ray, ivec3 seed) {
     float sun_above_horizon = step(0.0, sun_info.sun_dir.y);
-    return get_shadow_weight_pcss(ray.origin, seed) * sun_info.sun_color * sun_info.sun_luminance
-           * sun_above_horizon;
+    return get_shadow_weight_pcss(ray.origin, seed) * sun_info.sun_color * sun_info.sun_luminance *
+           sun_above_horizon;
 }
 
 vec3 choose_random_normal(ivec3 seed);
@@ -214,7 +214,8 @@ vec3 calc_indirect_lighting(vec3 albedo, vec3 primary_normal, vec3 next_tracing_
     parse_trace_result(sample_albedo, sample_next_tracing_pos, res_indirect_ray);
 
     Ray indirect_shadow_ray;
-    indirect_shadow_ray.direction     = sample_sun_disk(indirect_seed, sun_info.sun_size, sun_info.sun_dir);
+    indirect_shadow_ray.direction =
+        sample_sun_disk(indirect_seed, sun_info.sun_size, sun_info.sun_dir);
     indirect_shadow_ray.inv_direction = vec3(1.0) / indirect_shadow_ray.direction;
     indirect_shadow_ray.origin        = sample_next_tracing_pos;
 
@@ -223,7 +224,8 @@ vec3 calc_indirect_lighting(vec3 albedo, vec3 primary_normal, vec3 next_tracing_
         return vec3(0.0);
     }
 
-    vec3 bounced = get_shadow_ray_color(indirect_shadow_ray, indirect_seed) * cos_indirect * sample_albedo;
+    vec3 bounced =
+        get_shadow_ray_color(indirect_shadow_ray, indirect_seed) * cos_indirect * sample_albedo;
     return bounced * albedo;
 }
 
@@ -301,7 +303,8 @@ void get_pixel_color(out vec3 o_color, out float o_depth_01, out vec3 o_primary_
     parse_trace_result(albedo, next_tracing_pos, res_primary_ray);
 
     vec3 ambient_color = shading_info.ambient_light * albedo;
-    vec3 direct_color  = calc_direct_lighting(albedo, res_primary_ray.normal, next_tracing_pos, seed);
+    vec3 direct_color =
+        calc_direct_lighting(albedo, res_primary_ray.normal, next_tracing_pos, seed);
     vec3 indirect_color =
         gui_input.debug_bool != 0u
             ? calc_indirect_lighting(albedo, res_primary_ray.normal, next_tracing_pos, seed)

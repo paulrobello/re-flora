@@ -55,11 +55,11 @@ gui_input;
 layout(set = 0, binding = 7) uniform U_EnvInfo { uint frame_serial_idx; }
 env_info;
 
-#include "../include/ray.glsl"
 #include "../include/ocean_depth.glsl"
+#include "../include/ray.glsl"
 
 float sample_sun_alpha(vec2 screen_uv) {
-    Ray ray = ray_gen(screen_uv, camera_info.view_proj_mat_inv);
+    Ray ray       = ray_gen(screen_uv, camera_info.view_proj_mat_inv);
     vec3 view_dir = normalize(ray.direction);
 
     if (dot(view_dir, sun_info.sun_dir) <= 0.0) {
@@ -68,8 +68,8 @@ float sample_sun_alpha(vec2 screen_uv) {
 
     vec3 view_dir_vs = normalize((camera_info.view_mat * vec4(view_dir, 0.0)).xyz);
     vec3 sun_dir_vs  = normalize((camera_info.view_mat * vec4(sun_info.sun_dir, 0.0)).xyz);
-    float view_z = -view_dir_vs.z;
-    float sun_z  = -sun_dir_vs.z;
+    float view_z     = -view_dir_vs.z;
+    float sun_z      = -sun_dir_vs.z;
     if (view_z <= 1e-5 || sun_z <= 1e-5) {
         return 0.0;
     }
@@ -85,22 +85,22 @@ float sample_sun_alpha(vec2 screen_uv) {
 }
 
 void main() {
-    ivec2 uvi = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 uvi      = ivec2(gl_GlobalInvocationID.xy);
     ivec2 img_size = textureSize(gfx_depth_tex, 0);
     if (any(greaterThanEqual(uvi, img_size))) {
         return;
     }
 
     vec2 screen_uv = (vec2(uvi) + vec2(0.5)) / vec2(img_size);
-    float alpha = sample_sun_alpha(screen_uv);
+    float alpha    = sample_sun_alpha(screen_uv);
     if (alpha <= 0.001) {
         return;
     }
 
-    float gfx_depth_01 = texelFetch(gfx_depth_tex, uvi, 0).r;
+    float gfx_depth_01     = texelFetch(gfx_depth_tex, uvi, 0).r;
     float compute_depth_01 = imageLoad(compute_depth_tex, uvi).r;
-    bool hit_ocean = false;
-    float ocean_depth_01 = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
+    bool hit_ocean         = false;
+    float ocean_depth_01   = ocean_depth_01_from_screen_uv(screen_uv, hit_ocean);
     if (gfx_depth_01 >= 1.0 && compute_depth_01 >= 1.0 && ocean_depth_01 >= 1.0) {
         imageAtomicAdd(lens_flare_visible_count_tex, 0, 1u);
     }

@@ -52,13 +52,9 @@ layout(set = 0, binding = 5, r11f_g11f_b10f) uniform writeonly image2D lens_flar
 #include "../include/core/hash.glsl"
 #include "../include/sunlight.glsl"
 
-float _lens_flare_noise(float t) {
-    return hash11(t);
-}
+float _lens_flare_noise(float t) { return hash11(t); }
 
-float _lens_flare_noise(vec2 t) {
-    return hash_12(t);
-}
+float _lens_flare_noise(vec2 t) { return hash_12(t); }
 
 vec3 _lens_flare_pattern(vec2 uv, vec2 pos) {
     vec2 main = uv - pos;
@@ -69,10 +65,10 @@ vec3 _lens_flare_pattern(vec2 uv, vec2 pos) {
     float n    = _lens_flare_noise(vec2(ang * 16.0, dist * 32.0));
 
     float f0 = 1.0 / (length(uv - pos) * 16.0 + 1.0);
-    f0 += f0 * (sin(_lens_flare_noise(sin(ang * 2.0 + pos.x) * 4.0 - cos(ang * 3.0 + pos.y))
-                    * 16.0)
-                * 0.1
-                + dist * 0.1 + 0.8);
+    f0 +=
+        f0 * (sin(_lens_flare_noise(sin(ang * 2.0 + pos.x) * 4.0 - cos(ang * 3.0 + pos.y)) * 16.0) *
+                  0.1 +
+              dist * 0.1 + 0.8);
 
     float f1 = max(0.01 - pow(length(uv + 1.2 * pos), 1.9), 0.0) * 7.0;
 
@@ -114,7 +110,7 @@ vec3 _lens_flare_color_correct(vec3 color, float factor, float factor2) {
 }
 
 void main() {
-    ivec2 uvi = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 uvi             = ivec2(gl_GlobalInvocationID.xy);
     ivec2 lens_flare_size = imageSize(lens_flare_full_output_tex);
     if (any(greaterThanEqual(uvi, lens_flare_size))) {
         return;
@@ -129,10 +125,10 @@ void main() {
         return;
     }
 
-    vec2 sun_uv = (sun_clip_pos.xy / sun_clip_pos.w) * 0.5 + 0.5;
+    vec2 sun_uv                  = (sun_clip_pos.xy / sun_clip_pos.w) * 0.5 + 0.5;
     vec2 sun_uv_dist_from_center = abs(sun_uv - vec2(0.5));
-    float edge_factor = 1.0 - smoothstep(0.45, 0.8, max(sun_uv_dist_from_center.x,
-                                                         sun_uv_dist_from_center.y));
+    float edge_factor =
+        1.0 - smoothstep(0.45, 0.8, max(sun_uv_dist_from_center.x, sun_uv_dist_from_center.y));
     if (edge_factor <= 0.0) {
         imageStore(lens_flare_full_output_tex, uvi, vec4(0.0));
         return;
@@ -144,17 +140,14 @@ void main() {
         return;
     }
 
-    float sun_radius_px = 0.5 * max(sun_info.sun_size, 0.0001)
-                          * camera_info.proj_mat[1][1]
-                          * float(lens_flare_size.y);
-    float estimated_total_pixels = gui_input.lens_flare_sun_pixel_scale
-                                   * 3.14159265
-                                   * sun_radius_px
-                                   * sun_radius_px;
+    float sun_radius_px = 0.5 * max(sun_info.sun_size, 0.0001) * camera_info.proj_mat[1][1] *
+                          float(lens_flare_size.y);
+    float estimated_total_pixels =
+        gui_input.lens_flare_sun_pixel_scale * 3.14159265 * sun_radius_px * sun_radius_px;
     float visible_ratio = clamp(float(visible_count) / max(estimated_total_pixels, 1.0), 0.0, 1.0);
 
-    vec2 uv  = lens_flare_uv - vec2(0.5);
-    vec2 pos = sun_uv - vec2(0.5);
+    vec2 uv      = lens_flare_uv - vec2(0.5);
+    vec2 pos     = sun_uv - vec2(0.5);
     float aspect = float(lens_flare_size.x) / float(lens_flare_size.y);
     uv.x *= aspect;
     pos.x *= aspect;

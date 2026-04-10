@@ -18,9 +18,7 @@ struct HeightmapEntry {
     float base_shape;
 };
 
-layout(set = 0, binding = 1) writeonly buffer B_Heightmap {
-    HeightmapEntry data[];
-}
+layout(set = 0, binding = 1) writeonly buffer B_Heightmap { HeightmapEntry data[]; }
 heightmap;
 
 #include "../../include/config.glsl"
@@ -28,10 +26,10 @@ heightmap;
 
 float compute_island_shape_2d(vec2 world_xz) {
     const float MAP_SIZE = 5.0;
-    vec2 uv   = world_xz / MAP_SIZE;
-    vec2 c    = (uv - vec2(0.5)) * 2.0;
-    float dist = length(c);
-    float ang  = atan(c.y, c.x);
+    vec2 uv              = world_xz / MAP_SIZE;
+    vec2 c               = (uv - vec2(0.5)) * 2.0;
+    float dist           = length(c);
+    float ang            = atan(c.y, c.x);
 
     vec2 coast_sample = vec2(cos(ang), sin(ang)) * 2.5 + vec2(10.0);
     float coast_noise = fbm_cnoise_2d(coast_sample.x, coast_sample.y, 133u, 0.2, 5, 2.0, 0.5);
@@ -40,10 +38,9 @@ float compute_island_shape_2d(vec2 world_xz) {
     float threshold_noise = fbm_cnoise_2d(world_xz.x, world_xz.y, 777u, 0.1, 3, 2.0, 0.5);
     float threshold_01    = threshold_noise * 0.5 + 0.5;
 
-    float coast_inner     = mix(0.33, 0.88, threshold_01);
+    float coast_inner = mix(0.33, 0.88, threshold_01);
 
-    float island_shape_01 = clamp(1.0 - smoothstep(coast_inner, 0.88, dist + coast_warp),
-                                  0.0, 1.0);
+    float island_shape_01 = clamp(1.0 - smoothstep(coast_inner, 0.88, dist + coast_warp), 0.0, 1.0);
 
     return island_shape_01;
 }
@@ -59,7 +56,7 @@ float compute_base_shape_2d(vec2 world_xz) {
 }
 
 float compute_surface_height_2d(vec2 world_xz) {
-    float base_shape = compute_base_shape_2d(world_xz);
+    float base_shape      = compute_base_shape_2d(world_xz);
     float island_shape_01 = compute_island_shape_2d(world_xz);
     return island_shape_01 * base_shape;
 }
@@ -73,13 +70,13 @@ void main() {
     }
 
     const float VOXEL_SCALE = 1.0 / 256.0;
-    ivec3 atlas_uvi = ivec3(region_info.offset + uvec3(x, 0, z));
-    vec3 world_voxel_pos = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
+    ivec3 atlas_uvi         = ivec3(region_info.offset + uvec3(x, 0, z));
+    vec3 world_voxel_pos    = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
 
     float surface_height = compute_surface_height_2d(world_voxel_pos.xz);
     float base_shape_2d  = compute_base_shape_2d(world_voxel_pos.xz);
 
-    uint index = x * region_info.dim.z + z;
+    uint index                           = x * region_info.dim.z + z;
     heightmap.data[index].surface_height = surface_height;
-    heightmap.data[index].base_shape = base_shape_2d;
+    heightmap.data[index].base_shape     = base_shape_2d;
 }

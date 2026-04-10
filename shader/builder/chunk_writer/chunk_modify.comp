@@ -175,9 +175,11 @@ void main() {
                 }
 
                 if (chunk_modify_info.max_write_count != 0u) {
-                    uint added_idx = atomicAdd(edit_stats.added_counts[chunk_modify_info.fill_voxel_type], 1u);
+                    uint added_idx =
+                        atomicAdd(edit_stats.added_counts[chunk_modify_info.fill_voxel_type], 1u);
                     if (added_idx >= chunk_modify_info.max_write_count) {
-                        atomicAdd(edit_stats.added_counts[chunk_modify_info.fill_voxel_type], uint(-1));
+                        atomicAdd(edit_stats.added_counts[chunk_modify_info.fill_voxel_type],
+                                  uint(-1));
                         return;
                     }
                 } else {

@@ -17,9 +17,8 @@ struct HeightmapEntry {
     float base_shape;
 };
 
-layout(set = 0, binding = 1) readonly buffer B_Heightmap {
-    HeightmapEntry data[];
-} heightmap;
+layout(set = 0, binding = 1) readonly buffer B_Heightmap { HeightmapEntry data[]; }
+heightmap;
 
 layout(set = 0, binding = 2, r8ui) writeonly uniform uimage3D chunk_atlas;
 
@@ -36,8 +35,8 @@ float hash01(uvec3 p) {
 }
 
 uint get_voxel_type(float density, float base_density, uvec3 voxel_coord) {
-    const float VOXEL_SCALE = 1.0 / 256.0;
-    const float TOP_SOIL_DEPTH_WORLD = 25.0 * VOXEL_SCALE;
+    const float VOXEL_SCALE            = 1.0 / 256.0;
+    const float TOP_SOIL_DEPTH_WORLD   = 25.0 * VOXEL_SCALE;
     const float TRANSITION_DEPTH_WORLD = 15.0 * VOXEL_SCALE;
 
     if (density < 0.0) {
@@ -50,7 +49,7 @@ uint get_voxel_type(float density, float base_density, uvec3 voxel_coord) {
 
     float transition_end = TOP_SOIL_DEPTH_WORLD + TRANSITION_DEPTH_WORLD;
     if (base_density < transition_end) {
-        float t = (base_density - TOP_SOIL_DEPTH_WORLD) / TRANSITION_DEPTH_WORLD;
+        float t         = (base_density - TOP_SOIL_DEPTH_WORLD) / TRANSITION_DEPTH_WORLD;
         float dirt_prob = 1.0 - clamp(t, 0.0, 1.0);
         if (hash01(voxel_coord) < dirt_prob) {
             return VOXEL_TYPE_DIRT;
@@ -73,7 +72,7 @@ void main() {
     float base_shape_2d  = heightmap.data[heightmap_index].base_shape;
 
     const float VOXEL_SCALE = 1.0 / 256.0;
-    vec3 world_voxel_pos = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
+    vec3 world_voxel_pos    = (vec3(atlas_uvi) + 0.5) * VOXEL_SCALE;
 
     float density      = surface_height - world_voxel_pos.y;
     float base_density = base_shape_2d - world_voxel_pos.y;

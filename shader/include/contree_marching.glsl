@@ -49,7 +49,7 @@ vec3 floor_scale(vec3 pos, int scale_exp) {
 /// leaf_offset is the offset when addressing the contree leaf data
 ContreeMarchingResult _contree_marching(vec3 origin, vec3 dir, bool coarse, uint node_offset,
                                         uint leaf_offset) {
-    uint group_id    = gl_LocalInvocationIndex;
+    uint group_id = gl_LocalInvocationIndex;
 
     for (uint si = 0u; si < 11u; ++si) {
         gs_stack[group_id][si] = 0u;
@@ -150,7 +150,7 @@ ContreeMarchingResult _contree_marching(vec3 origin, vec3 dir, bool coarse, uint
         res.is_hit = true;
 
         vec3 centered_pos = floor_scale(pos, scale_exp);
-        float offset = uintBitsToFloat(0x3f800000u | (1u << (scale_exp - 1))) - 1.0;
+        float offset      = uintBitsToFloat(0x3f800000u | (1u << (scale_exp - 1))) - 1.0;
         centered_pos += offset;
 
         bvec3 flip   = greaterThan(dir, vec3(0.0));

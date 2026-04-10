@@ -1,19 +1,17 @@
 #ifndef OCEAN_DEPTH_GLSL
 #define OCEAN_DEPTH_GLSL
 
-const float OCEAN_DEPTH_DRAG_MULT     = 0.1;
-const float OCEAN_DEPTH_WATER_DEPTH   = 0.5;
-const int   OCEAN_DEPTH_ITER_RAYMARCH = 12;
-const float OCEAN_DEPTH_SPEED         = 0.4;
+const float OCEAN_DEPTH_DRAG_MULT   = 0.1;
+const float OCEAN_DEPTH_WATER_DEPTH = 0.5;
+const int OCEAN_DEPTH_ITER_RAYMARCH = 12;
+const float OCEAN_DEPTH_SPEED       = 0.4;
 
 float ocean_depth_time() {
     float t = float(env_info.frame_serial_idx) * 0.016 * gui_input.ocean_time_multiplier;
     return 1.0 + t * OCEAN_DEPTH_SPEED;
 }
 
-float ocean_depth_sea_level() {
-    return gui_input.ocean_sea_level_shift;
-}
+float ocean_depth_sea_level() { return gui_input.ocean_sea_level_shift; }
 
 vec2 ocean_depth_wave_dx(vec2 position, vec2 direction, float frequency, float timeshift) {
     float x    = dot(direction, position) * frequency + timeshift;
@@ -37,8 +35,8 @@ float ocean_depth_get_waves(vec2 position, int iterations) {
     for (int i = 0; i < iterations; i++) {
         vec2 dir = vec2(sin(iter), cos(iter));
 
-        vec2 res = ocean_depth_wave_dx(position, dir, frequency,
-                                       t * time_multiplier + wave_phase_shift);
+        vec2 res =
+            ocean_depth_wave_dx(position, dir, frequency, t * time_multiplier + wave_phase_shift);
 
         position += dir * res.y * weight * OCEAN_DEPTH_DRAG_MULT;
         sum_of_values += res.x * weight;
@@ -62,13 +60,13 @@ float ocean_depth_intersect_plane(vec3 origin, vec3 dir, vec3 point, vec3 normal
 }
 
 float ocean_depth_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth) {
-    vec3 pos = start;
-    vec3 dir = normalize(end - start);
+    vec3 pos        = start;
+    vec3 dir        = normalize(end - start);
     float sea_level = ocean_depth_sea_level();
 
     for (int i = 0; i < 64; i++) {
-        float height = ocean_depth_get_waves(pos.xz, OCEAN_DEPTH_ITER_RAYMARCH) * depth - depth
-                     + sea_level;
+        float height =
+            ocean_depth_get_waves(pos.xz, OCEAN_DEPTH_ITER_RAYMARCH) * depth - depth + sea_level;
 
         if (height + 0.01 > pos.y) {
             return distance(pos, camera);
@@ -81,8 +79,8 @@ float ocean_depth_raymarch_water(vec3 camera, vec3 start, vec3 end, float depth)
 }
 
 float ocean_depth_01_from_view_dir(vec3 view_dir, out bool hit_ocean) {
-    vec3 ori = camera_info.pos.xyz;
-    vec3 dir = normalize(view_dir);
+    vec3 ori        = camera_info.pos.xyz;
+    vec3 dir        = normalize(view_dir);
     float sea_level = ocean_depth_sea_level();
 
     if (dir.y >= 0.0) {
@@ -109,7 +107,7 @@ float ocean_depth_01_from_view_dir(vec3 view_dir, out bool hit_ocean) {
     vec3 p     = ori + dir * dist;
 
     vec4 point_ndc = camera_info.view_proj_mat * vec4(p, 1.0);
-    hit_ocean = true;
+    hit_ocean      = true;
     return point_ndc.z / point_ndc.w;
 }
 

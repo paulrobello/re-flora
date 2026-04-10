@@ -10,7 +10,7 @@ uint compute_instance_hash(uvec3 instance_pos) {
 
 uint compute_instance_hash(vec3 instance_pos_ws) {
     const float hash_grid_scale = 256.0;
-    uvec3 quantized_pos = uvec3(round(instance_pos_ws * hash_grid_scale));
+    uvec3 quantized_pos         = uvec3(round(instance_pos_ws * hash_grid_scale));
     return compute_instance_hash(quantized_pos);
 }
 

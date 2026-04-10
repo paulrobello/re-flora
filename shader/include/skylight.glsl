@@ -56,60 +56,73 @@ SkyColors interpolate_time_keyframes(float s) {
     // Unrolled if-else chain — Metal handles this far better than loop-over-array
     SkyColors r;
     if (s <= -0.40) {
-        r.top_color = T0; r.bottom_color = B0;
+        r.top_color    = T0;
+        r.bottom_color = B0;
     } else if (s < -0.25) {
-        float t = (s + 0.40) / 0.15;
-        r.top_color = mix(T0, T1, t); r.bottom_color = mix(B0, B1, t);
+        float t        = (s + 0.40) / 0.15;
+        r.top_color    = mix(T0, T1, t);
+        r.bottom_color = mix(B0, B1, t);
     } else if (s < -0.15) {
-        float t = (s + 0.25) / 0.10;
-        r.top_color = mix(T1, T2, t); r.bottom_color = mix(B1, B2, t);
+        float t        = (s + 0.25) / 0.10;
+        r.top_color    = mix(T1, T2, t);
+        r.bottom_color = mix(B1, B2, t);
     } else if (s < -0.07) {
-        float t = (s + 0.15) / 0.08;
-        r.top_color = mix(T2, T3, t); r.bottom_color = mix(B2, B3, t);
+        float t        = (s + 0.15) / 0.08;
+        r.top_color    = mix(T2, T3, t);
+        r.bottom_color = mix(B2, B3, t);
     } else if (s < -0.03) {
-        float t = (s + 0.07) / 0.04;
-        r.top_color = mix(T3, T4, t); r.bottom_color = mix(B3, B4, t);
+        float t        = (s + 0.07) / 0.04;
+        r.top_color    = mix(T3, T4, t);
+        r.bottom_color = mix(B3, B4, t);
     } else if (s < 0.0) {
-        float t = (s + 0.03) / 0.03;
-        r.top_color = mix(T4, T5, t); r.bottom_color = mix(B4, B5, t);
+        float t        = (s + 0.03) / 0.03;
+        r.top_color    = mix(T4, T5, t);
+        r.bottom_color = mix(B4, B5, t);
     } else if (s < 0.1) {
-        float t = s / 0.1;
-        r.top_color = mix(T5, T6, t); r.bottom_color = mix(B5, B6, t);
+        float t        = s / 0.1;
+        r.top_color    = mix(T5, T6, t);
+        r.bottom_color = mix(B5, B6, t);
     } else if (s < 0.3) {
-        float t = (s - 0.1) / 0.2;
-        r.top_color = mix(T6, T7, t); r.bottom_color = mix(B6, B7, t);
+        float t        = (s - 0.1) / 0.2;
+        r.top_color    = mix(T6, T7, t);
+        r.bottom_color = mix(B6, B7, t);
     } else if (s < 0.5) {
-        float t = (s - 0.3) / 0.2;
-        r.top_color = mix(T7, T8, t); r.bottom_color = mix(B7, B8, t);
+        float t        = (s - 0.3) / 0.2;
+        r.top_color    = mix(T7, T8, t);
+        r.bottom_color = mix(B7, B8, t);
     } else if (s < 0.8) {
-        float t = (s - 0.5) / 0.3;
-        r.top_color = mix(T8, T9, t); r.bottom_color = mix(B8, B9, t);
+        float t        = (s - 0.5) / 0.3;
+        r.top_color    = mix(T8, T9, t);
+        r.bottom_color = mix(B8, B9, t);
     } else if (s < 1.0) {
-        float t = (s - 0.8) / 0.2;
-        r.top_color = mix(T9, T10, t); r.bottom_color = mix(B9, B10, t);
+        float t        = (s - 0.8) / 0.2;
+        r.top_color    = mix(T9, T10, t);
+        r.bottom_color = mix(B9, B10, t);
     } else {
-        r.top_color = T10; r.bottom_color = B10;
+        r.top_color    = T10;
+        r.bottom_color = B10;
     }
     return r;
 }
 
 // View altitude blend factor — piecewise linear approximation without arrays.
-// Original keyframes: (-1.0,0.0) (-0.15,0.03) (0.0,0.55) (0.08,0.72) (0.2,0.86) (0.4,0.96) (1.0,1.0)
+// Original keyframes: (-1.0,0.0) (-0.15,0.03) (0.0,0.55) (0.08,0.72) (0.2,0.86) (0.4,0.96)
+// (1.0,1.0)
 float interpolate_view_altitude(float a) {
     if (a <= -1.0) return 0.0;
     if (a < -0.15) return mix(0.0, 0.03, (a + 1.0) / 0.85);
-    if (a < 0.0)   return mix(0.03, 0.55, (a + 0.15) / 0.15);
-    if (a < 0.08)  return mix(0.55, 0.72, a / 0.08);
-    if (a < 0.2)   return mix(0.72, 0.86, (a - 0.08) / 0.12);
-    if (a < 0.4)   return mix(0.86, 0.96, (a - 0.2) / 0.2);
-    if (a < 1.0)   return mix(0.96, 1.0, (a - 0.4) / 0.6);
+    if (a < 0.0) return mix(0.03, 0.55, (a + 0.15) / 0.15);
+    if (a < 0.08) return mix(0.55, 0.72, a / 0.08);
+    if (a < 0.2) return mix(0.72, 0.86, (a - 0.08) / 0.12);
+    if (a < 0.4) return mix(0.86, 0.96, (a - 0.2) / 0.2);
+    if (a < 1.0) return mix(0.96, 1.0, (a - 0.4) / 0.6);
     return 1.0;
 }
 
 // Henyey-Greenstein phase function for Mie scattering.
 // Uses x * sqrt(x) instead of pow(x, 1.5) for Metal performance.
 float hg_phase(float cos_theta, float g) {
-    float g2 = g * g;
+    float g2   = g * g;
     float base = 1.0 + g2 - 2.0 * g * cos_theta;
     return (1.0 - g2) / (4.0 * 3.14159265 * base * sqrt(base));
 }
@@ -125,9 +138,9 @@ vec3 get_sky_color(vec3 view_dir, vec3 sun_dir) {
     vec3 base_sky_color = mix(sky_colors.bottom_color, sky_colors.top_color, blend_factor);
 
     // Henyey-Greenstein Mie scattering halo around the sun
-    float cos_theta   = dot(view_dir, sun_dir);
-    float g           = mix(0.76, 0.82, clamp(1.0 - abs(sun_altitude), 0.0, 1.0));
-    float halo_phase  = hg_phase(cos_theta, g);
+    float cos_theta  = dot(view_dir, sun_dir);
+    float g          = mix(0.76, 0.82, clamp(1.0 - abs(sun_altitude), 0.0, 1.0));
+    float halo_phase = hg_phase(cos_theta, g);
 
     // Normalize: HG peak at cos_theta=1 — use x*x*x instead of pow(x,3)
     float g2          = g * g;
@@ -156,7 +169,7 @@ vec3 get_sky_color_with_sun(vec3 view_dir, vec3 sun_dir, vec3 sun_color, float s
     sun_contribution *= sun_luminance * 0.2;
 
     vec3 luminance_sun_color = sun_color * sun_contribution;
-    float sun_blend_factor = clamp(sun * 0.1, 0.0, 1.0);
+    float sun_blend_factor   = clamp(sun * 0.1, 0.0, 1.0);
 
     return mix(sky_color_linear, luminance_sun_color, sun_blend_factor);
 }
