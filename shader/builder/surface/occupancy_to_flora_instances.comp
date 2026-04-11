@@ -74,7 +74,7 @@ void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
 
     float grass_placement_threshold = clamp(placement_threshold * 1.5, 0.0, 1.0);
     float tall_grass_threshold      = clamp(grass_placement_threshold * 0.30, 0.0, 1.0);
-    float short_grass_threshold     = clamp(grass_placement_threshold * 2.0, 0.0, 1.0);
+    float short_grass_threshold     = clamp(grass_placement_threshold * 0.4, 0.0, 1.0);
 
     o_allow_any_flora   = rng_any_flora < placement_threshold;
     o_allow_tall_grass  = rng_tall_grass < tall_grass_threshold;
@@ -129,6 +129,55 @@ bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
     return true;
 }
 
+bool select_flora_type(ivec3 world_base_pos, bool allow_any_flora, bool allow_tall_grass,
+                       bool allow_short_grass, out uint o_flora_type) {
+    if (!allow_any_flora) {
+        if (allow_tall_grass) {
+            o_flora_type = FLORA_SPECIES_TALL_GRASS;
+            return true;
+        }
+
+        if (allow_short_grass) {
+            o_flora_type = FLORA_SPECIES_SHORT_GRASS;
+            return true;
+        }
+
+        return false;
+    }
+
+    uint biome_flora_type;
+    if (!select_flora_biome(world_base_pos, biome_flora_type)) {
+        if (allow_tall_grass) {
+            o_flora_type = FLORA_SPECIES_TALL_GRASS;
+            return true;
+        }
+
+        if (allow_short_grass) {
+            o_flora_type = FLORA_SPECIES_SHORT_GRASS;
+            return true;
+        }
+
+        return false;
+    }
+
+    if (biome_flora_type == FLORA_SPECIES_LAVENDER || biome_flora_type == FLORA_SPECIES_EMBER_BLOOM) {
+        o_flora_type = biome_flora_type;
+        return true;
+    }
+
+    if (allow_tall_grass) {
+        o_flora_type = FLORA_SPECIES_TALL_GRASS;
+        return true;
+    }
+
+    if (allow_short_grass) {
+        o_flora_type = FLORA_SPECIES_SHORT_GRASS;
+        return true;
+    }
+
+    return false;
+}
+
 void main() {
     ivec3 stem_local = ivec3(gl_GlobalInvocationID.xyz);
     if (any(greaterThanEqual(stem_local, ivec3(occupancy_to_instances_info.chunk_dim)))) {
@@ -171,42 +220,12 @@ void main() {
         return;
     }
 
-    if (!allow_any_flora) {
-        if (allow_tall_grass) {
-            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
-                               growth_start_tick);
-            return;
-        }
-
-        if (allow_short_grass) {
-            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
-                               growth_start_tick);
-        }
-        return;
-    }
-
     uint flora_type;
-    if (!select_flora_biome(world_base_pos, flora_type)) {
-        if (allow_tall_grass) {
-            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
-                               growth_start_tick);
-        } else if (allow_short_grass) {
-            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
-                               growth_start_tick);
-        }
+    if (!select_flora_type(world_base_pos, allow_any_flora, allow_tall_grass, allow_short_grass,
+                           flora_type)) {
         return;
     }
 
-    if (flora_type == FLORA_SPECIES_LAVENDER || flora_type == FLORA_SPECIES_EMBER_BLOOM) {
-        add_flora_instance(world_stem_pos, world_base_pos, flora_type, growth_start_tick);
-        return;
-    }
-
-    if (allow_tall_grass) {
-        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
-                           growth_start_tick);
-    } else if (allow_short_grass) {
-        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
-                           growth_start_tick);
-    }
+    // Exactly one flora instance can be emitted for each occupied stem position.
+    add_flora_instance(world_stem_pos, world_base_pos, flora_type, growth_start_tick);
 }
