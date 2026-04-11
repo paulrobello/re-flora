@@ -100,13 +100,13 @@ bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
     const float ember_bloom_sparsity     = 0.01;
     const float grass_decreased_sparsity = 0.45;
 
-    o_flora_type = FLORA_SPECIES_GRASS;
+    o_flora_type = FLORA_SPECIES_TALL_GRASS;
 
     if (biome_val > 0.3) {
         if (species_rng < lavender_sparsity) {
             o_flora_type = FLORA_SPECIES_LAVENDER;
         } else if (species_rng < grass_decreased_sparsity) {
-            o_flora_type = FLORA_SPECIES_GRASS;
+            o_flora_type = FLORA_SPECIES_TALL_GRASS;
         } else {
             return false;
         }
@@ -114,7 +114,7 @@ bool select_flora_biome(ivec3 world_pos, out uint o_flora_type) {
         if (species_rng < ember_bloom_sparsity) {
             o_flora_type = FLORA_SPECIES_EMBER_BLOOM;
         } else if (species_rng < grass_decreased_sparsity) {
-            o_flora_type = FLORA_SPECIES_GRASS;
+            o_flora_type = FLORA_SPECIES_TALL_GRASS;
         } else {
             return false;
         }
@@ -165,7 +165,8 @@ void main() {
     }
 
     if (!allow_any_flora && allow_grass) {
-        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_GRASS, growth_start_tick);
+        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
+                           growth_start_tick);
         return;
     }
 

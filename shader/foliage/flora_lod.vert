@@ -208,7 +208,8 @@ void main() {
 
     uint instance_ty   = decode_instance_ty(in_instance_ty_seed);
     uint instance_seed = decode_instance_seed(in_instance_ty_seed);
-    bool is_grass      = instance_ty == FLORA_SPECIES_GRASS;
+    bool is_grass = instance_ty == FLORA_SPECIES_TALL_GRASS ||
+                    instance_ty == FLORA_SPECIES_SHORT_GRASS;
     uint grass_height_voxels =
         is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);

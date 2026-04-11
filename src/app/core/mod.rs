@@ -1649,7 +1649,7 @@ impl App {
                 let flora_colors: Vec<(Vec3, Vec3)> = species::species()
                     .iter()
                     .map(|desc| match desc.key {
-                        "grass" => (
+                        "tall_grass" | "short_grass" => (
                             color_to_vec3(self.gui_adjustables.grass_bottom_dark_color.value),
                             color_to_vec3(self.gui_adjustables.grass_tip_light_color.value),
                         ),

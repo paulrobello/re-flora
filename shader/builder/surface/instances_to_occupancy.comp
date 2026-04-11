@@ -47,4 +47,5 @@ void main() {
     mark_stem_occupied(0u, idx, instances_to_occupancy_info.species_instance_len.x);
     mark_stem_occupied(1u, idx, instances_to_occupancy_info.species_instance_len.y);
     mark_stem_occupied(2u, idx, instances_to_occupancy_info.species_instance_len.z);
+    mark_stem_occupied(3u, idx, instances_to_occupancy_info.species_instance_len.w);
 }

@@ -3,15 +3,14 @@ use crate::tracer::Vertex;
 use anyhow::Result;
 use glam::IVec3;
 
-pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
-    const VOXEL_COUNT: u32 = 8;
+fn gen_grass_column(voxel_count: u32, is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
     const ORIGIN: IVec3 = IVec3::new(0, 0, 0);
-    const MAX_LENGTH: u32 = VOXEL_COUNT - 1;
+    let max_length = voxel_count - 1;
 
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
 
-    for i in 0..VOXEL_COUNT {
+    for i in 0..voxel_count {
         let vertex_offset = vertices.len() as u32;
         let base_pos = IVec3::new(0, i as i32, 0);
 
@@ -21,12 +20,20 @@ pub fn gen_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
             base_pos,
             vertex_offset,
             ORIGIN,
-            MAX_LENGTH,
+            max_length,
             is_lod_used,
         )?;
     }
 
     Ok((vertices, indices))
+}
+
+pub fn gen_tall_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
+    gen_grass_column(8, is_lod_used)
+}
+
+pub fn gen_short_grass(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
+    gen_grass_column(4, is_lod_used)
 }
 
 pub fn gen_lavender(is_lod_used: bool) -> Result<(Vec<Vertex>, Vec<u32>)> {
