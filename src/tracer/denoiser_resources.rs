@@ -144,11 +144,11 @@ impl DenoiserResources {
             )),
             denoiser_spatial_ping_tex: Resource::new(create_texture(
                 vk::Format::B10G11R11_UFLOAT_PACK32,
-                vk::ImageUsageFlags::STORAGE,
+                vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
             )),
             denoiser_spatial_pong_tex: Resource::new(create_texture(
                 vk::Format::B10G11R11_UFLOAT_PACK32,
-                vk::ImageUsageFlags::STORAGE,
+                vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
             )),
         }
     }
