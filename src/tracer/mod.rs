@@ -74,6 +74,14 @@ pub struct TerrainRayQuery {
     pub direction: Vec3,
 }
 
+fn should_render_grass_species(species_index: usize, grass_render_mode: u32) -> bool {
+    match species_index {
+        0 => grass_render_mode != 2,
+        1 => grass_render_mode != 1,
+        _ => true,
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TerrainRayHitSample {
     pub position: Vec3,
@@ -706,6 +714,7 @@ impl Tracer {
         surface_resources: &SurfaceResources,
         lod_distance: f32,
         flora_draw_distance: f32,
+        grass_render_mode: u32,
         time: f32,
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
@@ -781,6 +790,7 @@ impl Tracer {
                 surface_resources,
                 lod_distance,
                 flora_draw_distance,
+                grass_render_mode,
                 flora_colors,
                 leaf_bottom_color,
                 leaf_tip_color,
@@ -953,6 +963,7 @@ impl Tracer {
         surface_resources: &SurfaceResources,
         lod_distance: f32,
         flora_draw_distance: f32,
+        grass_render_mode: u32,
         flora_colors: &[(Vec3, Vec3)],
         leaf_bottom_color: Vec3,
         leaf_tip_color: Vec3,
@@ -1002,6 +1013,10 @@ impl Tracer {
                 flora_draw_distance,
             );
             for (species_index, (bottom_color, tip_color)) in flora_colors.iter().enumerate() {
+                if !should_render_grass_species(species_index, grass_render_mode) {
+                    continue;
+                }
+
                 let push_constant = flora_push_constant(time, *bottom_color, *tip_color);
 
                 for &lod_state in &[LodState::Lod0, LodState::Lod1] {
@@ -1742,7 +1757,7 @@ impl Tracer {
         use crate::builder::TreeLeavesInstance;
 
         let mut instances_data = Vec::new();
-        const LEAF_INSTANCE_TYPE: u32 = 3;
+        const LEAF_INSTANCE_TYPE: u32 = 4;
         let leaf_seed = |pos: UVec3, salt: u32| -> u32 {
             let mut seed = pos.x.wrapping_mul(73856093);
             seed ^= pos.y.wrapping_mul(19349663);

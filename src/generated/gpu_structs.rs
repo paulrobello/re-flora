@@ -78,7 +78,7 @@ pub struct NodeOffsetForLevels {
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct OccupancyToInstancesResult {
-    pub flora_instance_len: [u32; 3],
+    pub flora_instance_len: [u32; 4],
 }
 
 /// Auto-generated from `B_PlayerCollisionResult` (GLSL source of truth).

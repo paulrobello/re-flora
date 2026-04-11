@@ -1649,7 +1649,7 @@ impl App {
                 let flora_colors: Vec<(Vec3, Vec3)> = species::species()
                     .iter()
                     .map(|desc| match desc.key {
-                        "grass" => (
+                        "tall_grass" | "short_grass" => (
                             color_to_vec3(self.gui_adjustables.grass_bottom_dark_color.value),
                             color_to_vec3(self.gui_adjustables.grass_tip_light_color.value),
                         ),
@@ -1682,6 +1682,7 @@ impl App {
                         self.surface_builder.get_resources(),
                         self.gui_adjustables.lod_distance.value,
                         self.gui_adjustables.flora_draw_distance.value,
+                        self.gui_adjustables.grass_render_mode.value,
                         self.time_info.time_since_start(),
                         &flora_colors,
                         leaf_bottom,

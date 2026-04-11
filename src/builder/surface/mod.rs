@@ -388,12 +388,12 @@ impl SurfaceBuilder {
             .iter()
             .fold(0_u32, |acc, r| acc.saturating_add(r.instances_len));
 
-        let mut species_len = [0_u32; 3];
+        let mut species_len = [0_u32; 4];
         let mut max_len = 0_u32;
         for (species_idx, species) in species_len
             .iter_mut()
             .enumerate()
-            .take(self.flora_species_count.min(3))
+            .take(self.flora_species_count.min(4))
         {
             let len = self.resources.instances.chunk_flora_instances[chunk_idx]
                 .1
@@ -596,17 +596,12 @@ fn update_instances_to_occupancy_info(
     instances_to_occupancy_info: &Buffer,
     chunk_world_offset: UVec3,
     chunk_dim: UVec3,
-    species_instance_len: [u32; 3],
+    species_instance_len: [u32; 4],
 ) -> Result<()> {
     instances_to_occupancy_info.fill_uniform(&InstancesToOccupancyInfo {
         chunk_world_offset: chunk_world_offset.to_array(),
         chunk_dim: chunk_dim.to_array(),
-        species_instance_len: [
-            species_instance_len[0],
-            species_instance_len[1],
-            species_instance_len[2],
-            0,
-        ],
+        species_instance_len,
         ..InstancesToOccupancyInfo::zeroed()
     })
 }

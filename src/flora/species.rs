@@ -1,8 +1,8 @@
-use crate::flora::construct::{gen_ember_bloom, gen_grass, gen_lavender};
+use crate::flora::construct::{gen_ember_bloom, gen_lavender, gen_short_grass, gen_tall_grass};
 use crate::tracer::Vertex;
 use anyhow::Result;
 
-pub const MAX_FLORA_SPECIES: usize = 3;
+pub const MAX_FLORA_SPECIES: usize = 4;
 
 pub type MeshGeneratorFn = fn(bool) -> Result<(Vec<Vertex>, Vec<u32>)>;
 
@@ -35,7 +35,20 @@ impl FloraSpeciesDesc {
 }
 
 pub const FLORA_SPECIES: &[FloraSpeciesDesc] = &[
-    FloraSpeciesDesc::new("grass", "Grass", [61, 163, 59], [168, 227, 0], gen_grass),
+    FloraSpeciesDesc::new(
+        "tall_grass",
+        "Tall Grass",
+        [61, 163, 59],
+        [168, 227, 0],
+        gen_tall_grass,
+    ),
+    FloraSpeciesDesc::new(
+        "short_grass",
+        "Short Grass",
+        [61, 163, 59],
+        [168, 227, 0],
+        gen_short_grass,
+    ),
     FloraSpeciesDesc::new(
         "lavender",
         "Lavender",

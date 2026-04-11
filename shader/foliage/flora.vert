@@ -108,10 +108,14 @@ layout(set = 0, binding = 8) uniform sampler3D wind_volume_tex;
 #include "./unpacker.glsl"
 
 const float scaling_factor             = 1.0 / 256.0;
-const uint grass_min_height_voxels     = 3u;
-const uint grass_max_height_voxels     = 8u;
-const float grass_height_mean_voxels   = 5.0;
-const float grass_height_stddev_voxels = 1.0;
+const uint tall_grass_height_voxels    = 8u;
+const uint short_grass_height_voxels   = 4u;
+const uint tall_grass_min_height_voxels = 3u;
+const uint short_grass_min_height_voxels = 2u;
+const float tall_grass_height_mean_voxels = 5.0;
+const float tall_grass_height_stddev_voxels = 1.0;
+const float short_grass_height_mean_voxels = 3.0;
+const float short_grass_height_stddev_voxels = 0.6;
 
 // gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
 const uint FLORA_UPDATE_BUCKET_COUNT_DEFAULT  = 4u;
@@ -127,11 +131,17 @@ float sample_standard_normal(uint seed) {
     return sum - 6.0;
 }
 
-uint sample_grass_height(uint seed) {
-    float sampled_height =
-        grass_height_mean_voxels + sample_standard_normal(seed) * grass_height_stddev_voxels;
-    sampled_height =
-        clamp(sampled_height, float(grass_min_height_voxels), float(grass_max_height_voxels));
+uint sample_grass_height(uint instance_ty, uint seed) {
+    bool is_short_grass = instance_ty == FLORA_SPECIES_SHORT_GRASS;
+    float mean_height = is_short_grass ? short_grass_height_mean_voxels : tall_grass_height_mean_voxels;
+    float stddev_height =
+        is_short_grass ? short_grass_height_stddev_voxels : tall_grass_height_stddev_voxels;
+    float min_height =
+        float(is_short_grass ? short_grass_min_height_voxels : tall_grass_min_height_voxels);
+    float max_height = float(is_short_grass ? short_grass_height_voxels : tall_grass_height_voxels);
+
+    float sampled_height = mean_height + sample_standard_normal(seed) * stddev_height;
+    sampled_height = clamp(sampled_height, min_height, max_height);
     return uint(round(sampled_height));
 }
 
@@ -202,15 +212,21 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
 
+    uint instance_ty          = decode_instance_ty(in_instance_ty_seed);
+    uint instance_seed        = decode_instance_seed(in_instance_ty_seed);
+    bool is_grass             = instance_ty == FLORA_SPECIES_TALL_GRASS ||
+                    instance_ty == FLORA_SPECIES_SHORT_GRASS;
     float base_gradient  = compute_gradient(vox_local_pos, gradient_origin, max_length);
-    float color_gradient = base_gradient;
-    float wind_gradient  = base_gradient;
-
-    uint instance_ty   = decode_instance_ty(in_instance_ty_seed);
-    uint instance_seed = decode_instance_seed(in_instance_ty_seed);
-    bool is_grass      = instance_ty == FLORA_SPECIES_GRASS;
-    uint grass_height_voxels =
-        is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
+    float color_gradient = instance_ty == FLORA_SPECIES_SHORT_GRASS
+                               ? compute_gradient(vox_local_pos, gradient_origin,
+                                                  tall_grass_height_voxels)
+                               : base_gradient;
+    float wind_gradient = instance_ty == FLORA_SPECIES_SHORT_GRASS
+                              ? compute_gradient(vox_local_pos, gradient_origin,
+                                                 tall_grass_height_voxels)
+                              : base_gradient;
+    uint grass_height_voxels  =
+        is_grass ? sample_grass_height(instance_ty, instance_seed) : tall_grass_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
     float growth_factor         = flora_growth_factor(in_instance_growth_start_tick);
     bool should_trim_voxel      = false;
