@@ -1757,7 +1757,7 @@ impl Tracer {
         use crate::builder::TreeLeavesInstance;
 
         let mut instances_data = Vec::new();
-        const LEAF_INSTANCE_TYPE: u32 = 3;
+        const LEAF_INSTANCE_TYPE: u32 = 4;
         let leaf_seed = |pos: UVec3, salt: u32| -> u32 {
             let mut seed = pos.x.wrapping_mul(73856093);
             seed ^= pos.y.wrapping_mul(19349663);

@@ -5,7 +5,7 @@
 #include "../include/core/hash.glsl"
 #include "../include/flora_registry.glsl"
 
-const uint FLORA_PALETTE_LEAVES = 3u;
+const uint FLORA_PALETTE_LEAVES = 4u;
 
 const uint LAVENDER_PALETTE_LEN = 6u;
 const vec3 LAVENDER_TIP_PALETTE[LAVENDER_PALETTE_LEN] =
