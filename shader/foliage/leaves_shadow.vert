@@ -69,8 +69,13 @@ shadow_camera_info;
 
 layout(set = 0, binding = 5) uniform sampler2D shadow_map_tex_for_vsm_ping;
 
+layout(set = 0, binding = 7) uniform U_WindVolumeInfo { vec3 world_chunk_extent; }
+wind_volume_info;
+
+layout(set = 0, binding = 8) uniform sampler3D wind_volume_tex;
+
 #include "../include/instance.glsl"
-#include "../include/wind_hash.glsl"
+#include "../include/wind_volume.glsl"
 #include "./billboard.glsl"
 #include "./palette.glsl"
 #include "./unpacker.glsl"
@@ -89,7 +94,7 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    vec3 wind_vec    = get_wind(instance_pos, pc.time);
+    vec3 wind_vec    = sample_wind_volume(instance_pos);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos  = (vox_local_pos + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;

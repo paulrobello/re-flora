@@ -14,7 +14,7 @@ wind_volume_info;
 
 layout(set = 0, binding = 1, rg16f) uniform writeonly image3D wind_volume_tex;
 
-#include "../include/wind_hash.glsl"
+#include "./wind_volume_sample.glsl"
 
 void main() {
     ivec3 coord = ivec3(gl_GlobalInvocationID.xyz);
@@ -25,6 +25,6 @@ void main() {
 
     vec3 uvw = (vec3(coord) + vec3(0.5)) / vec3(size);
     vec3 world_pos = uvw * wind_volume_info.world_chunk_extent;
-    vec3 wind = get_wind(world_pos, pc.time);
+    vec3 wind = sample_procedural_wind(world_pos, pc.time);
     imageStore(wind_volume_tex, coord, vec4(wind.xz, 0.0, 0.0));
 }

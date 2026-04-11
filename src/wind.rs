@@ -5,8 +5,6 @@ const WIND_DIRECTION_SEED: i32 = 1729;
 const WIND_STRENGTH_SEED: i32 = 2843;
 const WIND_DIRECTION_FREQUENCY: f32 = 0.0025;
 const WIND_STRENGTH_FREQUENCY: f32 = 0.00125;
-pub(crate) const WIND_MIN_STRENGTH: f32 = 1.5;
-pub(crate) const WIND_MAX_STRENGTH: f32 = 5.0;
 const WIND_SAMPLE_SCALE: f32 = 256.0;
 const WIND_SECOND_SAMPLE_OFFSET: Vec2 = Vec2::new(57.23, -113.87);
 const WIND_STRENGTH_OFFSET: Vec2 = Vec2::new(-211.0, 83.0);
@@ -75,16 +73,4 @@ impl Wind {
         let wind_planar = direction * normalized_strength;
         Vec3::new(wind_planar.x, 0.0, wind_planar.y)
     }
-
-    pub fn sample(&self, world_pos: Vec3, time: f32) -> Vec3 {
-        let normalized = self.sample_normalized(world_pos, time);
-        let strength =
-            WIND_MIN_STRENGTH + (WIND_MAX_STRENGTH - WIND_MIN_STRENGTH) * normalized.length();
-        normalized.normalize_or_zero() * strength
-    }
-}
-
-#[allow(dead_code)]
-pub fn get_wind(world_pos: Vec3, time: f32) -> Vec3 {
-    Wind::default().sample(world_pos, time)
 }
