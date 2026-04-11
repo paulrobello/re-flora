@@ -212,14 +212,16 @@ void main() {
     unpack_vertex_data(vox_local_pos, vert_offset_in_vox, gradient_origin, max_length,
                        in_packed_data);
 
-    float base_gradient  = compute_gradient(vox_local_pos, gradient_origin, max_length);
-    float color_gradient = base_gradient;
-    float wind_gradient  = base_gradient;
-
     uint instance_ty          = decode_instance_ty(in_instance_ty_seed);
     uint instance_seed        = decode_instance_seed(in_instance_ty_seed);
     bool is_grass             = instance_ty == FLORA_SPECIES_TALL_GRASS ||
                     instance_ty == FLORA_SPECIES_SHORT_GRASS;
+    float base_gradient  = compute_gradient(vox_local_pos, gradient_origin, max_length);
+    float color_gradient = base_gradient;
+    float wind_gradient = instance_ty == FLORA_SPECIES_SHORT_GRASS
+                              ? compute_gradient(vox_local_pos, gradient_origin,
+                                                 tall_grass_height_voxels)
+                              : base_gradient;
     uint grass_height_voxels  =
         is_grass ? sample_grass_height(instance_ty, instance_seed) : tall_grass_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
