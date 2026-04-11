@@ -217,7 +217,10 @@ void main() {
     bool is_grass             = instance_ty == FLORA_SPECIES_TALL_GRASS ||
                     instance_ty == FLORA_SPECIES_SHORT_GRASS;
     float base_gradient  = compute_gradient(vox_local_pos, gradient_origin, max_length);
-    float color_gradient = base_gradient;
+    float color_gradient = instance_ty == FLORA_SPECIES_SHORT_GRASS
+                               ? compute_gradient(vox_local_pos, gradient_origin,
+                                                  tall_grass_height_voxels)
+                               : base_gradient;
     float wind_gradient = instance_ty == FLORA_SPECIES_SHORT_GRASS
                               ? compute_gradient(vox_local_pos, gradient_origin,
                                                  tall_grass_height_voxels)
