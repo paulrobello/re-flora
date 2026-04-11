@@ -61,8 +61,11 @@ void add_flora_instance(ivec3 stem_world_pos, ivec3 base_world_pos, uint species
 }
 
 void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
-                                 out bool o_allow_grass) {
-    float rng_placement = hash(vec2(world_pos.x, world_pos.z));
+                                 out bool o_allow_tall_grass,
+                                 out bool o_allow_short_grass) {
+    float rng_any_flora  = hash(vec2(world_pos.x, world_pos.z));
+    float rng_tall_grass = hash(vec2(world_pos.x + 17.0, world_pos.z - 29.0));
+    float rng_short_grass = hash(vec2(world_pos.x - 53.0, world_pos.z + 91.0));
 
     float density_noise = cnoise_seeded(vec2(float(world_pos.x), float(world_pos.z)) * 5.0, 42u);
 
@@ -70,9 +73,12 @@ void calculate_density_placement(ivec3 world_pos, out bool o_allow_any_flora,
     placement_threshold       = clamp(0.08 + placement_threshold * 0.22, 0.0, 1.0);
 
     float grass_placement_threshold = clamp(placement_threshold * 1.5, 0.0, 1.0);
+    float tall_grass_threshold      = clamp(grass_placement_threshold * 0.30, 0.0, 1.0);
+    float short_grass_threshold     = clamp(grass_placement_threshold * 2.0, 0.0, 1.0);
 
-    o_allow_any_flora = rng_placement < placement_threshold;
-    o_allow_grass     = rng_placement < grass_placement_threshold;
+    o_allow_any_flora   = rng_any_flora < placement_threshold;
+    o_allow_tall_grass  = rng_tall_grass < tall_grass_threshold;
+    o_allow_short_grass = rng_short_grass < short_grass_threshold;
 }
 
 bool is_surface_plantable(uint voxel_type) { return voxel_type == VOXEL_TYPE_DIRT; }
@@ -153,10 +159,11 @@ void main() {
     ivec3 world_base_pos = ivec3(occupancy_to_instances_info.chunk_world_offset) + base_local;
     ivec3 world_stem_pos = ivec3(occupancy_to_instances_info.chunk_world_offset) + stem_local;
 
-    bool allow_any_flora, allow_grass;
-    calculate_density_placement(world_base_pos, allow_any_flora, allow_grass);
+    bool allow_any_flora, allow_tall_grass, allow_short_grass;
+    calculate_density_placement(world_base_pos, allow_any_flora, allow_tall_grass,
+                                allow_short_grass);
 
-    if (!(allow_any_flora || allow_grass)) {
+    if (!(allow_any_flora || allow_tall_grass || allow_short_grass)) {
         return;
     }
 
@@ -164,14 +171,42 @@ void main() {
         return;
     }
 
-    if (!allow_any_flora && allow_grass) {
-        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
-                           growth_start_tick);
+    if (!allow_any_flora) {
+        if (allow_tall_grass) {
+            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
+                               growth_start_tick);
+            return;
+        }
+
+        if (allow_short_grass) {
+            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
+                               growth_start_tick);
+        }
         return;
     }
 
     uint flora_type;
-    if (select_flora_biome(world_base_pos, flora_type)) {
+    if (!select_flora_biome(world_base_pos, flora_type)) {
+        if (allow_tall_grass) {
+            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
+                               growth_start_tick);
+        } else if (allow_short_grass) {
+            add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
+                               growth_start_tick);
+        }
+        return;
+    }
+
+    if (flora_type == FLORA_SPECIES_LAVENDER || flora_type == FLORA_SPECIES_EMBER_BLOOM) {
         add_flora_instance(world_stem_pos, world_base_pos, flora_type, growth_start_tick);
+        return;
+    }
+
+    if (allow_tall_grass) {
+        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_TALL_GRASS,
+                           growth_start_tick);
+    } else if (allow_short_grass) {
+        add_flora_instance(world_stem_pos, world_base_pos, FLORA_SPECIES_SHORT_GRASS,
+                           growth_start_tick);
     }
 }
