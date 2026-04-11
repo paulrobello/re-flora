@@ -108,31 +108,16 @@ layout(set = 0, binding = 8) uniform sampler3D wind_volume_tex;
 #include "./unpacker.glsl"
 
 const float scaling_factor             = 1.0 / 256.0;
-const uint grass_min_height_voxels     = 3u;
-const uint grass_max_height_voxels     = 8u;
-const float grass_height_mean_voxels   = 5.0;
-const float grass_height_stddev_voxels = 1.0;
+const uint tall_grass_height_voxels    = 8u;
+const uint short_grass_height_voxels   = 4u;
 
 // gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
 const uint FLORA_UPDATE_BUCKET_COUNT_DEFAULT  = 4u;
 const float FLORA_FULL_UPDATE_SECONDS_DEFAULT = 0.15f;
 
-float sample_standard_normal(uint seed) {
-    float sum  = 0.0;
-    uint state = seed ^ 0xA511E9B3u;
-    for (uint i = 0u; i < 12u; ++i) {
-        state = wellons_hash(state + i * 0x9E3779B9u);
-        sum += construct_float_01(state);
-    }
-    return sum - 6.0;
-}
-
-uint sample_grass_height(uint seed) {
-    float sampled_height =
-        grass_height_mean_voxels + sample_standard_normal(seed) * grass_height_stddev_voxels;
-    sampled_height =
-        clamp(sampled_height, float(grass_min_height_voxels), float(grass_max_height_voxels));
-    return uint(round(sampled_height));
+uint sample_grass_height(uint instance_ty) {
+    return instance_ty == FLORA_SPECIES_SHORT_GRASS ? short_grass_height_voxels
+                                                    : tall_grass_height_voxels;
 }
 
 float flora_growth_factor(uint growth_start_tick) {
@@ -206,12 +191,11 @@ void main() {
     float color_gradient = base_gradient;
     float wind_gradient  = base_gradient;
 
-    uint instance_ty   = decode_instance_ty(in_instance_ty_seed);
-    uint instance_seed = decode_instance_seed(in_instance_ty_seed);
-    bool is_grass = instance_ty == FLORA_SPECIES_TALL_GRASS ||
+    uint instance_ty          = decode_instance_ty(in_instance_ty_seed);
+    uint instance_seed        = decode_instance_seed(in_instance_ty_seed);
+    bool is_grass             = instance_ty == FLORA_SPECIES_TALL_GRASS ||
                     instance_ty == FLORA_SPECIES_SHORT_GRASS;
-    uint grass_height_voxels =
-        is_grass ? sample_grass_height(instance_seed) : grass_max_height_voxels;
+    uint grass_height_voxels  = is_grass ? sample_grass_height(instance_ty) : tall_grass_height_voxels;
     float grass_height_voxels_f = float(grass_height_voxels);
     float growth_factor         = flora_growth_factor(in_instance_growth_start_tick);
     bool should_trim_voxel      = false;
