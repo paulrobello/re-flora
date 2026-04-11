@@ -48,6 +48,17 @@ min = 0.5
 max = 5
 
 [[section.param]]
+id = "grass_render_mode"
+kind = "uint"
+label = "Grass Render Mode (0 both, 1 tall, 2 short)"
+type = "Uint"
+
+[section.param.data]
+value = 0
+min = 0
+max = 2
+
+[[section.param]]
 id = "debug_bool"
 kind = "bool"
 label = "Debug Bool"

@@ -50,6 +50,12 @@ pub static GENERATED_GUI_PARAMS: &[GeneratedGuiParamDescriptor] = &[
     },
     GeneratedGuiParamDescriptor {
         section: "Debug",
+        id: "grass_render_mode",
+        kind: "uint",
+        label: "Grass Render Mode (0 both, 1 tall, 2 short)",
+    },
+    GeneratedGuiParamDescriptor {
+        section: "Debug",
         id: "debug_bool",
         kind: "bool",
         label: "Debug Bool",
@@ -566,6 +572,7 @@ pub struct GuiAdjustables {
     pub debug_uint: crate::gui_adjustables::UintParam,
     pub lod_distance: crate::gui_adjustables::FloatParam,
     pub flora_draw_distance: crate::gui_adjustables::FloatParam,
+    pub grass_render_mode: crate::gui_adjustables::UintParam,
     pub debug_bool: crate::gui_adjustables::BoolParam,
     pub master_volume: crate::gui_adjustables::FloatParam,
     pub sun_size: crate::gui_adjustables::FloatParam,
@@ -668,6 +675,7 @@ impl GuiAdjustables {
         let mut debug_uint_field: Option<crate::gui_adjustables::UintParam> = None;
         let mut lod_distance_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut flora_draw_distance_field: Option<crate::gui_adjustables::FloatParam> = None;
+        let mut grass_render_mode_field: Option<crate::gui_adjustables::UintParam> = None;
         let mut debug_bool_field: Option<crate::gui_adjustables::BoolParam> = None;
         let mut master_volume_field: Option<crate::gui_adjustables::FloatParam> = None;
         let mut sun_size_field: Option<crate::gui_adjustables::FloatParam> = None;
@@ -783,6 +791,13 @@ impl GuiAdjustables {
                             let min = min.unwrap_or(0.0);
                             let max = max.unwrap_or(1.0);
                             flora_draw_distance_field = Some(crate::gui_adjustables::FloatParam::new(*value, min..=max));
+                        }
+                    }
+                    "grass_render_mode" => {
+                        if let (GuiParamKind::Uint, GuiParamValue::Uint { value, min, max }) = (&param.kind, &param.value) {
+                            let min = min.unwrap_or(0);
+                            let max = max.unwrap_or(100);
+                            grass_render_mode_field = Some(crate::gui_adjustables::UintParam::new(*value, min..=max));
                         }
                     }
                     "debug_bool" => {
@@ -1350,6 +1365,7 @@ impl GuiAdjustables {
             debug_uint: debug_uint_field.expect("Missing parameter: debug_uint"),
             lod_distance: lod_distance_field.expect("Missing parameter: lod_distance"),
             flora_draw_distance: flora_draw_distance_field.expect("Missing parameter: flora_draw_distance"),
+            grass_render_mode: grass_render_mode_field.expect("Missing parameter: grass_render_mode"),
             debug_bool: debug_bool_field.expect("Missing parameter: debug_bool"),
             master_volume: master_volume_field.expect("Missing parameter: master_volume"),
             sun_size: sun_size_field.expect("Missing parameter: sun_size"),
@@ -1522,6 +1538,7 @@ pub fn get_int_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) 
 pub fn get_uint_param<'a>(adjustables: &'a crate::app::GuiAdjustables, id: &str) -> Option<&'a crate::gui_adjustables::UintParam> {
     match id {
         "debug_uint" => Some(&adjustables.debug_uint),
+        "grass_render_mode" => Some(&adjustables.grass_render_mode),
         "god_ray_max_checks" => Some(&adjustables.god_ray_max_checks),
         "a_trous_iteration_count" => Some(&adjustables.a_trous_iteration_count),
         "flora_update_bucket_count" => Some(&adjustables.flora_update_bucket_count),
@@ -1646,6 +1663,7 @@ pub fn get_int_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id
 pub fn get_uint_param_mut<'a>(adjustables: &'a mut crate::app::GuiAdjustables, id: &str) -> Option<&'a mut crate::gui_adjustables::UintParam> {
     match id {
         "debug_uint" => Some(&mut adjustables.debug_uint),
+        "grass_render_mode" => Some(&mut adjustables.grass_render_mode),
         "god_ray_max_checks" => Some(&mut adjustables.god_ray_max_checks),
         "a_trous_iteration_count" => Some(&mut adjustables.a_trous_iteration_count),
         "flora_update_bucket_count" => Some(&mut adjustables.flora_update_bucket_count),

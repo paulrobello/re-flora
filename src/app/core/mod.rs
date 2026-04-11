@@ -1682,6 +1682,7 @@ impl App {
                         self.surface_builder.get_resources(),
                         self.gui_adjustables.lod_distance.value,
                         self.gui_adjustables.flora_draw_distance.value,
+                        self.gui_adjustables.grass_render_mode.value,
                         self.time_info.time_since_start(),
                         &flora_colors,
                         leaf_bottom,
