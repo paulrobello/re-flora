@@ -9,7 +9,7 @@ use glam::{UVec3, Vec3};
 use resource_container_derive::ResourceContainer;
 use std::collections::HashMap;
 
-const MAX_FLORA_INSTANCES_PER_SPECIES: u64 = 20_000;
+const MAX_FLORA_INSTANCES_PER_SPECIES: u64 = 40_000;
 
 pub type Instance = crate::generated::gpu_structs::ManualFloraInstances;
 
