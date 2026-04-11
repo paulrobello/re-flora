@@ -194,7 +194,7 @@ impl ExtentDependentResources {
         let tex_desc = ImageDesc {
             extent: lens_flare_extent.into(),
             format: vk::Format::B10G11R11_UFLOAT_PACK32,
-            usage: vk::ImageUsageFlags::STORAGE,
+            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()
@@ -210,7 +210,7 @@ impl ExtentDependentResources {
         let tex_desc = ImageDesc {
             extent: rendering_extent.into(),
             format: vk::Format::B10G11R11_UFLOAT_PACK32,
-            usage: vk::ImageUsageFlags::STORAGE,
+            usage: vk::ImageUsageFlags::STORAGE | vk::ImageUsageFlags::TRANSFER_DST,
             initial_layout: vk::ImageLayout::UNDEFINED,
             aspect: vk::ImageAspectFlags::COLOR,
             ..Default::default()

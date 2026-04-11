@@ -101,7 +101,7 @@ layout(set = 0, binding = 8) uniform sampler3D wind_volume_tex;
 #include "../include/instance.glsl"
 #include "../include/sunlight.glsl"
 #include "../include/vsm.glsl"
-#include "../include/wind_hash.glsl"
+#include "../include/wind_volume.glsl"
 #include "./color_variation.glsl"
 #include "./grass_band_color.glsl"
 #include "./palette.glsl"
@@ -116,10 +116,6 @@ const float tall_grass_height_mean_voxels = 5.0;
 const float tall_grass_height_stddev_voxels = 1.0;
 const float short_grass_height_mean_voxels = 3.0;
 const float short_grass_height_stddev_voxels = 0.6;
-
-// gui-configurable bucketed wind update for flora instances (mirrors particle update buckets)
-const uint FLORA_UPDATE_BUCKET_COUNT_DEFAULT  = 4u;
-const float FLORA_FULL_UPDATE_SECONDS_DEFAULT = 0.15f;
 
 float sample_standard_normal(uint seed) {
     float sum  = 0.0;
@@ -164,46 +160,6 @@ float get_shadow_weight(ivec3 vox_local_pos) {
     return shadow_weight;
 }
 
-uint get_flora_update_bucket_count() {
-    uint bucket_count = gui_input.flora_update_bucket_count;
-    return bucket_count == 0u ? FLORA_UPDATE_BUCKET_COUNT_DEFAULT : bucket_count;
-}
-
-float get_flora_full_update_seconds() {
-    float seconds = gui_input.flora_full_update_seconds;
-    return seconds <= 0.0f ? FLORA_FULL_UPDATE_SECONDS_DEFAULT : seconds;
-}
-
-// remap global time to a per-instance bucketed time T
-// bucket size is gui-configurable and full cycle is gui-configurable
-float flora_bucketed_time(float raw_time, uint instance_seed) {
-    uint bucket_count = get_flora_update_bucket_count();
-    float full_cycle  = get_flora_full_update_seconds();
-
-    if (bucket_count <= 1u || full_cycle <= 0.0f) {
-        return raw_time;
-    }
-
-    float step = full_cycle / float(bucket_count);
-
-    // global scheduler tick index
-    float s = floor(raw_time / step);
-
-    uint bucket_id = instance_seed % bucket_count;
-
-    float last_step_index;
-    if (s < float(bucket_id)) {
-        // bucket has not received an update yet; pin to t = 0
-        last_step_index = 0.0;
-    } else {
-        // last scheduler tick where this bucket was active: n = bucket_id + k * bucket_count
-        float k         = floor((s - float(bucket_id)) / float(bucket_count));
-        last_step_index = float(bucket_id) + k * float(bucket_count);
-    }
-
-    return last_step_index * step;
-}
-
 void main() {
     ivec3 vox_local_pos;
     uvec3 vert_offset_in_vox;
@@ -246,15 +202,7 @@ void main() {
 
     vec3 instance_pos = in_instance_pos * scaling_factor;
 
-    float wind_time = flora_bucketed_time(pc.time, instance_seed);
-    vec3 wind_vec;
-    if (is_grass) {
-        vec3 wind_uv = clamp(instance_pos / wind_volume_info.world_chunk_extent, vec3(0.0), vec3(1.0));
-        vec2 wind_planar = texture(wind_volume_tex, wind_uv).xy;
-        wind_vec = vec3(wind_planar.x, 0.0, wind_planar.y);
-    } else {
-        wind_vec = get_wind(instance_pos, wind_time);
-    }
+    vec3 wind_vec    = sample_wind_volume(instance_pos);
     vec3 wind_offset = wind_vec * wind_gradient * wind_gradient;
     vec3 anchor_pos  = (vec3(vox_local_pos) + wind_offset) * scaling_factor + instance_pos;
     vec3 voxel_pos   = anchor_pos + vec3(0.5) * scaling_factor;

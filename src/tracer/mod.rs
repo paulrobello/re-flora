@@ -737,6 +737,17 @@ impl Tracer {
 
         let has_graphics_pass = render_flags.enable_flora || render_flags.enable_particles;
 
+        if render_flags.enable_flora {
+            self.record_wind_volume_pass(cmdbuf, time);
+
+            let b1 = PipelineBarrier::new(
+                vk::PipelineStageFlags::COMPUTE_SHADER,
+                vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
+                vec![shader_access_memory_barrier],
+            );
+            b1.record_insert(self.vulkan_ctx.device(), cmdbuf);
+        }
+
         if render_flags.enable_flora && render_flags.enable_shadows {
             self.record_leaves_shadow_lod_pass(
                 cmdbuf,
@@ -762,11 +773,7 @@ impl Tracer {
             compute_to_compute_barrier.record_insert(self.vulkan_ctx.device(), cmdbuf);
         }
 
-        if render_flags.enable_flora {
-            self.record_wind_volume_pass(cmdbuf, time);
-        }
-
-        if has_graphics_pass {
+        if has_graphics_pass && !render_flags.enable_flora {
             let b1 = PipelineBarrier::new(
                 vk::PipelineStageFlags::COMPUTE_SHADER,
                 vk::PipelineStageFlags::VERTEX_SHADER | vk::PipelineStageFlags::COMPUTE_SHADER,
@@ -937,6 +944,51 @@ impl Tracer {
             0,
             ClearValue::DepthStencil(DepthOrStencilClearValue::Depth(1.0)),
         );
+
+        self.resources
+            .extent_dependent_resources
+            .god_ray_output_tex
+            .get_image()
+            .record_clear(
+                cmdbuf,
+                Some(vk::ImageLayout::GENERAL),
+                0,
+                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+            );
+
+        self.resources
+            .denoiser_resources
+            .tex
+            .denoiser_spatial_pong_tex
+            .get_image()
+            .record_clear(
+                cmdbuf,
+                Some(vk::ImageLayout::GENERAL),
+                0,
+                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+            );
+
+        self.resources
+            .extent_dependent_resources
+            .lens_flare_full_output_tex
+            .get_image()
+            .record_clear(
+                cmdbuf,
+                Some(vk::ImageLayout::GENERAL),
+                0,
+                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+            );
+
+        self.resources
+            .extent_dependent_resources
+            .lens_flare_output_tex
+            .get_image()
+            .record_clear(
+                cmdbuf,
+                Some(vk::ImageLayout::GENERAL),
+                0,
+                ClearValue::Color(ColorClearValue::Float([0.0, 0.0, 0.0, 0.0])),
+            );
 
         if render_flags.enable_lens_flare {
             self.resources

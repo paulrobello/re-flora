@@ -658,8 +658,9 @@ pub fn record_image_transition_barrier(
 fn map_src_stage_access_flags(
     old_layout: vk::ImageLayout,
 ) -> (vk::AccessFlags, vk::PipelineStageFlags) {
-    let general_shader_stages: vk::PipelineStageFlags =
-        vk::PipelineStageFlags::COMPUTE_SHADER | vk::PipelineStageFlags::FRAGMENT_SHADER;
+    let general_shader_stages: vk::PipelineStageFlags = vk::PipelineStageFlags::COMPUTE_SHADER
+        | vk::PipelineStageFlags::VERTEX_SHADER
+        | vk::PipelineStageFlags::FRAGMENT_SHADER;
 
     match old_layout {
         vk::ImageLayout::UNDEFINED => (
@@ -702,8 +703,9 @@ fn map_src_stage_access_flags(
 fn map_dst_stage_access_flags(
     new_layout: vk::ImageLayout,
 ) -> (vk::AccessFlags, vk::PipelineStageFlags) {
-    let general_shader_stages: vk::PipelineStageFlags =
-        vk::PipelineStageFlags::COMPUTE_SHADER | vk::PipelineStageFlags::FRAGMENT_SHADER;
+    let general_shader_stages: vk::PipelineStageFlags = vk::PipelineStageFlags::COMPUTE_SHADER
+        | vk::PipelineStageFlags::VERTEX_SHADER
+        | vk::PipelineStageFlags::FRAGMENT_SHADER;
 
     match new_layout {
         vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL => {
