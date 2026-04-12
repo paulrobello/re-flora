@@ -503,7 +503,7 @@ label = "Bottom Dark"
 type = "Color"
 
 [section.param.data]
-value = "#225200"
+value = "#364B00"
 
 [[section.param]]
 id = "grass_bottom_light_color"
@@ -512,7 +512,7 @@ label = "Bottom Light"
 type = "Color"
 
 [section.param.data]
-value = "#40AF00"
+value = "#41AE00"
 
 [[section.param]]
 id = "grass_tip_dark_color"
@@ -521,7 +521,7 @@ label = "Tip Dark"
 type = "Color"
 
 [section.param.data]
-value = "#DADB00"
+value = "#B6B700"
 
 [[section.param]]
 id = "grass_tip_light_color"
@@ -530,7 +530,7 @@ label = "Tip Light"
 type = "Color"
 
 [section.param.data]
-value = "#94BE00"
+value = "#97C200"
 
 [[section]]
 name = "Ocean"
